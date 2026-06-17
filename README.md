@@ -1,35 +1,13 @@
-# Spring Boot + Vue + FastAPI MVP Project Structure
+# 个人辅助交易平台
+后端 springboot、springcloud
 
-这是一个最小可用项目骨架，包含：
+前端 vue3、vite、typescript
 
-- 两个 Spring Boot 后台服务：`system-service`、`biz-service`
-- 一个 Vue 前端项目：`admin-web`
-- 一个 FastAPI 数据处理服务：`data-service`
-- Java 公共模块：`common-core`、`common-web-starter`
-- 跨语言接口契约目录：`contracts`
-- 本地部署目录：`infra`
+数据处理端 fastapi
 
-## 推荐调用关系
+数据采集
+当前完成数据采集的大部分功能，包括连数据源、数据主题管理（业务目录）、数据类型管理（数据结构定义）、结构字段管理、采集任务管理（信息同步、配置数据主题、数据类型等）、采集任务存储映射（数据库、数据表、任务返回字段、数据类型字段、物理表字段映射）、手动触发采集任务、定时触发采集任务、python注册异步执行回调采集任务、以及一些结果列表。（清洗规则和追溯还没完成，一些测试没有完成）
 
-```text
-Vue admin-web
-    |
-    v
-Nginx / Gateway / BFF
-    |
-    |----> system-service-server
-    |
-    |----> biz-service-server
-              |
-              v
-        data-service FastAPI
-```
-
-## Java 模块原则
-
-```text
-api     只放 DTO / Request / Response / Enum 等契约
-client  只放远程调用封装
-server  只放服务实现
-common  只放真正通用的基础能力
-```
+数据应用与分析
+当前工作在这部分，先是配置需要采的数据、采集任务并采集数据
+然后需要进行市场概览、股票详情等内容。
