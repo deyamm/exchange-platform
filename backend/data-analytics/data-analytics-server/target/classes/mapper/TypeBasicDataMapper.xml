@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.exchange.analytics.mapper.TypeBasicDataMapper">
+
+    <select id="getIndexBasic" resultType="java.util.HashMap">
+
+        SELECT 
+            full_symbol AS fullSymbol,
+            name AS name,
+            fullname AS fullname,
+            market AS market,
+            publisher AS publisher,
+            index_type AS indexType,
+            category AS category,
+            base_date AS baseDate,
+            base_point AS basePoint,
+            list_date AS listDate,
+            weight_rule AS weightRule,
+            description AS description,
+            exp_date AS expDate
+        FROM index_basic_data
+        WHERE 1 = 1
+
+    </select>
+    
+</mapper>

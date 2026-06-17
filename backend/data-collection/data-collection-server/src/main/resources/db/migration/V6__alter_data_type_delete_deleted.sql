@@ -1,0 +1,1 @@
+ALTER TABLE data_type DROP COLUMN deleted;

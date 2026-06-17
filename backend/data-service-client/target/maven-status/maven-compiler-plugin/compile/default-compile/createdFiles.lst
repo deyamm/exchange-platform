@@ -1,0 +1,6 @@
+com/exchange/platform/data/client/config/DataServiceClientAutoConfiguration.class
+com/exchange/platform/data/client/DataServiceClient.class
+com/exchange/platform/data/client/dto/TaskRunExecuteRequest.class
+com/exchange/platform/data/client/dto/TaskTemplateSync$OutputFieldItem.class
+com/exchange/platform/data/client/dto/TaskExecuteResult.class
+com/exchange/platform/data/client/dto/TaskTemplateSync.class

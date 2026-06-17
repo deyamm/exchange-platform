@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.exchange.collection.mapper.datasource.DataSourceConfigMapper">
+
+    <select id="selectTablesInfo" resultType="java.util.HashMap">
+
+        SELECT
+            t.TABLE_SCHEMA AS schemaName,
+            t.TABLE_NAME AS tableName,
+            t.TABLE_ROWS AS currentRows,
+            c.ORDINAL_POSITION AS columnPosition,
+            c.COLUMN_NAME AS columnName,
+            c.COLUMN_TYPE AS columnType,
+            c.COLUMN_DEFAULT AS defaultValue,
+            CASE
+                WHEN c.COLUMN_KEY = 'PRI' THEN true
+                ELSE false
+            END AS uniqueKey,
+            CASE
+                WHEN c.IS_NULLABLE = 'YES' THEN true
+                ELSE false
+            END AS nullable
+        FROM information_schema.TABLES t
+        INNER JOIN information_schema.COLUMNS c
+            ON t.TABLE_SCHEMA = c.TABLE_SCHEMA
+        AND t.TABLE_NAME = c.TABLE_NAME
+        WHERE t.TABLE_SCHEMA = #{databaseName}
+        AND t.TABLE_TYPE = 'BASE TABLE'
+        ORDER BY
+            t.TABLE_NAME,
+            c.ORDINAL_POSITION;
+
+
+    </select>
+    
+</mapper>

@@ -1,0 +1,1 @@
+ALTER TABLE data_type_field CHANGE primary_key unique_key BOOLEAN;

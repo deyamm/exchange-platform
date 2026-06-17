@@ -1,0 +1,51 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-server
+
+  cloud:
+    gateway:
+      # 全局跨域配置。开发环境可先放开，生产环境建议改为明确域名。
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:8888"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+      # 路由配置：前端只访问 gateway-server:8080，由网关转发到不同后端 server
+      routes:
+        - id: data-analytics-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/v1/analytics/**
+
+        - id: data-collection-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/collection/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: INFO

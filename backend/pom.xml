@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.18</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.exchange.platform</groupId>
+    <artifactId>backend</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>common/common-core</module>
+        <module>common/common-service-starter</module>
+        <module>data-analytics/data-analytics-api</module>
+        <module>data-analytics/data-analytics-client</module>
+        <module>data-analytics/data-analytics-server</module>
+        <module>data-collection/data-collection-api</module>
+        <module>data-collection/data-collection-client</module>
+        <module>data-collection/data-collection-server</module>
+        <module>data-service-client</module>
+        <module>gateway-server</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <springdoc.version>1.7.0</springdoc.version>
+        <spring-cloud.version>2021.0.9</spring-cloud.version>
+        <mybatis-plus.version>3.5.1</mybatis-plus.version>
+        <dynamic-datasource.version>4.5.0</dynamic-datasource.version>
+        <fastjson.version>1.2.78</fastjson.version>
+        <fastjson2.version>2.0.53</fastjson2.version>
+        <hutool.version>5.8.16</hutool.version>
+    </properties>
+    <!-- dependency management只管理依赖版本，不实际引入依赖，子模块按需引入，不需要标明版本 -->
+    <dependencyManagement>
+        <dependencies>
+
+            <!-- 内部模块版本统一管理 -->
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>common-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>common-service-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>data-collection-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>data-collection-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>data-analytics-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>data-analytics-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exchange.platform</groupId>
+                <artifactId>data-service-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- Spring Boot 不管理的第三方依赖 -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>dynamic-datasource-spring-boot-starter</artifactId>
+                <version>${dynamic-datasource.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- 只管理插件版本，不代表所有模块都会打 boot jar -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <excludes>
+                            <exclude>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
