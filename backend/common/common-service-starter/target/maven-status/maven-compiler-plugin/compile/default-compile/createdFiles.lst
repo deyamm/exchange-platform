@@ -1,7 +1,0 @@
-com/exchange/platform/common/server/config/CommonServiceAutoConfiguration.class
-com/exchange/platform/common/server/advice/GlobalExceptionHandler.class
-com/exchange/platform/common/server/config/MybatisMetaObjectHandler.class
-com/exchange/platform/common/server/config/RestTemplateConfig.class
-com/exchange/platform/common/server/config/CorsConfig.class
-com/exchange/platform/common/server/support/RequestIdHolder.class
-com/exchange/platform/common/server/config/MybatisPlusConfig.class

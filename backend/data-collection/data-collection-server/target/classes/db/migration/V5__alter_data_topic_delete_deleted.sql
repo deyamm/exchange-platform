@@ -1,1 +1,0 @@
-ALTER TABLE data_topic DROP COLUMN deleted;

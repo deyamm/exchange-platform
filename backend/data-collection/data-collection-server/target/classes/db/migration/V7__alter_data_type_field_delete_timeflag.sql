@@ -1,1 +1,0 @@
-ALTER TABLE data_type_field DROP COLUMN time_field_flag;

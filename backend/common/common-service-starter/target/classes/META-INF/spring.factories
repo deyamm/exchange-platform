@@ -1,2 +1,0 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.exchange.platform.common.server.config.CommonServiceAutoConfiguration

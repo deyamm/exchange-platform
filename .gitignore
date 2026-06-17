@@ -1,0 +1,158 @@
+# =========================
+# Multi-level common ignores
+# =========================
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# VSCode
+.vscode/
+.history/
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.template
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+
+# =========================
+# Java / Spring Boot
+# =========================
+target/
+**/target/
+
+build/
+**/build/
+
+.gradle/
+**/.gradle/
+
+*.class
+*.jar
+*.war
+*.ear
+
+# Spring local config
+application-local.yml
+application-local.yaml
+application-local.properties
+application-dev.yml
+application-dev.yaml
+application-dev.properties
+**/application-local.yml
+**/application-local.yaml
+**/application-local.properties
+**/application-dev.yml
+**/application-dev.yaml
+**/application-dev.properties
+
+# =========================
+# Vue / Node
+# =========================
+node_modules/
+**/node_modules/
+
+dist/
+**/dist/
+
+dist-ssr/
+**/dist-ssr/
+
+.vite/
+**/.vite/
+
+coverage/
+**/coverage/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Python / FastAPI
+# =========================
+__pycache__/
+**/__pycache__/
+
+*.py[cod]
+*$py.class
+
+venv/
+.venv/
+env/
+ENV/
+virtualenv/
+**/venv/
+**/.venv/
+**/env/
+**/ENV/
+**/virtualenv/
+
+.pytest_cache/
+**/.pytest_cache/
+
+.mypy_cache/
+**/.mypy_cache/
+
+.ruff_cache/
+**/.ruff_cache/
+
+.pyright/
+**/.pyright/
+
+.coverage
+.coverage.*
+htmlcov/
+**/htmlcov/
+
+*.egg-info/
+**/*.egg-info/
+
+# =========================
+# Database / runtime
+# =========================
+*.sqlite
+*.sqlite3
+*.db
+*.h2.db
+*.mv.db
+
+uploads/
+**/uploads/
+
+media/
+**/media/
+
+staticfiles/
+**/staticfiles/
+
+tmp/
+temp/
+**/tmp/
+**/temp/
+
+# =========================
+# Secrets / certificates
+# =========================
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+secrets/
+credentials/
+**/secrets/
+**/credentials/
