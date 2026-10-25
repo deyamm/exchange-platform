@@ -3,7 +3,7 @@
         <div v-loading="detailLoading" class="page-content">
             <template v-if="detail">
                 <TargetHeaderCard
-                    :target="detail.target"
+                    :target="detail.targetProfile"
                     :quote="detail.quote"
                     :overview="detail.overview"
                     @refresh="handleSearch"
@@ -11,31 +11,24 @@
                     @create-alert="handleCreateAlert"
                 />
 
-                <TargetMetricCards :cards="detail.metricCards" />
+                <TargetMetricCards :cards="detail.metricCards || []" />
 
-                <TargetOverviewPanel :overview="detail.overview" />
+                <TargetOverviewPanel :overview="detail.overview || {}" />
 
                 <div class="content-grid">
                     <!-- 多个tab -->
                     <div class="main-content">
                         <TargetMainTabs
                             :detail="detail"
-                            :history-records="historyRecords"
-                            :history-loading="historyLoading"
-                            :history-total="historyTotal"
-                            :history-page-no="historyQuery.pageNo"
-                            :history-page-size="historyQuery.pageSize"
-                            @history-query-change="handleHistoryQueryChange"
-                            @history-page-change="handleHistoryPageChange"
                         />
                     </div>
 
                     <aside class="side-content">
                         <TargetSidePanel
-                            :watch="detail.watch"
-                            :alerts="detail.alerts"
-                            :events="detail.events"
-                            :related-targets="detail.relatedTargets"
+                            :watch="detail.watch || {}"
+                            :alerts="detail.alerts || []"
+                            :events="detail.events || []"
+                            :related-targets="detail.relatedTargets || []"
                             @create-alert="handleCreateAlert"
                             @select-target="handleSelectTarget"
                         />
@@ -58,50 +51,32 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import {
-    queryTargetAnalysisHistory,
-    queryTargetDetailCenter
-} from '/@/api/targetdetail/targetDetailCenterApi'
-import type {
-    AnalysisHistoryQuery,
-    AnalysisRecord,
-    TargetDetailDTO,
-    TargetDetailQuery,
-    TargetType
-} from '/@/types/targetdetail/targetDetailCenter'
+import { queryTargetDetail } from '/@/api/targetdetail/targetDetailApi'
+import type { TargetDetail } from '/@/types/targetdetail/targetDetailType'
+import type { TargetDetailQuery } from '/@/types/targetdetail/constants'
 import TargetHeaderCard from './components/TargetHeaderCard.vue'
 import TargetMetricCards from './components/TargetMetricCards.vue'
 import TargetOverviewPanel from './components/TargetOverviewPanel.vue'
 import TargetMainTabs from './components/TargetMainTabs.vue'
 import TargetSidePanel from './components/TargetSidePanel.vue'
-import { formatDateTime } from './utils/targetDetailFormat'
+import { formatDateTime } from '/@/utils/marketUtils'
+
+import { queryMockTargetDetail } from './mock/targetDetailMockData'
+
 
 const queryForm = reactive<TargetDetailQuery>({
     targetCode: '000001.SZ',
-    targetType: '',
+    targetType: 'STOCK',
+    tradeDate: '',
     marketCode: 'CN_A',
     includeCharts: true,
     includeFinancial: true,
-    includeNews: true,
-    includeHistory: true
+    includeNews: false,
+    includeHistory: false
 })
 
-const detail = ref<TargetDetailDTO | null>(null)
+const detail = ref<TargetDetail | null>(null)
 const detailLoading = ref(false)
-
-const historyRecords = ref<AnalysisRecord[]>([])
-const historyLoading = ref(false)
-const historyTotal = ref(0)
-
-const historyQuery = reactive<AnalysisHistoryQuery>({
-    targetCode: queryForm.targetCode,
-    sceneCode: '',
-    conclusion: '',
-    riskLevel: '',
-    pageNo: 1,
-    pageSize: 20
-})
-
 onMounted(() => {
     handleSearch()
 })
@@ -115,55 +90,17 @@ async function handleSearch(): Promise<void> {
     detailLoading.value = true
 
     try {
-        detail.value = await queryTargetDetailCenter({
-            ...queryForm,
-            targetCode: queryForm.targetCode.trim(),
-            targetType: (queryForm.targetType || undefined) as TargetType | undefined
+        // detail.value = await queryTargetDetail({
+        //     ...queryForm,
+        //     targetCode: queryForm.targetCode.trim(),
+        // })
+        detail.value = await queryMockTargetDetail({
+            targetCode: queryForm.targetCode,
+            targetType: queryForm.targetType
         })
-
-        historyQuery.targetCode = queryForm.targetCode.trim()
-        historyQuery.pageNo = 1
-        await loadHistory()
     } finally {
         detailLoading.value = false
     }
-}
-
-function handleReset(): void {
-    queryForm.targetCode = ''
-    queryForm.targetType = ''
-    queryForm.marketCode = ''
-    detail.value = null
-    historyRecords.value = []
-    historyTotal.value = 0
-}
-
-async function loadHistory(): Promise<void> {
-    if (!historyQuery.targetCode) return
-
-    historyLoading.value = true
-    try {
-        const result = await queryTargetAnalysisHistory({ ...historyQuery })
-        historyRecords.value = result.records
-        historyTotal.value = result.total
-    } finally {
-        historyLoading.value = false
-    }
-}
-
-async function handleHistoryQueryChange(query: Partial<AnalysisHistoryQuery>): Promise<void> {
-    historyQuery.sceneCode = query.sceneCode || ''
-    historyQuery.conclusion = query.conclusion || ''
-    historyQuery.riskLevel = query.riskLevel || ''
-    historyQuery.pageNo = query.pageNo || 1
-    historyQuery.pageSize = query.pageSize || historyQuery.pageSize
-    await loadHistory()
-}
-
-async function handleHistoryPageChange(pagination: { pageNo: number; pageSize: number }): Promise<void> {
-    historyQuery.pageNo = pagination.pageNo
-    historyQuery.pageSize = pagination.pageSize
-    await loadHistory()
 }
 
 function handleSelectTarget(targetCode: string): void {

@@ -63,6 +63,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				path: '/datasource',
+				name: 'dataSource',
+				component: () => import('/@/views/datasource/DataSourcePage.vue'),
+				meta: {
+					title: 'message.router.dataSource',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common'],
+					icon: 'iconfont icon-shujutopic',
+				},
+			},
+			{
 				path: '/collectionConfig',
 				name: 'collectionConfig',
 				component: () => import('../views/collectionconfig/index.vue'),
@@ -154,21 +169,6 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						},
 					},
 				]
-			},
-			{
-				path: '/datasource',
-				name: 'dataSource',
-				component: () => import('/@/views/datasource/DataSourcePage.vue'),
-				meta: {
-					title: 'message.router.dataSource',
-					isLink: '',
-					isHide: false,
-					isKeepAlive: true,
-					isAffix: false,
-					isIframe: false,
-					roles: ['admin', 'common'],
-					icon: 'iconfont icon-shujutopic',
-				},
 			},
 			{
 				path: '/collectionExecute',
@@ -411,6 +411,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						component: () => import('/@/views/appdisplay/targetdetail/TargetDetailPage.vue'),
 						meta: {
 							title: 'message.router.targetDetail',
+							isLink: '',
+							isHide: false,
+							isKeepAlive: true,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'iconfont icon-yingyongfenxiyudisplay',
+						},
+					},
+					{
+						path: '/appDisplay/indexDetail',
+						name: 'indexDetail',
+						component: () => import('/@/views/appdisplay/indexdetail/IndexDetailPage.vue'),
+						meta: {
+							title: 'message.router.indexDetail',
 							isLink: '',
 							isHide: false,
 							isKeepAlive: true,

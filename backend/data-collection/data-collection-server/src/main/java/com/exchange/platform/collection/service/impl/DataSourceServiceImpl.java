@@ -1,12 +1,7 @@
 package com.exchange.platform.collection.service.impl;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,13 +24,12 @@ import com.exchange.platform.collection.entity.datasource.DataSourceConfig;
 import com.exchange.platform.collection.mapper.datasource.DataSourceConfigMapper;
 import com.exchange.platform.collection.service.DataSourceService;
 import com.exchange.platform.common.core.exception.BusinessException;
+import com.exchange.platform.collection.utils.JdbcUtils;
 
 @Service
 public class DataSourceServiceImpl implements DataSourceService {
 
     private static final Logger log = LoggerFactory.getLogger(DataSourceServiceImpl.class);
-    private static final String DEFAULT_TIME_ZONE = "Asia/Shanghai";
-
     private final DataSourceConfigMapper dataSourceConfigMapper;
 
     public DataSourceServiceImpl(DataSourceConfigMapper dataSourceConfigMapper) {
@@ -143,7 +137,7 @@ public class DataSourceServiceImpl implements DataSourceService {
     @Override
     public boolean testConnection(String dataSourceCode) {
         DataSourceConfig config = requireDataSource(dataSourceCode);
-        try (Connection conn = openConnection(config)) {
+        try (Connection conn = JdbcUtils.openConnection(config)) {
             return conn != null && conn.isValid(2);
         } catch (Exception ex) {
             log.warn("Test connection failed for dataSourceCode={}, error={}", dataSourceCode, ex.getMessage());
@@ -194,6 +188,7 @@ public class DataSourceServiceImpl implements DataSourceService {
             column.setDefaultValue(row.get("defaultValue") != null ? row.get("defaultValue").toString() : "");
             column.setNullable(row.get("nullable") != null ? Boolean.valueOf(row.get("nullable").toString()) : false);
             column.setUniqueKey(row.get("uniqueKey") != null ? Boolean.valueOf(row.get("uniqueKey").toString()) : false);
+            column.setComment(row.get("comment") != null ? row.get("comment").toString() : "");
 
             table.getColumns().add(column);
         }
@@ -217,15 +212,15 @@ public class DataSourceServiceImpl implements DataSourceService {
     @Transactional(rollbackFor = Exception.class)
     public void alterTable(String dataSourceCode, DataSourceTableRequest request) {
         DataSourceConfig config = requireDataSource(dataSourceCode);
-        Map<String, String> existingColumns = loadTableColumns(config, request.tableName());
+        Map<String, String> existingColumns = JdbcUtils.loadTableColumns(config, request.tableName());
 
         for (DataSourceTableRequest.ColumnItem column : request.columns()) {
-            String columnName = normalizeColumnName(column.columnName());
+            String columnName = JdbcUtils.normalizeColumnName(column.columnName());
             if (existingColumns.containsKey(columnName)) {
                 continue;
             }
             String addColumnSql = buildAddColumnSql(request.tableName(), column);
-            executeSql(config, addColumnSql);
+            JdbcUtils.executeSql(config, addColumnSql);
         }
     }
 
@@ -237,7 +232,7 @@ public class DataSourceServiceImpl implements DataSourceService {
     public void dropTable(String dataSourceCode, String tableName) {
         DataSourceConfig config = requireDataSource(dataSourceCode);
         String sql = "DROP TABLE IF EXISTS `" + tableName + "`";
-        executeSql(config, sql);
+        JdbcUtils.executeSql(config, sql);
     }
 
     /**
@@ -261,156 +256,25 @@ public class DataSourceServiceImpl implements DataSourceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createTableIfMissing(DataSourceConfig dataSource, String tableName, List<DataSourceTableRequest.ColumnItem> columns) {
-        if (!tableExists(dataSource, tableName)) {
+        if (!JdbcUtils.tableExists(dataSource, tableName)) {
             String sql = buildCreateTableSql(tableName, columns);
-            executeSql(dataSource, sql);
+            JdbcUtils.executeSql(dataSource, sql);
         } else {
-            Map<String, String> existingColumns = loadTableColumns(dataSource, tableName);
+            Map<String, String> existingColumns = JdbcUtils.loadTableColumns(dataSource, tableName);
             for (DataSourceTableRequest.ColumnItem column : columns) {
                 // 1. 检查字段是否存在
-                if (!existingColumns.containsKey(normalizeColumnName(column.columnName()))) {
+                if (!existingColumns.containsKey(JdbcUtils.normalizeColumnName(column.columnName()))) {
                     throw new BusinessException(40002, "已选择的表 '" + tableName + "' 中不存在字段 " + column.columnName());
                 }
                 // 2. 检查字段类型是否一致（简单比较类型字符串，忽略大小写和多余空白）
-                String expectedColumnType = normalizeColumnType(column.columnType());
-                String actualColumnType = normalizeColumnType(existingColumns.get(normalizeColumnName(column.columnName())));
+                String expectedColumnType = JdbcUtils.normalizeColumnType(column.columnType());
+                String actualColumnType = JdbcUtils.normalizeColumnType(existingColumns.get(JdbcUtils.normalizeColumnName(column.columnName())));
                 if (!expectedColumnType.equals(actualColumnType)) {
                     throw new BusinessException(40002, "已选择的表 '" + tableName + "' 中字段 " + column.columnName()
                         + " 类型不一致，期望 " + column.columnType() + "，实际 " + actualColumnType);
                 }
             }
         }
-    }
-
-    /**
-     * 检查数据表是否存在
-     */
-    private boolean tableExists(DataSourceConfig config, String tableName) {
-        String sql = "SELECT COUNT(1) AS cnt FROM information_schema.tables WHERE table_schema = ? AND table_name = ?";
-        try (Connection conn = openConnection(config);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, config.getDatabaseName());
-            ps.setString(2, tableName);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt("cnt") > 0;
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to check table existence: " + tableName, ex);
-        }
-    }
-
-    /**
-     * 加载数据表的列信息，<column_name, column_type>，用于对比请求中的字段定义与数据库中实际的表结构
-     */
-    private Map<String, String> loadTableColumns(DataSourceConfig config, String tableName) {
-        Map<String, String> columns = new HashMap<>();
-        String sql = "SELECT column_name, column_type FROM information_schema.columns WHERE table_schema = ? AND table_name = ?";
-        try (Connection conn = openConnection(config);
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, config.getDatabaseName());
-            ps.setString(2, tableName);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    columns.put(normalizeColumnName(rs.getString("column_name")), rs.getString("column_type"));
-                }
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to load columns for table: " + tableName, ex);
-        }
-        return columns;
-    }
-
-    /**
-     * 规范化列名，用于比较数据库字段和请求字段
-     * @param columnName
-     * @return
-     */
-    private String normalizeColumnName(String columnName) {
-        return columnName == null ? null : columnName.trim().toLowerCase();
-    }
-
-    /**
-     * 规范化字段类型，忽略大小写和多余空白后再比较
-     * @param columnType
-     * @return
-     */
-    private String normalizeColumnType(String columnType) {
-        if (!StringUtils.hasText(columnType)) {
-            return "";
-        }
-        return columnType.trim().toLowerCase().replaceAll("\\s+", "");
-    }
-
-    /**
-     * 打开数据库连接
-     * @param config
-     * @return
-     * @throws Exception
-     */
-    private Connection openConnection(DataSourceConfig config) throws Exception {
-        String url = buildJdbcUrl(config);
-        return DriverManager.getConnection(url, config.getUsername(), config.getPassword());
-    }
-
-    /**
-     * 执行SQL语句
-     */
-    private void executeSql(DataSourceConfig config, String sql) {
-        try (Connection conn = openConnection(config);
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-        } catch (Exception ex) {
-            throw new RuntimeException("Failed to execute SQL: " + sql, ex);
-        }
-    }
-
-    /**
-     * 构建JDBC连接URL
-     */
-    private String buildJdbcUrl(DataSourceConfig config) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("jdbc:mysql://")
-          .append(config.getHost())
-          .append(":")
-          .append(config.getPort())
-          .append("/")
-          .append(config.getDatabaseName());
-
-        String params = buildConnectionParams(config.getConnectionParams());
-        if (StringUtils.hasText(params)) {
-            sb.append("?").append(params);
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 构建连接参数字符串，合并默认参数和额外参数，额外参数格式示例：key1=value1&key2=value2
-     * @param extraParams
-     * @return
-     */
-    private String buildConnectionParams(String extraParams) {
-        Map<String, String> params = new HashMap<>();
-        params.put("useUnicode", "true");
-        params.put("characterEncoding", "utf8");
-        params.put("serverTimezone", DEFAULT_TIME_ZONE);
-        params.put("useSSL", "false");
-
-        if (StringUtils.hasText(extraParams)) {
-            String[] pairs = extraParams.split("&");
-            for (String pair : pairs) {
-                if (!StringUtils.hasText(pair)) {
-                    continue;
-                }
-                String[] kv = pair.split("=", 2);
-                if (kv.length == 2 && StringUtils.hasText(kv[0])) {
-                    params.put(kv[0], kv[1]);
-                }
-            }
-        }
-
-        return params.entrySet().stream()
-            .map(entry -> entry.getKey() + "=" + entry.getValue())
-            .collect(Collectors.joining("&"));
     }
 
     /**
@@ -439,6 +303,12 @@ public class DataSourceServiceImpl implements DataSourceService {
             String defaultValue = normalizeDefaultValue(column.defaultValue());
             if (defaultValue != null) {
                 builder.append(" DEFAULT ").append(defaultValue);
+            }
+
+            String comment = column.comment();
+            if (StringUtils.hasText(comment)) {
+                String escapedComment = comment.replace("'", " ");
+                builder.append(" COMMENT '").append(escapedComment).append("'");
             }
 
             columnDefs.add(builder.toString());

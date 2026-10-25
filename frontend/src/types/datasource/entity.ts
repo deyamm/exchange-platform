@@ -37,4 +37,5 @@ export interface DataSourceTableColumn {
     nullable?: boolean
     defaultValue?: string
     uniqueKey?: boolean
+    comment?: string
 }

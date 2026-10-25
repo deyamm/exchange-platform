@@ -21,6 +21,7 @@ export type CommonStatus = 'ENABLED' | 'DISABLED' | 'OFFLINE'
 export interface TaskQueryParams {
     taskCode?: string
     taskName?: string
+    dataTopicCodePrefix?: string
     pageNo?: number
     pageSize?: number
 }

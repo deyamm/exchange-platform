@@ -1,6 +1,5 @@
-from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends
+import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -64,27 +63,6 @@ ExchangeBase = declarative_base()
 FinanceBase = declarative_base()
 
 
-# async def init_basic_tables() -> None:
-#     async with basic_data_engine.begin() as conn:
-#         await conn.run_sync(BasicBase.metadata.create_all)
-
-
-# async def init_exchange_tables() -> None:
-#     async with exchange_data_engine.begin() as conn:
-#         await conn.run_sync(ExchangeBase.metadata.create_all)
-
-
-# async def init_finance_tables() -> None:
-#     async with finance_data_engine.begin() as conn:
-#         await conn.run_sync(FinanceBase.metadata.create_all)
-
-
-# async def init_all_tables() -> None:
-#     await init_basic_tables()
-#     await init_exchange_tables()
-#     await init_finance_tables()
-
-
 def get_engine_by_schema(schema_name: str):
     if schema_name == "type_basic_data":
         return basic_data_engine
@@ -102,40 +80,13 @@ async def dispose_all_engines() -> None:
     await finance_data_engine.dispose()
 
 
-class BasicDataBase:
-    @classmethod
-    def basic_data_session(cls) -> AsyncSession:
-        return BasicDataSession()
-
-
-class ExchangeDataBase:
-    @classmethod
-    def exchange_data_session(cls) -> AsyncSession:
-        return ExchangeDataSession()
-
-
-class FinanceDataBase:
-    @classmethod
-    def finance_data_session(cls) -> AsyncSession:
-        return FinanceDataSession()
-
-
-# FastAPI 依赖注入，获取异步数据库 session
-async def get_basic_db() -> AsyncGenerator[AsyncSession, None]:
-    async with BasicDataSession() as db:
-        yield db
-
-
-async def get_exchange_db() -> AsyncGenerator[AsyncSession, None]:
-    async with ExchangeDataSession() as db:
-        yield db
-
-
-async def get_finance_db() -> AsyncGenerator[AsyncSession, None]:
-    async with FinanceDataSession() as db:
-        yield db
-
-
-basic_session_dep = Annotated[AsyncSession, Depends(get_basic_db)]
-exchange_session_dep = Annotated[AsyncSession, Depends(get_exchange_db)]
-finance_session_dep = Annotated[AsyncSession, Depends(get_finance_db)]
+def create_redis_client() -> redis.Redis:
+    """
+    创建一个 Redis 客户端实例。
+    """
+    return redis.from_url(
+        settings.REDIS_URI, 
+        encoding="utf-8", 
+        decode_responses=True, 
+        health_check_interval=30
+    )

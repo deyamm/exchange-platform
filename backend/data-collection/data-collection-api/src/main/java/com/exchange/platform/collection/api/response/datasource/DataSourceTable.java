@@ -19,6 +19,7 @@ public class DataSourceTable {
         private Boolean nullable;
         private Boolean uniqueKey;
         private String defaultValue;
+        private String comment;
     }
 }
 

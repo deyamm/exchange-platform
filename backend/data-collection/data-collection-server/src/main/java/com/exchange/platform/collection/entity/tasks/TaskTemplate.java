@@ -47,6 +47,12 @@ public class TaskTemplate {
     @TableField("sync_status")
     private SyncStatus syncStatus;
 
+    @TableField("data_topic_code")
+    private String dataTopicCode;
+
+    @TableField("data_type_code")
+    private String dataTypeCode;
+
     /** 最近同步时间 */
     @TableField("latest_sync_time")
     private LocalDateTime latestSyncTime;

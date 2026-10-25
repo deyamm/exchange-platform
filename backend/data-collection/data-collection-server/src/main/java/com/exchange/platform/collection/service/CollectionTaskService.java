@@ -25,6 +25,7 @@ public interface CollectionTaskService extends IService<TaskTemplate> {
     PageResult<TaskTemplateView> queryTaskTemplates(
         String taskCode,
         String taskName,
+        String dataTopicCodePrefix,
         Integer pageNo,
         Integer pageSize
     );

@@ -36,22 +36,40 @@ class IndexDailyPriceTask(BaseCollectTask):
         '''
 
         # 读取参数，指数代码必填
-        index_code = params.get("index_code", None)
-        if index_code == None:
-            raise ValueError("index_code参数不能为空")
+        ts_codes = params.get("ts_codes", None)
+        if ts_codes == None or ts_codes == "":
+            raise ValueError("ts_codes参数不能为空")
+        
+        if isinstance(ts_codes, str):
+            ts_code_list = [item.strip() for item in ts_codes.split(",") if item.strip()]
+        else:
+            ts_code_list = list(ts_codes)
+
+        if len(ts_code_list) == 0:
+            raise ValueError("ts_codes参数不能为空")
         
         trade_date = params.get("trade_date", None)
+        index_daily_list = []
         if trade_date != None:
-            index_daily = await self.ts.index_daily(ts_code=index_code, trade_date=trade_date)
+            for index_code in ts_code_list:
+                index_daily = await self.ts.index_daily(ts_code=index_code, trade_date=trade_date)
+                index_daily_list.append(index_daily)
+            index_daily = pd.concat(index_daily_list, ignore_index=True)
         else:
             start_date = params.get("start_date", '')
             end_date = params.get("end_date", '')
-            index_daily = await self.ts.index_daily(ts_code=index_code, start_date=start_date, end_date=end_date)
-        
+            for index_code in ts_code_list:
+                index_daily = await self.ts.index_daily(ts_code=index_code, start_date=start_date, end_date=end_date)
+                index_daily_list.append(index_daily)
+            index_daily = pd.concat(index_daily_list, ignore_index=True)
+
         # 交易额单位为千元，转换为元
         index_daily['amount'] = index_daily['amount'] * 1000
         # 将交易量单位为手，转换为股
         index_daily['vol'] = index_daily['vol'] * 100
+        
+        index_daily = index_daily.replace([np.inf, -np.inf], np.nan)
+        index_daily = index_daily.astype(object).where(index_daily.notnull(), None)
         return cast(list[dict[str, Any]], index_daily.rename(columns=str).to_dict("records"))
 
 
@@ -70,22 +88,23 @@ def register_index_daily_price_task():
         TaskTemplateInfo(
             task_code='index_daily_price',
             task_name='指数日线价格数据采集',
-            task_desc="""采集指定指数的日线价格，包含两种场景：
+            task_desc="""采集指定指数列表的日线价格，包含两种场景：
             1）传入交易日期，获取指定指数在该交易日的日线价格数据，此时start_date和end_date不需要传入，如果传入了trade_date参数，start_date和end_date将被忽略；
-            2）传入开始日期和结束日期，获取指定指数在该日期范围内的日线价格数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定指数的所有历史日线价格数据（最大8000条）""",
+            2）传入开始日期和结束日期，获取指定指数在该日期范围内的日线价格数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定指数的所有历史日线价格数据（最大8000条）
+            从参数ts_codes读取需要初始化的指数代码列表，多个指数代码用英文逗号分隔，在实际采集过程中对每个指数代码单独采集数据，并将采集结果合并后返回。""",
             handler_name='index_daily_price_handler',
             data_source='TUSHARE',
             asset_type='指数',
             biz_type='日线价格',
             params_schema=[
                 OutputField(
-                    field_code="ts_code",
+                    field_code="ts_codes",
                     field_name="指数代码",
                     field_type="STRING",
                     required=True,
                     unique_key=False,
                     sort_no=1,
-                    field_desc="指数代码，需要包括后缀，必填，来源于指数基本数据接口返回的index_code字段，如000300.SH、399001.SZ等"
+                    field_desc="指数代码列表，需要采集的指数代码列表，需要包括后缀，多个指数代码用英文逗号分隔，如000001.SH,399001.SZ等"
                 ),
                 OutputField(
                     field_code="trade_date",

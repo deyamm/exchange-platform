@@ -12,13 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.exchange.platform.analytics.api.enums.ResultType;
 import com.exchange.platform.analytics.api.enums.WatchStatus;
-import com.exchange.platform.analytics.api.response.AppResultView;
 import com.exchange.platform.analytics.api.response.WatchTargetView;
-import com.exchange.platform.analytics.service.AppResultService;
-import com.exchange.platform.analytics.service.TypeBasicDataService;
-import com.exchange.platform.analytics.service.WatchTargetService;
+import com.exchange.platform.analytics.service.MarketOverviewService;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
@@ -35,31 +31,28 @@ public class MarketOverviewController {
 
     private static final Logger log = LoggerFactory.getLogger(MarketOverviewController.class);
 
-    private final AppResultService appResultService;
-    private final TypeBasicDataService typeBasicDataService;
 
-    public MarketOverviewController(AppResultService appResultService,
-            WatchTargetService watchTargetService, TypeBasicDataService typeBasicDataService) {
-        this.appResultService = appResultService;
-        this.typeBasicDataService = typeBasicDataService;
+    private final MarketOverviewService marketOverviewService;
+
+    public MarketOverviewController(MarketOverviewService marketOverviewService) {
+        this.marketOverviewService = marketOverviewService;
     }
 
-    @Operation(summary = "查询市场概览", description = "查询市场行情概览、指数概览、板块概览和涨跌分布")
+    @Operation(summary = "查询市场概览", description = "通过feign调用fastapi接口，查询指定日期的市场行情概览、指数概览、板块概览和涨跌分布")
     @GetMapping("/market/overview")
-    public ApiResponse<AppResultView> getMarketOverview(
-            @RequestParam(required = false) String sceneCode,
+    public ApiResponse<Map<String, Object>> getMarketOverview(
+            @RequestParam(required = false) String tradeDate,
             HttpServletRequest request) {
 
         String requestId = RequestIdHolder.getRequestId(request);
 
-        log.info("[{}] [Controller] getMarketOverview sceneCode={}", requestId, sceneCode);
+        log.info("[{}] [Controller] getMarketOverview tradeDate={}", requestId, tradeDate);
+        Map<String, Object> marketOverview = marketOverviewService.getMarketOverview(tradeDate);
         
-        AppResultView view = appResultService.getLatest(ResultType.MARKET_OVERVIEW, null, sceneCode);
-
-        return ApiResponse.success(view, requestId);
+        return ApiResponse.success(marketOverview, requestId);
     }
 
-    @Operation(summary = "查询自选观察概览", description = "查询关注标的分组、重点标记和关键指标概览")
+    @Operation(summary = "查询自选标的概览", description = "查询关注标的分组、重点标记和关键指标概览")
     @GetMapping("/watch-targets/overview")
     public ApiResponse<PageResult<WatchTargetView>> getWatchOverview(
             @RequestParam(required = false) String targetName,
@@ -87,6 +80,7 @@ public class MarketOverviewController {
         
         log.info("[{}] [Controller] getIndexBasic ", requestId);
         
-        return ApiResponse.success(typeBasicDataService.getIndexBasic(), requestId);
+        return ApiResponse.success(marketOverviewService.getIndexBasic(), requestId);
     }
+
 }

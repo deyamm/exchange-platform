@@ -25,7 +25,7 @@
                 </el-form-item>
             </el-form>
 
-            <el-table v-loading="tableLoading" :data="tableData" border height="calc(100vh - 300px)">
+            <el-table v-loading="tableLoading" :data="tableData" border height="calc(100vh - 400px)">
                 <el-table-column prop="runId" label="执行编号" min-width="200" align="center" show-overflow-tooltip />
                 <el-table-column prop="taskCode" label="任务编码" min-width="160" align="center" />
                 <el-table-column label="触发方式" width="100" align="center">
@@ -66,7 +66,7 @@
 
         <!-- 执行详情抽屉 -->
         <el-drawer v-model="detailVisible" title="执行记录详情" size="46%">
-            <el-descriptions v-if="detail" :column="1" border>
+            <el-descriptions v-if="detail" :column="1" border class="detail-descriptions">
                 <el-descriptions-item label="执行编号">{{ detail.taskRun.runId }}</el-descriptions-item>
                 <el-descriptions-item label="任务编码">{{ detail.taskRun.taskCode }}</el-descriptions-item>
                 <el-descriptions-item label="调度编号">{{ detail.taskRun.schedulerId || '-' }}</el-descriptions-item>
@@ -233,5 +233,10 @@ onMounted(() => loadTable())
     background: #f7f8fa; 
     color: #606266; 
     font-weight: 600; 
+}
+
+.detail-descriptions :deep(.el-descriptions__label) {
+  width: 140px;
+  min-width: 140px;
 }
 </style>

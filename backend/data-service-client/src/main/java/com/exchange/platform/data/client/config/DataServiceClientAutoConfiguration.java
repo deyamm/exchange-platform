@@ -13,5 +13,4 @@ import com.exchange.platform.data.client.DataServiceClient;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableFeignClients(basePackageClasses = DataServiceClient.class)
-public class DataServiceClientAutoConfiguration {
-}
+public class DataServiceClientAutoConfiguration {}

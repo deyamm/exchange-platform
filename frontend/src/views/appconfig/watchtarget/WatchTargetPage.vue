@@ -263,6 +263,7 @@ async function loadGroups() {
     groupLoading.value = true;
     try {
         const res = await queryTargetGroupPage(groupQuery);
+        console.log('分组列表数据', res);
         groupData.value = res.records || [];
         groupTotal.value = res.total || 0;
     } finally {

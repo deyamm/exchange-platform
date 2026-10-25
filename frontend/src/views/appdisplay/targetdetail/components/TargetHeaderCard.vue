@@ -5,8 +5,8 @@
             <!-- 左侧：证券名称、代码、类型、状态、市场信息、标签及顶部操作按钮 -->
             <div class="target-identity">
                 <div class="title-line">
-                    <span class="target-name">{{ target.targetName }}</span>
-                    <span class="target-code">{{ target.targetCode }}</span>
+                    <span class="target-name">{{ target.name }}</span>
+                    <span class="target-code">{{ target.fullSymbol }}</span>
 
                     <el-tag size="small" type="info">
                         {{ targetTypeText(target.targetType) }}
@@ -47,10 +47,10 @@
                 </div>
 
                 <div class="sub-line">
-                    <span>{{ target.marketName }}</span>
+                    <span>{{ target.marketTypeName }}</span>
                     <span v-if="target.exchangeName"> / {{ target.exchangeName }}</span>
                     <span v-if="target.industryName"> / {{ target.industryName }}</span>
-                    <span v-if="target.currency"> / {{ target.currency }}</span>
+                    <span v-if="target.currencyType"> / {{ target.currencyType }}</span>
                 </div>
 
                 <div v-if="target.tags?.length" class="tag-line">
@@ -66,15 +66,15 @@
             </div>
 
             <!-- 右侧：价格、涨跌、行情时间 -->
-            <div class="quote-panel" :class="signedClass(quote?.changePercent)">
+            <div class="quote-panel" :class="signedClass(quote?.chgPct)">
                 <div class="price">
-                    {{ quote?.lastPrice ?? '-' }}
+                    {{ quote?.close ?? '-' }}
                     <span class="unit">{{ quote?.priceUnit || '' }}</span>
                 </div>
 
                 <div class="change-line">
                     <span>{{ signedAmount }}</span>
-                    <span>{{ formatPercent(quote?.changePercent, 2, true) }}</span>
+                    <span>{{ formatPercent(quote?.chgPct, 2, true) }}</span>
                 </div>
 
                 <div class="time-line">
@@ -104,10 +104,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type {
-    MarketQuote,
     TargetOverview,
     TargetProfile
-} from '/@/types/targetdetail/targetDetailCenter'
+} from '/@/types/targetdetail/targetDetailType'
+import type { MarketQuote } from '/@/types/marketoverview/view'
 import {
     formatAmount,
     formatDateTime,
@@ -116,7 +116,7 @@ import {
     marketStatusText,
     signedClass,
     targetTypeText
-} from '../utils/targetDetailFormat'
+} from '/@/utils/marketUtils'
 
 const emits = defineEmits<{
     (e: 'refresh'): void
@@ -135,7 +135,7 @@ const props = defineProps<{
  * 正数添加 + 号，负数保留 - 号，没有行情时展示 -
  */
 const signedAmount = computed(() => {
-    const value = props.quote?.changeAmount
+    const value = props.quote?.chgAmt
 
     if (value === undefined || value === null) {
         return '-'
@@ -161,7 +161,7 @@ const quoteTime = computed(() => {
  * 当天行情指标
  */
 const quoteRows = computed(() => {
-    const previousClose = props.quote?.previousClose || 0
+    const previousClose = props.quote?.preClose || 0
 
     return [
         {
@@ -181,7 +181,7 @@ const quoteRows = computed(() => {
         },
         {
             label: '昨收',
-            value: formatNumber(props.quote?.previousClose, 2),
+            value: formatNumber(props.quote?.preClose, 2),
             className: ''
         },
         {
@@ -196,7 +196,7 @@ const quoteRows = computed(() => {
         },
         {
             label: '成交额',
-            value: formatAmount(props.quote?.amount),
+            value: formatAmount(props.quote?.turnover),
             className: ''
         },
         {

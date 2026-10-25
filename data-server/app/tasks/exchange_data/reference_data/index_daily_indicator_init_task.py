@@ -25,49 +25,39 @@ class IndexDailyIndicatorInitDataTask(BaseCollectTask):
         self.ts = ts_provider
 
 
-    def parse_index_codes(self, params: dict[str, Any]) -> list[str]:
+    def parse_ts_codes(self, params: dict[str, Any]) -> list[str]:
         """从参数中读取指数代码列表，支持列表或半角逗号分隔字符串"""
-        index_codes = params.get("index_codes", None)
-        if index_codes == None:
-            raise ValueError("index_codes参数不能为空")
+        ts_codes = params.get("ts_codes", None)
+        if ts_codes == None:
+            raise ValueError("ts_codes参数不能为空")
 
-        if isinstance(index_codes, str):
-            parsed_index_codes = [item.strip() for item in index_codes.split(",") if item.strip()]
-        elif isinstance(index_codes, list):
-            parsed_index_codes = [str(item).strip() for item in index_codes if str(item).strip()]
+        if isinstance(ts_codes, str):
+            parsed_ts_codes = [item.strip() for item in ts_codes.split(",") if item.strip()]
+        elif isinstance(ts_codes, list):
+            parsed_ts_codes = [str(item).strip() for item in ts_codes if str(item).strip()]
         else:
-            raise ValueError("index_codes参数必须为指数代码列表或半角逗号分隔字符串")
+            raise ValueError("ts_codes参数必须为指数代码列表或半角逗号分隔字符串")
 
-        if len(parsed_index_codes) == 0:
-            raise ValueError("index_codes参数不能为空")
+        if len(parsed_ts_codes) == 0:
+            raise ValueError("ts_codes参数不能为空")
 
-        return parsed_index_codes
+        return parsed_ts_codes
 
 
     async def collect_batches(self, params: dict[str, Any], ctx: ExecutionContext) -> AsyncIterator[list[dict[str, Any]]]:
         """
             批量初始化采集大盘指数每日指标数据：
-            1）从参数index_codes中读取需要初始化的指数代码列表；
+            1）从参数ts_codes中读取需要初始化的指数代码列表；
             2）对每个指数代码，采集该指数全部历史每日指标数据；
             3）每个指数的数据作为一批yield出去，由基类自动完成后续标准化、清洗、字段映射和入库；
             4）相邻两次读取指数每日指标之间暂停5秒。
         """
 
-        index_codes = self.parse_index_codes(params)
+        ts_codes = self.parse_ts_codes(params)
 
-        for index, index_code in enumerate(index_codes):
-            logger.info(f"开始采集指数{index_code}的历史每日指标数据")
-            index_daily_basic = await self.ts.index_daily_indicator(ts_code=index_code)
-
-            # 总股本、流通股本、自由流通股本单位为万股，转换为股
-            for column in ["total_share", "float_share", "free_share"]:
-                if column in index_daily_basic.columns:
-                    index_daily_basic[column] = index_daily_basic[column] * 10000
-
-            # 总市值、流通市值单位为万元，转换为元
-            for column in ["total_mv", "float_mv"]:
-                if column in index_daily_basic.columns:
-                    index_daily_basic[column] = index_daily_basic[column] * 10000
+        for index, ts_code in enumerate(ts_codes):
+            logger.info(f"开始采集指数{ts_code}的历史每日指标数据")
+            index_daily_basic = await self.ts.index_daily_indicator(ts_code=ts_code)
             
             index_daily_basic = index_daily_basic.replace([np.inf, -np.inf], np.nan)
             index_daily_basic = index_daily_basic.astype(object).where(index_daily_basic.notnull(), None)
@@ -76,9 +66,9 @@ class IndexDailyIndicatorInitDataTask(BaseCollectTask):
             if len(records) > 0:
                 yield records
             else:
-                logger.info(f"指数{index_code}没有获取到历史每日指标数据")
+                logger.info(f"指数{ts_code}没有获取到历史每日指标数据")
 
-            if index < len(index_codes) - 1:
+            if index < len(ts_codes) - 1:
                 await asyncio.sleep(1)
 
 
@@ -97,14 +87,14 @@ def register_index_daily_indicator_init_task():
         TaskTemplateInfo(
             task_code='index_daily_indicator_init',
             task_name='大盘指数每日指标初始化采集',
-            task_desc='初始化采集指定指数列表的历史每日指标数据。任务从参数index_codes读取指数代码列表，支持列表或逗号分隔字符串，再逐个指数采集全部历史每日指标数据，每个指数的数据作为一批进行后续处理和入库，相邻两次接口调用之间暂停5秒。',
+            task_desc='初始化采集指定指数列表的历史每日指标数据。任务从参数ts_codes读取指数代码列表，支持列表或逗号分隔字符串，再逐个指数采集全部历史每日指标数据，每个指数的数据作为一批进行后续处理和入库，相邻两次接口调用之间暂停5秒。注：不是每个指数都有，应该是大盘指数才有每日指标数据，采集前请确认指数代码是否正确且有每日指标数据',
             handler_name='index_daily_indicator_init_handler',
             data_source='TUSHARE',
             asset_type='指数',
             biz_type='每日指标',
             params_schema=[
                 OutputField(
-                    field_code="index_codes",
+                    field_code="ts_codes",
                     field_name="指数代码列表",
                     field_type="STRING",
                     required=True,

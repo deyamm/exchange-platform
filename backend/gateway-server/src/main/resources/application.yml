@@ -47,5 +47,5 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: INFO
-    reactor.netty.http.client: INFO
+    "[org.springframework.cloud.gateway]": INFO
+    "[reactor.netty.http.client]": INFO

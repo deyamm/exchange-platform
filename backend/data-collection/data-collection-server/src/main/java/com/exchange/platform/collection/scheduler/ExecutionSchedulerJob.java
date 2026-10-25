@@ -7,8 +7,12 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +37,7 @@ public class ExecutionSchedulerJob {
     private static final String DEFAULT_TIME_ZONE = "Asia/Shanghai";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private static final Pattern BIZ_TABLE_TOKEN_PATTERN = Pattern.compile("\\{biz_table:\\{([A-Za-z0-9_]+)\\}\\}");
 
     private final ExecutionSchedulerMapper schedulerMapper;
     private final ExecutionServiceImpl executionService;
@@ -77,8 +82,11 @@ public class ExecutionSchedulerJob {
     private void handleScheduler(ExecutionScheduler scheduler, LocalDateTime now) {
         ZoneId zoneId = resolveZoneId(scheduler.getTimeZone());
         LocalDateTime fireTime = scheduler.getNextFireTime() != null ? scheduler.getNextFireTime() : now;
-        LocalDateTime nextFireTime = computeNextFireTime(scheduler.getCronExpression(), zoneId, fireTime);
-        if (nextFireTime == null) {
+        boolean bizTableTrigger = isBizTableTrigger(scheduler);
+        LocalDateTime nextFireTime = bizTableTrigger
+            ? executionService.computeNextBizTableFireTime(scheduler, fireTime)
+            : computeNextFireTime(scheduler.getCronExpression(), zoneId, fireTime);
+        if (!bizTableTrigger && nextFireTime == null) {
             log.warn("Scheduler cron has no next fire time, pausing schedulerId={}", scheduler.getSchedulerId());
             schedulerMapper.update(null, new UpdateWrapper<ExecutionScheduler>()
                 .set("status", ScheduleStatus.PAUSED.getValue())
@@ -87,19 +95,28 @@ public class ExecutionSchedulerJob {
             return;
         }
 
-        int claimed = schedulerMapper.update(null, new UpdateWrapper<ExecutionScheduler>()
+        UpdateWrapper<ExecutionScheduler> updateWrapper = new UpdateWrapper<ExecutionScheduler>()
             .set("last_fire_time", fireTime)
             .set("next_fire_time", nextFireTime)
             .eq("id", scheduler.getId())
             .eq("next_fire_time", scheduler.getNextFireTime())
-            .eq("status", ScheduleStatus.ACTIVE.getValue())
-        );
+            .eq("status", ScheduleStatus.ACTIVE.getValue());
+        if (bizTableTrigger && nextFireTime == null) {
+            updateWrapper.set("status", ScheduleStatus.PAUSED.getValue());
+        }
+        int claimed = schedulerMapper.update(null, updateWrapper);
 
         if (claimed != 1) {
             return;
         }
+
+        if (bizTableTrigger) {
+            executeBizTableScheduledRuns(scheduler, zoneId, fireTime);
+            return;
+        }
+
         // 根据创建调度时的参数模板，解析出本次执行的参数，创建执行记录，并触发执行
-        Map<String, Object> params = resolveParams(scheduler, zoneId, fireTime);
+        Map<String, Object> params = resolveParams(scheduler, zoneId, fireTime, Map.of());
         TaskRun taskRun = executionService.createScheduledRun(scheduler, params, fireTime);
         executionService.executeTaskRun(taskRun.getRunId());
 
@@ -110,13 +127,62 @@ public class ExecutionSchedulerJob {
     }
 
     /**
+     * 业务表调度模式下，一次读取本次触发时间的所有匹配记录，并按记录逐个生成任务。
+     */
+    private void executeBizTableScheduledRuns(ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime) {
+        List<String> columnNames = collectBizTableColumnNames(scheduler.getParamsTemplate());
+        List<String> queryColumnNames = columnNames.isEmpty()
+            // 参数模板不依赖业务表字段时，也查询调度字段，用于确定本次 fireTime 命中的记录数。
+            ? List.of(scheduler.getBizScheduleColumn())
+            : columnNames;
+
+        List<Map<String, Object>> bizTableRows = executionService.resolveBizTableColumnValue(scheduler, queryColumnNames, fireTime);
+        if (bizTableRows == null || bizTableRows.isEmpty()) {
+            log.warn("Biz table scheduler has no row for fireTime, schedulerId={}, fireTime={}", scheduler.getSchedulerId(), fireTime);
+            return;
+        }
+
+        String lastRunId = null;
+        for (Map<String, Object> bizTableRow : bizTableRows) {
+            // 没有 biz_table 占位符时，bizTableRow 仅用于按行创建任务，参数解析结果会与普通 cron 调度一致。
+            Map<String, Object> params = resolveParams(scheduler, zoneId, fireTime, bizTableRow != null ? bizTableRow : Map.of());
+            TaskRun taskRun = executionService.createScheduledRun(scheduler, params, fireTime);
+            executionService.executeTaskRun(taskRun.getRunId());
+            lastRunId = taskRun.getRunId();
+        }
+
+        if (lastRunId != null) {
+            schedulerMapper.update(null, new UpdateWrapper<ExecutionScheduler>()
+                .set("last_run_id", lastRunId)
+                .eq("id", scheduler.getId())
+            );
+        }
+    }
+
+    /**
+     * 从参数模板中收集 {biz_table:{column_name}} 占位符涉及的业务表字段。
+     */
+    private List<String> collectBizTableColumnNames(String paramsTemplate) {
+        if (paramsTemplate == null || paramsTemplate.isBlank()) {
+            return List.of();
+        }
+
+        Set<String> columnNames = new LinkedHashSet<>();
+        Matcher matcher = BIZ_TABLE_TOKEN_PATTERN.matcher(paramsTemplate);
+        while (matcher.find()) {
+            columnNames.add(matcher.group(1));
+        }
+        return new ArrayList<>(columnNames);
+    }
+
+    /**
      * 根据调度配置的参数模板和当前触发时间，解析出本次执行的参数值，支持嵌套结构和日期占位符解析
      * @param scheduler
      * @param zoneId
      * @param fireTime
      * @return
      */
-    private Map<String, Object> resolveParams(ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime) {
+    private Map<String, Object> resolveParams(ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime, Map<String, Object> bizTableRow) {
         if (scheduler.getParamsTemplate() == null || scheduler.getParamsTemplate().isBlank()) {
             return Map.of();
         }
@@ -124,7 +190,7 @@ public class ExecutionSchedulerJob {
         // 通过JSON.parseObject，除日期字符串外，其他类型的值会被正确解析为对应的Java类型（如数字、布尔值、列表、对象等），然后通过递归解析日期占位符，符合日期点位符的字符串会被转换为对应的日期字符串，不符合的原样返回，最终得到一个完整解析后的参数Map
         @SuppressWarnings("unchecked")
         Map<String, Object> template = JSON.parseObject(scheduler.getParamsTemplate(), Map.class);
-        return resolveTemplateMap(template, zoneId, fireTime);
+        return resolveTemplateMap(template, scheduler, zoneId, fireTime, bizTableRow);
     }
 
     /**
@@ -134,10 +200,10 @@ public class ExecutionSchedulerJob {
      * @param fireTime
      * @return
      */
-    private Map<String, Object> resolveTemplateMap(Map<String, Object> template, ZoneId zoneId, LocalDateTime fireTime) {
+    private Map<String, Object> resolveTemplateMap(Map<String, Object> template, ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime, Map<String, Object> bizTableRow) {
         Map<String, Object> resolved = new HashMap<>();
         for (Map.Entry<String, Object> entry : template.entrySet()) {
-            resolved.put(entry.getKey(), resolveTemplateValue(entry.getValue(), zoneId, fireTime));
+            resolved.put(entry.getKey(), resolveTemplateValue(entry.getValue(), scheduler, zoneId, fireTime, bizTableRow));
         }
         return resolved;
     }
@@ -149,35 +215,55 @@ public class ExecutionSchedulerJob {
      * @param fireTime
      * @return
      */
-    private Object resolveTemplateValue(Object value, ZoneId zoneId, LocalDateTime fireTime) {
+    private Object resolveTemplateValue(Object value, ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime, Map<String, Object> bizTableRow) {
         if (value instanceof Map) {
             @SuppressWarnings("unchecked")
             Map<String, Object> nested = (Map<String, Object>) value;
-            return resolveTemplateMap(nested, zoneId, fireTime);
+            return resolveTemplateMap(nested, scheduler, zoneId, fireTime, bizTableRow);
         }
         if (value instanceof List) {
             List<?> list = (List<?>) value;
             List<Object> resolved = new ArrayList<>(list.size());
             for (Object item : list) {
-                resolved.add(resolveTemplateValue(item, zoneId, fireTime));
+                resolved.add(resolveTemplateValue(item, scheduler, zoneId, fireTime, bizTableRow));
             }
             return resolved;
         }
         if (value instanceof String) {
-            return resolveTemplateString((String) value, zoneId, fireTime);
+            return resolveTemplateString((String) value, scheduler, zoneId, fireTime, bizTableRow);
         }
         return value;
     }
     
     /**
-     * 解析参数模板中的日期字符串，支持 ${dataSource:today}、${dataSource:yesterday}、${dataSource:now}、${dataSource:fireTime} 等占位符，其他字符串原样返回
+     * 解析参数模板中的日期字符串，支持 {dataSource:today}、{dataSource:yesterday}、{dataSource:now}、{dataSource:fireTime} 以及{biz_date:column_name}占位符，其他字符串原样返回
      * @param template
      * @param zoneId
      * @param fireTime
      * @return
      */
-    private String resolveTemplateString(String template, ZoneId zoneId, LocalDateTime fireTime) {
+    private Object resolveTemplateString(String template, ExecutionScheduler scheduler, ZoneId zoneId, LocalDateTime fireTime, Map<String, Object> bizTableRow) {
         if (template == null || template.isEmpty()) return template;
+
+        Matcher exactBizTableMatcher = BIZ_TABLE_TOKEN_PATTERN.matcher(template);
+        if (exactBizTableMatcher.matches()) {
+            // 占位符独占整个字符串（即整个字符串为一个占位符）时保留 JDBC 字段原始类型。
+            return bizTableRow != null ? bizTableRow.get(exactBizTableMatcher.group(1)) : null;
+        }
+
+        Matcher bizTableMatcher = BIZ_TABLE_TOKEN_PATTERN.matcher(template);
+        StringBuffer bizTableBuffer = new StringBuffer();
+        boolean hasBizTableToken = false;
+        while (bizTableMatcher.find()) {
+            hasBizTableToken = true;
+            String columnName = bizTableMatcher.group(1);
+            Object value = bizTableRow != null ? bizTableRow.get(columnName) : null;
+            bizTableMatcher.appendReplacement(bizTableBuffer, Matcher.quoteReplacement(value != null ? String.valueOf(value) : ""));
+        }
+        if (hasBizTableToken) {
+            bizTableMatcher.appendTail(bizTableBuffer);
+            return bizTableBuffer.toString();
+        }
 
         // 此处复制一份template，防止破坏原有字符串
         String dateStr = template;
@@ -230,6 +316,16 @@ public class ExecutionSchedulerJob {
         }
         // akshare and default: yyyy-MM-dd
         return defaultFormatter.format(date);
+    }
+
+
+    /**
+     * 判断是否为业务表调度
+     */
+    private boolean isBizTableTrigger(ExecutionScheduler scheduler) {
+        return scheduler != null
+            && scheduler.getTriggerType() != null
+            && ("BIZ_TABLE".equals(scheduler.getTriggerType().name()));
     }
 
     private LocalDateTime computeNextFireTime(String cronExpression, ZoneId zoneId, LocalDateTime fromTime) {

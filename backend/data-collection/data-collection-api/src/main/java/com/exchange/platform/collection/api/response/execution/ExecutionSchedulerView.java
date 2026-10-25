@@ -3,6 +3,7 @@ package com.exchange.platform.collection.api.response.execution;
 import java.time.LocalDateTime;
 
 import com.exchange.platform.collection.api.enums.ScheduleStatus;
+import com.exchange.platform.collection.api.enums.TriggerType;
 
 import lombok.Data;
 
@@ -20,6 +21,21 @@ public class ExecutionSchedulerView {
 
     /** Cron 表达式 */
     private String cronExpression;
+
+    /** 触发类型 */
+    private TriggerType triggerType;
+
+    /** 业务表数据源编号 */
+    private String bizDataSourceCode;
+
+    /** 业务表模式 */
+    private String bizTableSchema;
+
+    /** 业务表名称 */
+    private String bizTableName;
+
+    /** 业务表调度依据字段 */
+    private String bizScheduleColumn;
 
     /** 时区 */
     private String timeZone;

@@ -24,6 +24,7 @@ import com.exchange.platform.analytics.entity.WatchTarget;
 import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.WatchTargetService;
 import com.exchange.platform.common.core.exception.BusinessException;
+import com.exchange.platform.data.client.DataServiceClient;
 
 
 
@@ -31,6 +32,12 @@ import com.exchange.platform.common.core.exception.BusinessException;
 public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, WatchTarget> implements WatchTargetService {
 
     private static final Logger log = LoggerFactory.getLogger(WatchTargetServiceImpl.class);
+
+    private final DataServiceClient dataServiceClient;
+
+    public WatchTargetServiceImpl(DataServiceClient dataServiceClient) {
+        this.dataServiceClient = dataServiceClient;
+    }
 
     /**
      * 根据分组编码和筛选条件分页查询关注标的。
@@ -158,6 +165,60 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     }
 
     /**
+     * 查询股票详细信息
+     * @param targetCode
+     * @param tradeDate
+     * @param includeCharts
+     * @param includeFinancial
+     * @param includeHistory
+     * @return
+     */
+    @Override
+    public Map<String, Object> getStockDetails(String targetCode, String tradeDate, boolean includeCharts, boolean includeFinancial, boolean includeHistory) {
+        log.info("[Service] getStockDetails targetCode={}, tradeDate={}, includeCharts={}, includeFinancial={}, includeHistory={}",
+            targetCode, tradeDate, includeCharts, includeFinancial, includeHistory);
+        return dataServiceClient.getStockDetail(targetCode, tradeDate, includeCharts, includeFinancial, includeHistory);
+    }
+
+    /**
+     * 查询指数详细信息
+     * @param targetCode
+     * @param tradeDate
+     * @param market
+     * @param includeHistory
+     * @param includeIndicator
+     * @param includeConstituents
+     * @return
+     */
+    @Override
+    public Map<String, Object> getIndexDetails(String targetCode, String tradeDate) {
+        log.info("[Service] getIndexDetails targetCode={}, tradeDate={}", targetCode, tradeDate);
+        return dataServiceClient.getIndexDetail(targetCode, tradeDate);
+    }
+
+    @Override
+    public Map<String, Object> getIndexMarket(String targetCode, String tradeDate, int historyLimit) {
+        log.info("[Service] getIndexMarket targetCode={}, tradeDate={}, historyLimit={}", targetCode, tradeDate, historyLimit);
+        return dataServiceClient.getIndexDetailMarket(targetCode, tradeDate, historyLimit);
+    }
+
+    @Override
+    public Map<String, Object> getIndexConstituents(String targetCode, String tradeDate) {
+        log.info("[Service] getIndexConstituents targetCode={}, tradeDate={}", targetCode, tradeDate);
+        return dataServiceClient.getIndexConstituents(targetCode, tradeDate);
+    }
+
+    @Override
+    public Page<Map<String, Object>> getIndexConstituentPage(String targetCode, String tradeDate, int page, int pageSize) {
+        log.info("[Service] getIndexConstituentPage targetCode={}, tradeDate={}, page={}, pageSize={}", targetCode, tradeDate, page, pageSize);
+        List<Map<String, Object>> constituents = dataServiceClient.getIndexConstituentPage(targetCode, tradeDate, page, pageSize);
+        Page<Map<String, Object>> resultPage = new Page<>(page, pageSize);
+        resultPage.setRecords(constituents);
+        // 此处暂不设置total
+        return resultPage;
+    }
+
+    /**
      * 根据targetCode和targetType查询该标的所关联的groupCode，聚合所有groupCode到WatchTargetView的targetGroups字段中
      * @param targetCode
      * @param targetType
@@ -268,4 +329,5 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
             .distinct()
             .collect(Collectors.toList());
     }
+    
 }

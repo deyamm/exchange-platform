@@ -140,6 +140,11 @@ public class ExecutionConverter {
         view.setTaskConfigCode(scheduler.getTaskConfigCode());
         view.setTaskCode(scheduler.getTaskCode());
         view.setCronExpression(scheduler.getCronExpression());
+        view.setTriggerType(scheduler.getTriggerType());
+        view.setBizDataSourceCode(scheduler.getBizDataSourceCode());
+        view.setBizTableSchema(scheduler.getBizTableSchema());
+        view.setBizTableName(scheduler.getBizTableName());
+        view.setBizScheduleColumn(scheduler.getBizScheduleColumn());
         view.setTimeZone(scheduler.getTimeZone());
         view.setStatus(scheduler.getStatus());
         view.setNextFireTime(scheduler.getNextFireTime());

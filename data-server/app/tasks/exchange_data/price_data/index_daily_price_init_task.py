@@ -2,6 +2,8 @@ import asyncio
 import logging
 from typing import Any, AsyncIterator, cast
 
+import numpy as np
+
 from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
@@ -33,7 +35,7 @@ class IndexDailyPriceInitTask(BaseCollectTask):
             4）相邻两次读取指数日线行情之间暂停5秒。
         """
 
-        ts_codes = params.get("ts_codes", params.get("index_codes", None))
+        ts_codes = params.get("ts_codes", None)
         if ts_codes == None or ts_codes == "":
             raise ValueError("ts_codes参数不能为空")
 
@@ -57,11 +59,14 @@ class IndexDailyPriceInitTask(BaseCollectTask):
             # 交易量单位为手，转换为股
             if 'vol' in index_daily.columns:
                 index_daily['vol'] = index_daily['vol'] * 100
+            
+            index_daily = index_daily.replace([np.inf, -np.inf], np.nan)
+            index_daily = index_daily.astype(object).where(index_daily.notnull(), None)
 
             yield cast(list[dict[str, Any]], index_daily.rename(columns=str).to_dict("records"))
 
             if index < len(ts_code_list) - 1:
-                await asyncio.sleep(5)
+                await asyncio.sleep(2)
 
 
 async def index_daily_price_init_handler(request: TaskRunRequest) -> TaskRunResult:

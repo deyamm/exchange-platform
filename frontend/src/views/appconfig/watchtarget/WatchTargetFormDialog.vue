@@ -110,10 +110,10 @@ const groupCodeText = computed({
                 ? `${props.lockedGroup.groupName}（${props.lockedGroup.groupCode}）`
                 : props.lockedGroup.groupCode;
         }
-        return normalizeGroupCodes(form.value.targetGroups)[0] || '';
+        return normalizeGroupCodes(form.value.groupCodes)[0] || '';
     },
     set(value: string) {
-        form.value.targetGroups = value?.trim() ? [value.trim()] : [];
+        form.value.groupCodes = value?.trim() ? [value.trim()] : [];
     },
 });
 
@@ -124,7 +124,7 @@ const rules: FormRules = {
         {
             validator: (_rule, _value, callback) => {
                 applyLockedGroup();
-                if (normalizeGroupCodes(form.value.targetGroups).length > 0) {
+                if (normalizeGroupCodes(form.value.groupCodes).length > 0) {
                     callback();
                 } else {
                     callback(new Error('请设置分组编码'));
@@ -140,7 +140,7 @@ watch(
     (visible) => {
         if (visible) {
             Object.assign(form.value, createDefaultWatchTarget(), props.formData || {});
-            form.value.targetGroups = normalizeGroupCodes(form.value.targetGroups);
+            form.value.groupCodes = normalizeGroupCodes(form.value.groupCodes);
             applyLockedGroup();
         }
     },
@@ -162,15 +162,15 @@ function normalizeGroupCodes(groups?: Array<string | TargetGroup>) {
 
 function applyLockedGroup() {
     if (!lockedGroupCode.value) {
-        form.value.targetGroups = normalizeGroupCodes(form.value.targetGroups);
+        form.value.groupCodes = normalizeGroupCodes(form.value.groupCodes);
         return;
     }
 
-    const codes = normalizeGroupCodes(form.value.targetGroups);
+    const codes = normalizeGroupCodes(form.value.groupCodes);
     if (!codes.includes(lockedGroupCode.value)) {
         codes.unshift(lockedGroupCode.value);
     }
-    form.value.targetGroups = codes;
+    form.value.groupCodes = codes;
 }
 
 function handleClose() {

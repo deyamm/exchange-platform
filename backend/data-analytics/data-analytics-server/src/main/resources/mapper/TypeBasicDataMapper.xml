@@ -3,7 +3,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.exchange.analytics.mapper.TypeBasicDataMapper">
+<mapper namespace="com.exchange.platform.analytics.mapper.TypeBasicDataMapper">
 
     <select id="getIndexBasic" resultType="java.util.HashMap">
 

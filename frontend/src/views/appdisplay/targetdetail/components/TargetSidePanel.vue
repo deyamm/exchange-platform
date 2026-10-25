@@ -80,16 +80,16 @@
             <div v-if="relatedTargets?.length" class="related-list">
                 <div
                     v-for="item in relatedTargets"
-                    :key="`${item.relationType}-${item.targetCode}`"
+                    :key="`${item.relationType}-${item.fullSymbol}`"
                     class="related-item"
-                    @click="$emit('select-target', item.targetCode)"
+                    @click="$emit('select-target', item.fullSymbol)"
                 >
                     <div>
-                        <div class="related-name">{{ item.targetName }}</div>
-                        <div class="related-code">{{ item.targetCode }} · {{ item.relationName }}</div>
+                        <div class="related-name">{{ item.name }}</div>
+                        <div class="related-code">{{ item.fullSymbol }} · {{ item.relationName }}</div>
                     </div>
-                    <div :class="signedClass(item.changePercent)">
-                        {{ formatPercent(item.changePercent, 2, true) }}
+                    <div :class="signedClass(item.chgPct)">
+                        {{ formatPercent(item.chgPct, 2, true) }}
                     </div>
                 </div>
             </div>
@@ -99,12 +99,13 @@
 </template>
 
 <script setup lang="ts">
-import type { AlertRule, RelatedTarget, TargetEvent, TargetWatchInfo } from '/@/types/targetdetail/targetDetailCenter'
-import { formatDateTime, formatPercent, signedClass } from '../utils/targetDetailFormat'
+import type { AlertRule, RelatedTarget, TargetEvent, TargetWatchInfo } from '/@/types/targetdetail/targetDetailType'
+import { formatDateTime, formatPercent, signedClass } from '/@/utils/marketUtils'
 
-defineEmits<{
-    'create-alert': []
-    'select-target': [targetCode: string]
+
+const emits = defineEmits<{
+    (event: 'create-alert'): void
+    (event: 'select-target', targetCode: string): void
 }>()
 
 defineProps<{
@@ -114,22 +115,23 @@ defineProps<{
     relatedTargets: RelatedTarget[]
 }>()
 
-function severityType(severity: string): '' | 'success' | 'warning' | 'danger' | 'info' {
+function severityType(severity: string | undefined | null): '' | 'success' | 'warning' | 'danger' | 'info' {
     const map: Record<string, '' | 'success' | 'warning' | 'danger' | 'info'> = {
         LOW: 'success',
         MEDIUM: 'warning',
         HIGH: 'danger'
     }
-    return map[severity] || 'info'
+    return severity ? map[severity] : 'info'
 }
 
-function severityText(severity: string): string {
+function severityText(severity: string | undefined | null): string {
     const map: Record<string, string> = {
         LOW: '低',
         MEDIUM: '中',
         HIGH: '高'
     }
-    return map[severity] || severity
+    
+    return severity ? map[severity] : '未知'
 }
 </script>
 

@@ -3,12 +3,12 @@
         <el-card v-for="item in sortedCards" :key="item.key" class="metric-card" shadow="never">
             <div class="metric-title-row">
                 <span class="metric-title">{{ item.title }}</span>
-                <el-tag v-if="item.status" size="small" :type="statusTagType(item.status)">
-                    {{ statusText(item.status) }}
+                <el-tag v-if="item.status" size="small" :type="statusTagType(item.status || '')">
+                    {{ statusText(item.status || '') }}
                 </el-tag>
             </div>
 
-            <div class="metric-value" :class="trendClass(item.trend)">
+            <div class="metric-value" :class="trendClass(item.trend as MetricTrend)">
                 {{ item.displayValue || item.value }}
                 <span v-if="item.unit && !item.displayValue" class="metric-unit">{{ item.unit }}</span>
             </div>
@@ -21,8 +21,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MetricCard, MetricTrend } from '/@/types/targetdetail/targetDetailCenter'
-import { statusTagType } from '../utils/targetDetailFormat'
+import type { MetricCard } from '/@/types/marketoverview/view'
+import { statusTagType } from '/@/utils/marketUtils'
+import { MetricTrend } from '/@/types/marketoverview/constants';
 
 const props = defineProps<{
     cards: MetricCard[]

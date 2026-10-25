@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @MapperScan("com.exchange.platform.collection.mapper")
-@EnableScheduling
+// @EnableScheduling
 public class DataCollectionApplication {
     public static void main(String[] args) {
         SpringApplication.run(DataCollectionApplication.class, args);

@@ -1,4 +1,5 @@
 import { ParamField } from "../types/collectiontask/view";
+import { TriggerType } from "../types/execution/constants";
 import type { SelectOption } from "/@/types/common";
 import type { DataTopic } from "/@/types/datatopic/entity";
 
@@ -54,7 +55,7 @@ export function generateRequestId(): string {
     return `${prefix}-${Date.now()}-${random.slice(0, 10)}`
 }
 
-export function resolveTokenValue(dataSource: string, triggerType: 'SCHEDULED' | 'MANUAL', token: 'today' | 'tomorrow' | 'fireDate' | 'now' | 'fireTime'): string {
+export function resolveTokenValue(dataSource: string, triggerType: TriggerType, token: 'today' | 'tomorrow' | 'fireDate' | 'now' | 'fireTime'): string {
     // 获取采集任务的数据源，默认为default，供token解析使用
     if (triggerType === 'SCHEDULED') {
         return `{${dataSource}:${token}}`

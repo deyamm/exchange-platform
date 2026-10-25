@@ -51,16 +51,17 @@ public class CollectionTaskController {
     public ApiResponse<PageResult<TaskTemplateView>> queryTaskList(
         @RequestParam(required = false) String taskCode,
         @RequestParam(required = false) String taskName,
+        @RequestParam(required = false) String dataTopicCodePrefix,
         @RequestParam(defaultValue = "1")  Integer pageNo,
         @RequestParam(defaultValue = "20") Integer pageSize,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
-        log.info("[{}] [Controller] queryTaskList taskCode={}, taskName={}, pageNo={}, pageSize={}",
-                requestId, taskCode, taskName, pageNo, pageSize);
+        log.info("[{}] [Controller] queryTaskList taskCode={}, taskName={}, dataTopicCodePrefix={}, pageNo={}, pageSize={}",
+                requestId, taskCode, taskName, dataTopicCodePrefix, pageNo, pageSize);
         
         PageResult<TaskTemplateView> pageResult = taskTemplateService.queryTaskTemplates(
-            taskCode, taskName, pageNo, pageSize
+            taskCode, taskName, dataTopicCodePrefix, pageNo, pageSize
         );
         
         return ApiResponse.success(pageResult, requestId);

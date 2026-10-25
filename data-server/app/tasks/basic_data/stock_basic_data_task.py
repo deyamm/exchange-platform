@@ -70,7 +70,7 @@ def register_stock_basic_data_task():
                     field_code="symbol",
                     field_name="股票代码",
                     field_type="STRING",
-                    required=False,
+                    required=True,
                     unique_key=False,
                     sort_no=2,
                     field_desc="股票代码，不包含交易所后缀"

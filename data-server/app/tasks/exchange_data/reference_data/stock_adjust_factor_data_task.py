@@ -31,9 +31,8 @@ class StockAdjustFactorDataTask(BaseCollectTask):
             1）传入交易日期，获取该交易日所有股票的复权因子数据，此时ts_code、start_date和end_date不需要传入；
             2）传入股票代码、开始日期和结束日期，获取指定股票在该日期范围内的复权因子数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定股票的所有历史复权因子数据。
         '''
-
         trade_date = params.get("trade_date", None)
-        if trade_date != None:
+        if trade_date != None and trade_date != '':
             stock_adj_factor = await self.ts.adj_factor(trade_date=trade_date)
         else:
             ts_code = params.get("ts_code", None)
@@ -42,6 +41,9 @@ class StockAdjustFactorDataTask(BaseCollectTask):
             start_date = params.get("start_date", '')
             end_date = params.get("end_date", '')
             stock_adj_factor = await self.ts.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            
+        # 将stock_adj_factor按日期升序排序，方便后续处理
+        stock_adj_factor = stock_adj_factor.sort_values(by='trade_date')
 
         return cast(list[dict[str, Any]], stock_adj_factor.rename(columns=str).to_dict("records"))
 

@@ -100,23 +100,23 @@ def normalize_rows(raw_rows: list[dict[str, Any]], column_mappings: list[Storage
             continue
         
         # 唯一键检查
-        if unique_fields:
-            unique_key = tuple(normalized_row.get(field) for field in unique_fields)
+        # if unique_fields:
+        #     unique_key = tuple(normalized_row.get(field) for field in unique_fields)
 
-            if unique_key in seen_unique_keys:
-                problems.append(
-                    ProblemRecord(
-                        problem_type="NORMALIZE",
-                        problem_message=f"批次内唯一键重复，首次出现行号: {seen_unique_keys[unique_key]}",
-                        sample_data_json={
-                            "rowNo": row_no,
-                            "field": ",".join(unique_fields),
-                            "rawData": raw_row,
-                        },
-                    )
-                )
-            else:
-                seen_unique_keys[unique_key] = row_no
+        #     if unique_key in seen_unique_keys:
+        #         problems.append(
+        #             ProblemRecord(
+        #                 problem_type="NORMALIZE",
+        #                 problem_message=f"批次内唯一键重复，首次出现行号: {seen_unique_keys[unique_key]}",
+        #                 sample_data_json={
+        #                     "rowNo": row_no,
+        #                     "field": ",".join(unique_fields),
+        #                     "rawData": raw_row,
+        #                 },
+        #             )
+        #         )
+        #     else:
+        #         seen_unique_keys[unique_key] = row_no
 
         # 这里将重复的唯一键行也加入 normalized_rows，具体是否入库由后续清洗规则决定
         normalized_rows.append(normalized_row)

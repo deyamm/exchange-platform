@@ -7,20 +7,10 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.db import get_engine_by_schema
 from app.schemas.collection_task.task_template import StorageColumnMapping, StorageMapping
+from app.utils.db_utils import quote_identifier
 
-
-IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 logger = logging.getLogger(__name__)
-
-def quote_identifier(name: str) -> str:
-    """
-    动态 schema/table/column 必须严格校验，禁止直接拼接未校验输入。
-    """
-    if not IDENTIFIER_RE.match(name):
-        raise ValueError(f"非法数据库标识符: {name}")
-    return f'`{name}`'  # mysql使用反引号作为标识符引用符
-
 
 async def write_rows(mapping: StorageMapping, columns: list[StorageColumnMapping], rows: list[dict[str, Any]]) -> int:
     if not rows:

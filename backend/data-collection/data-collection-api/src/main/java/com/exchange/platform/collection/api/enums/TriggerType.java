@@ -5,7 +5,8 @@ import com.baomidou.mybatisplus.annotation.IEnum;
 public enum TriggerType implements IEnum<Integer> {
     MANUAL(0, "手动触发"),
     SCHEDULED(1, "定时触发"),
-    EVENT(2, "事件触发");
+    BIZ_TABLE(2, "业务表触发"),
+    EVENT(3, "事件触发");
 
     private final int code;
     private final String description;

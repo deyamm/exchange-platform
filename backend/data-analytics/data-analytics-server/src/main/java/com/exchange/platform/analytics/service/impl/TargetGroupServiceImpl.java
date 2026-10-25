@@ -45,6 +45,7 @@ public class TargetGroupServiceImpl extends ServiceImpl<TargetGroupMapper, Targe
             .eq(status != null, TargetGroup::getStatus, status);
 
         Page<TargetGroup> page = this.page(new Page<>(safePageNo, safePageSize), wrapper);
+        log.info("[Service] getTargetGroupList query executed, total records={}", page.getTotal());
         List<TargetGroupView> viewList = page.getRecords().stream()
             .map(TargetGroupConverter::toTargetGroupView)
             .collect(Collectors.toList());

@@ -186,7 +186,7 @@ class TuShareProviderAsync:
     
     async def stock_basic(self) -> pd.DataFrame:
         """股票基本信息"""
-        return settings.TU_PRO.stock_basic()
+        return settings.TU_PRO.stock_basic(fields=["ts_code", "symbol", "name", "area", "industry", "cnspell", "market", "list_date", "act_name", "act_ent_type", "fullname", "enname", "exchange", "curr_type", "list_status", "delist_date", "is_hs"])
     
     async def index_basic(self, market: str = '') -> pd.DataFrame:
         """指数基本信息"""
@@ -211,6 +211,30 @@ class TuShareProviderAsync:
     async def adj_factor(self, ts_code: str = '', trade_date: str = '', start_date: str = '', end_date: str = '') -> pd.DataFrame:
         """股票复权因子数据"""
         return settings.TU_PRO.adj_factor(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
+    
+    async def balancesheet(self, ts_code: str = '', ann_date: str='', start_date: str='', end_date: str='') -> pd.DataFrame:
+        """个股资产负债表数据，季度数据，传入公告日期，获取特征公告期的资产负债表数据，或者只传入股票代码，获取该股票所有公告期的资产负债表数据"""
+        return settings.TU_PRO.balancesheet(ts_code=ts_code, ann_date=ann_date, start_date=start_date, end_date=end_date)
+    
+    async def cashflow(self, ts_code: str = '', ann_date: str='', start_date: str='', end_date: str='') -> pd.DataFrame:
+        """个股现金流量表数据，季度数据，传入公告日期，获取特征公告期的现金流量表数据，或者只传入股票代码，获取该股票所有公告期的现金流量表数据"""
+        return settings.TU_PRO.cashflow(ts_code=ts_code, ann_date=ann_date, start_date=start_date, end_date=end_date)
+    
+    async def income(self, ts_code: str = '', ann_date: str='', start_date: str='', end_date: str='') -> pd.DataFrame:
+        """个股利润表数据，季度数据，传入公告日期，获取特征公告期的利润表数据，或者只传入股票代码，获取该股票所有公告期的利润表数据"""
+        return settings.TU_PRO.income(ts_code=ts_code, ann_date=ann_date, start_date=start_date, end_date=end_date)
+
+    async def fina_indicator(self, ts_code: str = '', ann_date: str='', start_date: str='', end_date: str='') -> pd.DataFrame:
+        """个股财务指标数据，季度数据，传入公告日期，获取特征公告期的财务指标数据，或者只传入股票代码，获取该股票所有公告期的财务指标数据，此处update_flag需要为1来过滤掉重复数据"""
+        return settings.TU_PRO.fina_indicator(ts_code=ts_code, ann_date=ann_date, start_date=start_date, end_date=end_date)
+    
+    async def index_classify(self, src: str = 'SW2021') -> pd.DataFrame:
+        """申万行业分类数据"""
+        return settings.TU_PRO.index_classify(src=src)
+    
+    async def index_member_all(self, l3_code: str = '', is_new: str = 'Y') -> pd.DataFrame:
+        """申万行业成分构成（分级）数据"""
+        return settings.TU_PRO.index_member_all(l3_code=l3_code, is_new=is_new)
     
 
 ts_provider = TuShareProviderAsync()

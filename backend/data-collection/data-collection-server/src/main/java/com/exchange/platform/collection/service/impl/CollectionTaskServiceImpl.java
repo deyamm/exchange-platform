@@ -84,17 +84,21 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
     /**
      * 查询采集任务列表
      * 支持按任务编码、名称、数据主题、数据类型、配置状态和启停状态筛选，结果分页返回。
+     * 新添加按照数据主题前缀筛选的功能，实现页面中以数据主题树的形式展示采集任务
+     * 当传入的dataTopicCodePrefix为"noConfig"时，返回dataTopicCode为空的任务列表，表示未配置数据主题的任务，方便页面中展示未配置数据主题的任务
+     * 其他情况下，按照dataTopicCodePrefix进行前缀匹配筛选，返回对应数据主题下的任务列表
      */
     @Override
     @Transactional(readOnly = true)
     public PageResult<TaskTemplateView> queryTaskTemplates(
         String taskCode,
         String taskName,
+        String dataTopicCodePrefix,
         Integer pageNo,
         Integer pageSize
     ) {
-        log.info("[Service] queryTaskTemplates taskCode={}, taskName={}, pageNo={}, pageSize={}",
-                taskCode, taskName, pageNo, pageSize);
+        log.info("[Service] queryTaskTemplates taskCode={}, taskName={}, dataTopicCodePrefix={}, pageNo={}, pageSize={}",
+                taskCode, taskName, dataTopicCodePrefix, pageNo, pageSize);
         
         int safePageNo = (pageNo == null || pageNo < 1) ? 1 : pageNo;
         int safePageSize = (pageSize == null || pageSize < 1) ? 20 : Math.min(200, pageSize);
@@ -103,6 +107,14 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
             .like(StringUtils.hasText(taskCode), TaskTemplate::getTaskCode, taskCode)
             .like(StringUtils.hasText(taskName), TaskTemplate::getTaskName, taskName)
             .orderByDesc(TaskTemplate::getUpdatedAt);
+        
+        if (StringUtils.hasText(dataTopicCodePrefix)) {
+            if ("noConfig".equalsIgnoreCase(dataTopicCodePrefix)) {
+                queryWrapper.isNull(TaskTemplate::getDataTopicCode);
+            } else {
+                queryWrapper.likeRight(TaskTemplate::getDataTopicCode, dataTopicCodePrefix);
+            }
+        }
         
         // 分页查询TaskTemplate
         Page<TaskTemplate> page = this.page(new Page<>(safePageNo, safePageSize), queryWrapper);
@@ -172,14 +184,27 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
         // taskTemplateVersionMapper.delete(new LambdaQueryWrapper<TaskTemplateVersion>()
         //     .eq(TaskTemplateVersion::getTaskCode, taskCode)
         // );
+
+        // 如果有相关的配置，则删除相关的配置和存储映射信息
+        List<TaskConfig> configs = taskConfigMapper.selectList(new LambdaQueryWrapper<TaskConfig>()
+            .eq(TaskConfig::getTaskCode, taskCode)
+        );
+        if (configs != null && !configs.isEmpty()) {
+            // 删除相关的配置和存储映射信息
+            configs.forEach(config -> {
+                this.deleteTaskConfig(config.getTaskConfigCode());
+            });
+        }
+
         // 删除任务模板
         this.removeById(template.getId());
-        
+
         log.info("[Service] deleteTaskTemplate completed for taskCode={}", taskCode);
     }
 
     /**
      * 新增或更新采集任务配置
+     * 同时在task_template中记录当前的dataTopicCode和dataTypeCode，方便在列表页展示和筛选
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -232,6 +257,15 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
         } else {
             taskConfigMapper.updateById(config);
         }
+
+        // 更新task_template中的dataTopicCode和dataTypeCode
+        this.update(
+            new TaskTemplate()
+                .setDataTopicCode(request.dataTopicCode())
+                .setDataTypeCode(request.dataTypeCode()), 
+            new LambdaQueryWrapper<TaskTemplate>()
+                .eq(TaskTemplate::getTaskCode, request.taskCode())
+        );
         
         log.info("[Service] saveTaskConfig done, isCreate: {}, saved config: {}", isCreate, config);
         return TaskTemplateConverter.toConfigView(config);
@@ -244,6 +278,7 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
     @Transactional(rollbackFor = Exception.class)
     public void deleteTaskConfig(String taskConfigCode) {
         log.info("[Service] deleteTaskConfig taskConfigCode={}", taskConfigCode);
+
         // 查询现有配置，若不存在则直接返回
         TaskConfig config = taskConfigMapper.selectOne(new LambdaQueryWrapper<TaskConfig>()
             .eq(TaskConfig::getTaskConfigCode, taskConfigCode)
@@ -262,6 +297,13 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
                 .eq(StorageMapping::getStorageMappingCode, config.getStorageMappingCode())
             );
         }
+        // 将对应的task_template中的dataTopicCode和dataTypeCode清空
+        this.update(
+            new TaskTemplate().setDataTopicCode(null).setDataTypeCode(null), 
+            new LambdaQueryWrapper<TaskTemplate>()
+                .eq(TaskTemplate::getTaskCode, config.getTaskCode())
+        );
+        
         // 删除任务配置
         taskConfigMapper.deleteById(config.getId());
         log.info("[Service] deleteTaskConfig completed for taskConfigCode={}", taskConfigCode);
@@ -490,7 +532,8 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
                 item.physicalColumnType(),
                 item.required() == null ? null : !item.required(),
                 item.defaultValue(),
-                item.uniqueKey()
+                item.uniqueKey(),
+                item.sourceFieldName()
             )).toList()
         );
 

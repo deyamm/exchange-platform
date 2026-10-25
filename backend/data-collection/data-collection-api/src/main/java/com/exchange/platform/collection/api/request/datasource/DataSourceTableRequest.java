@@ -20,6 +20,7 @@ public record DataSourceTableRequest(
         @NotBlank String columnType,
         Boolean nullable,
         String defaultValue,
-        Boolean uniqueKey
+        Boolean uniqueKey,
+        String comment
     ) {}
 }

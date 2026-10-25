@@ -312,17 +312,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { StorageColumnMapping, TaskDetail, TaskTemplate } from '/@/types/collectiontask/entity'
 import type { DataSource, DataSourceTable } from '/@/types/datasource/entity'
 import type { ConfigStatus, MappingStatus, StorageMappingDraftRequest } from '/@/types/collectiontask/constants'
-import {
-    CONFIG_STATUS_TEXT, CONFIG_STATUS_TAG_TYPE, MYSQL_BASE_TYPE_OPTIONS_BY_FIELD_TYPE,
-    MYSQL_LENGTH_OPTIONS_BY_BASE_TYPE, MAPPING_STATUS_TEXT, MAPPING_STATUS_TAG_TYPE, StorageMappingForm, ColumnMappingForm,
-    ParamField
-} from '/@/types/collectiontask/view'
+import { CONFIG_STATUS_TEXT, CONFIG_STATUS_TAG_TYPE, MAPPING_STATUS_TEXT, MAPPING_STATUS_TAG_TYPE, StorageMappingForm, ColumnMappingForm, ParamField } from '/@/types/collectiontask/view'
 import { getTaskDetail, saveStorageMappingDraft, deleteTaskConfig, confirmStorageMapping, getStorageMapping } from '/@/api/collectiontask/collectionTaskApi'
 import { queryDataTypeFields } from '/@/api/datatype/dataTypeApi'
 import { listDataSources, listDataSourceTables } from '/@/api/datasource/dataSourceApi'
 import TaskConfigFormDialog from './TaskConfigFormDialog.vue'
 import { DataTypeField } from '/@/types/datatype/entity'
 import { parseParamFields } from '/@/utils/utils'
+import { useMysqlColumnType } from '/@/utils/useMysqlColumnType'
+
 
 const route = useRoute()
 const taskCode = route.params.taskCode as string
@@ -339,6 +337,8 @@ const dataSourceTables = ref<DataSourceTable[]>([])
 // 当前是否有已保存的映射草稿，只有保存过草稿后才允许确认映射，避免直接确认未保存的映射配置
 const hasDraft = ref(false)
 
+type FillMappingMode = 'FULL' | 'PHYSICAL_COLUMNS_ONLY'
+
 const mappingForm = reactive<StorageMappingForm>({
     storageMappingCode: '',
     taskConfigCode: '',
@@ -349,6 +349,17 @@ const mappingForm = reactive<StorageMappingForm>({
     mappingStatus: 'DRAFT', 
     confirmRemark: '',
     columns: []
+})
+
+const {
+    getMysqlBaseTypeOptions,
+    getMysqlColumnTypeLengthOptions,
+    hasMysqlColumnTypeLength,
+    parseMysqlColumnType,
+    syncPhysicalColumnType,
+    handlePhysicalColumnBaseTypeChange
+} = useMysqlColumnType({
+    onChange: markNeedSave
 })
 
 const mappingLocked = computed(() => mappingForm.mappingStatus === 'CONFIRMED')
@@ -421,36 +432,64 @@ async function handleConfigSaveSuccess(): Promise<void> {
 }
 
 /**
- * 自动填充映射表单数据：包括映射基础信息和字段级映射
- * 用于加载页面和重置映射时调用
- * 包含2种填充逻辑：
- * （1）使用已保存的映射草稿填充，没有草稿则会使用默认值来填充
- * （2）使用已确认的存储映射数据来覆盖草稿数据中的物理表字段映射信息，简化配置流程
+ * 自动填充映射表单数据
+ *
+ * mode = FULL：
+ * - 用于页面加载、保存草稿回显
+ * - 完整填充映射基础信息和字段映射信息
+ *
+ * mode = PHYSICAL_COLUMNS_ONLY：
+ * - 用于根据物理表自动复用
+ * - 只复用物理字段相关信息
+ * - 不覆盖当前任务的 mappingStatus、storageMappingCode、taskConfigCode、任务返回字段选择等
  */
-function fillMappingForm(mapping = taskDetail.value?.storageMapping): void {
-    // 根据configCode自动生成mappingCode
-    mappingForm.storageMappingCode = mapping?.storageMappingCode || taskDetail.value?.config?.taskConfigCode + '_mapping' || ''
-    mappingForm.taskConfigCode = taskDetail.value?.config?.taskConfigCode || ''
-    mappingForm.dataSourceCode = mapping?.dataSourceCode || ''
-    mappingForm.physicalSchemaName = mapping?.physicalSchemaName || ''
-    mappingForm.physicalTableName = mapping?.physicalTableName || ''
-    mappingForm.writeStrategy = mapping?.writeStrategy || 'UPSERT'
-    mappingForm.mappingStatus = mapping?.mappingStatus || 'DRAFT'
-    mappingForm.confirmRemark = mapping?.confirmRemark || ''
+function fillMappingForm(
+    mapping = taskDetail.value?.storageMapping,
+    mode: FillMappingMode = 'FULL'
+): void {
+    const isPhysicalColumnsOnly = mode === 'PHYSICAL_COLUMNS_ONLY'
 
-    hasDraft.value = Boolean(mapping?.storageMappingCode)
-    syncDataSourceInfo()
+    if (!isPhysicalColumnsOnly) {
+        // 根据configCode自动生成mappingCode
+        mappingForm.storageMappingCode = mapping?.storageMappingCode || taskDetail.value?.config?.taskConfigCode + '_mapping' || ''
+        mappingForm.taskConfigCode = taskDetail.value?.config?.taskConfigCode || ''
+        mappingForm.dataSourceCode = mapping?.dataSourceCode || ''
+        mappingForm.physicalSchemaName = mapping?.physicalSchemaName || ''
+        mappingForm.physicalTableName = mapping?.physicalTableName || ''
+        mappingForm.writeStrategy = mapping?.writeStrategy || 'UPSERT'
+        mappingForm.mappingStatus = mapping?.mappingStatus || 'DRAFT'
+        mappingForm.confirmRemark = mapping?.confirmRemark || ''
 
-    // 构建数据类型字段到存储映射列的映射，方便后续生成表单数据时查找匹配的存储映射列
+        hasDraft.value = Boolean(mapping?.storageMappingCode)
+        syncDataSourceInfo()
+    }
+
+    // 当前表单已有字段，用于 PHYSICAL_COLUMNS_ONLY 模式下保留任务返回字段选择
+    const currentColumnMap = new Map(
+        mappingForm.columns.map((col) => [col.dataTypeFieldCode, col])
+    )
+
+    // 可复用映射字段
     const mappedColumnMap = new Map(
         mapping?.columns?.map((col) => [col.dataTypeFieldCode, col]) || []
     )
 
-    // mappingForm的columns根据数据类型字段生成，所以根据数据类型字段来初始化物理表区域的form
-    // 如果有已确认的映射则用映射数据覆盖默认值，没有则使用默认值，由于此时还未选择物理表，所以都为默认值或草稿值
     mappingForm.columns = datatypeFields.value.map((field) => {
-        return buildMappingColumn(field, mappedColumnMap.get(field.fieldCode))
+        const mappedColumn = mappedColumnMap.get(field.fieldCode)
+        const currentColumn = currentColumnMap.get(field.fieldCode)
+
+        return buildMappingColumn(
+            field,
+            mappedColumn,
+            isPhysicalColumnsOnly ? currentColumn : undefined
+        )
     })
+
+    if (isPhysicalColumnsOnly) {
+        // 只复用物理字段时，当前任务仍然是草稿编辑状态
+        mappingForm.mappingStatus = 'DRAFT'
+        hasDraft.value = false
+    }
 }
 
 /**
@@ -488,80 +527,13 @@ function handleDataSourceChange(): void {
 // 物理表变化：标记待保存、同步物理表名称、尝试自动填充映射字段（如果有匹配的已确认映射）
 async function handlePhysicalTableNameChange(): Promise<void> {
 
+    markNeedSave()
+
     if (!mappingForm.physicalSchemaName || !mappingForm.physicalTableName) {
         return
     }
 
     await autoFillFromStorageMapping()
-}
-
-// 根据数据类型字段类型生成mysql字段类型选项，默认字符串类型为VARCHAR，用于下拉框
-function getMysqlBaseTypeOptions(row: any): any[] {
-    return MYSQL_BASE_TYPE_OPTIONS_BY_FIELD_TYPE[row.dataTypeFieldType] || [
-        { label: 'VARCHAR（默认字符串）', value: 'VARCHAR' }
-    ]
-}
-
-// 根据mysql字段基础类型生成长度/精度选项，默认字符串长度为255，decimal类型长度为18,6，用于下拉框
-function getMysqlColumnTypeLengthOptions(row: any): any[] {
-    return MYSQL_LENGTH_OPTIONS_BY_BASE_TYPE[row.physicalColumnBaseType] || []
-}
-
-// 判断当前mysql字段类型是否有长度/精度选项
-function hasMysqlColumnTypeLength(row: any): boolean {
-    return getMysqlColumnTypeLengthOptions(row).length > 0
-}
-
-// 根据mysql字段基础类型获取默认长度/精度，如字符串默认255，decimal默认18,6，如果没有则返回空字符串
-function getDefaultMysqlColumnTypeLength(baseType: string): string {
-    const lengthOptions = MYSQL_LENGTH_OPTIONS_BY_BASE_TYPE[baseType]
-    if (!lengthOptions?.length) {
-        return ''
-    }
-    return lengthOptions[0].value
-}
-
-// 根据基础类型和长度生成完整的mysql字段类型，如VARCHAR(255)或DECIMAL(18,6)，如果没有长度则返回基础类型
-function buildMysqlColumnType(baseType: string, length: string): string {
-    if (!baseType) {
-        return ''
-    }
-    if (!length) {
-        return baseType
-    }
-    return `${baseType}(${length})`
-}
-
-/**
- * 根据提供的columnType字符串解析出基础类型和长度，并构建完整的mysql字段类型字符串。
- * 如果columnType无效或未提供，则使用fallbackBaseType和默认长度生成完整类型
- * @param columnType 
- * @param fallbackBaseType 
- */
-function parseMysqlColumnType(columnType: string | undefined, fallbackBaseType: string): {
-    baseType: string
-    length: string
-    fullType: string
-} {
-    if (!columnType) {
-        const fallbackLength = getDefaultMysqlColumnTypeLength(fallbackBaseType)
-        return {
-            baseType: fallbackBaseType,
-            length: fallbackLength,
-            fullType: buildMysqlColumnType(fallbackBaseType, fallbackLength)
-        }
-    }
-
-    const normalized = columnType.trim()
-    const matched = normalized.match(/^([A-Za-z]+)\s*(?:\((.*)\))?$/)
-    const parsedBaseType = matched?.[1]?.toUpperCase() || fallbackBaseType
-    const parsedLength = matched?.[2]?.trim() || getDefaultMysqlColumnTypeLength(parsedBaseType)
-
-    return {
-        baseType: parsedBaseType,
-        length: parsedLength,
-        fullType: buildMysqlColumnType(parsedBaseType, parsedLength)
-    }
 }
 
 /**
@@ -580,7 +552,7 @@ async function autoFillFromStorageMapping(): Promise<void> {
                 ElMessage.warning('所选物理表的存储映射字段数量与当前数据类型字段数量不匹配，无法自动填充映射字段，请手动配置')
                 return
             }
-            fillMappingForm(mapping)
+            fillMappingForm(mapping, 'PHYSICAL_COLUMNS_ONLY')
             markNeedSave()
             ElMessage.success('已根据物理表自动填充映射字段')
         }
@@ -588,29 +560,6 @@ async function autoFillFromStorageMapping(): Promise<void> {
         ElMessage.warning('未查到可复用的存储映射，保留当前映射配置')
         console.warn(error)
     }
-}
-
-/**
- * 根据已选择的物理字段基础类型和长度，生成完整的物理字段类型字符串，并同步到当前行数据中
- * @param row 
- */
-function syncPhysicalColumnType(row: any): void {
-    row.physicalColumnType = buildMysqlColumnType(
-        row.physicalColumnBaseType,
-        row.physicalColumnTypeLength
-    )
-    markNeedSave()
-}
-
-/**
- * 根据已选择的物理字段基础类型，获取默认的长度/精度值，并同步到当前行数据中，同时更新完整的物理字段类型字符串
- * @param row 
- */
-function handlePhysicalColumnBaseTypeChange(row: any): void {
-    row.physicalColumnTypeLength = getDefaultMysqlColumnTypeLength(
-        row.physicalColumnBaseType
-    )
-    syncPhysicalColumnType(row)
 }
 
 /**
@@ -732,15 +681,20 @@ function handleSelectChange(sourceFieldCode: string, row: ColumnMappingForm): vo
 }
 
 /**
- * 根据DataType字段，以及已有的已经映射的StorageColumnMapping，生成用于表单展示的映射列数据
- * 如果没有storageColumnMapping则用DataType字段的默认值生成映射列数据
- * @param field 
- * @param mappedColumn 
+ * 根据DataType字段，以及已有的StorageColumnMapping，生成用于表单展示的映射列数据
+ *
+ * currentColumn 用于只复用物理字段时，保留当前页面已有的任务返回字段选择
  */
-function buildMappingColumn(field: DataTypeField, mappedColumn?: StorageColumnMapping) {
-    const baseTypeOptions = MYSQL_BASE_TYPE_OPTIONS_BY_FIELD_TYPE[field.fieldType]
+function buildMappingColumn(
+    field: DataTypeField,
+    mappedColumn?: StorageColumnMapping,
+    currentColumn?: ColumnMappingForm
+): ColumnMappingForm {
 
-    
+    const baseTypeOptions = getMysqlBaseTypeOptions({
+        dataTypeFieldType: field.fieldType
+    })
+
     const parsedType = parseMysqlColumnType(
         mappedColumn?.physicalColumnType,
         baseTypeOptions?.[0]?.value || 'VARCHAR'
@@ -750,11 +704,15 @@ function buildMappingColumn(field: DataTypeField, mappedColumn?: StorageColumnMa
         dataTypeFieldCode: field.fieldCode || '',
         dataTypeFieldName: field.fieldName || '',
         dataTypeFieldType: field.fieldType || '',
-        required: mappedColumn?.required ?? field.required ?? false,
-        uniqueKey: mappedColumn?.uniqueKey ?? field.uniqueKey ?? false,
-        sourceFieldCode: mappedColumn?.sourceFieldCode || '',
-        sourceFieldName: mappedColumn?.sourceFieldName || '',
-        sourceFieldType: mappedColumn?.sourceFieldType || '',
+        required: field.required ?? false,
+        uniqueKey: field.uniqueKey ?? false,
+
+        // 如果传了 currentColumn，说明是只复用物理字段，需要保留当前任务返回字段选择
+        sourceFieldCode: currentColumn?.sourceFieldCode ?? mappedColumn?.sourceFieldCode ?? '',
+        sourceFieldName: currentColumn?.sourceFieldName ?? mappedColumn?.sourceFieldName ?? '',
+        sourceFieldType: currentColumn?.sourceFieldType ?? mappedColumn?.sourceFieldType ?? '',
+
+        // 物理字段信息优先使用可复用映射
         physicalColumnName: mappedColumn?.physicalColumnName || field.fieldCode || '',
         physicalColumnBaseType: parsedType.baseType,
         physicalColumnTypeLength: parsedType.length,

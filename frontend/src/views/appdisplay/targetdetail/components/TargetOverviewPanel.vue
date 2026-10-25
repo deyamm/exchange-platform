@@ -4,11 +4,11 @@
             <div class="card-header">
                 <span class="card-title">综合分析结论</span>
                 <div class="header-tags">
-                    <el-tag :type="statusTagType(overview.overallView)">
-                        {{ overview.overallViewText || overallViewText(overview.overallView) }}
+                    <el-tag :type="statusTagType(overview.overallView || '')">
+                        {{ overview.overallViewText || overallViewText(overview.overallView || '') }}
                     </el-tag>
-                    <el-tag :type="statusTagType(overview.riskLevel)">
-                        风险：{{ riskLevelText(overview.riskLevel) }}
+                    <el-tag :type="statusTagType(overview.riskLevel || '')">
+                        风险：{{ riskLevelText(overview.riskLevel || '') }}
                     </el-tag>
                     <el-tag v-if="overview.valuationStatus" type="info">
                         估值：{{ valuationStatusText(overview.valuationStatus) }}
@@ -50,19 +50,19 @@
 
         <div v-if="overview.confidence !== undefined" class="confidence-row">
             <span>结论置信度</span>
-            <el-progress :percentage="Math.round(overview.confidence * 100)" :stroke-width="10" />
+            <el-progress :percentage="Math.round(overview.confidence? overview.confidence * 100 : 0)" :stroke-width="10" />
         </div>
     </el-card>
 </template>
 
 <script setup lang="ts">
-import type { TargetOverview } from '/@/types/targetdetail/targetDetailCenter'
+import type { TargetOverview } from '/@/types/targetdetail/targetDetailType'
 import {
     overallViewText,
     riskLevelText,
     statusTagType,
     valuationStatusText
-} from '../utils/targetDetailFormat'
+} from '/@/utils/marketUtils'
 
 defineProps<{
     overview: TargetOverview

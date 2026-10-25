@@ -74,8 +74,6 @@ export interface StorageMapping {
     storageMappingCode: string
     taskConfigCode?: string
     dataSourceCode?: string
-    dataTypeCode?: string
-    dataTypeVersionNo?: number
     physicalSchemaName?: string
     physicalTableName?: string
     writeStrategy?: string

@@ -1,45 +1,53 @@
 <template>
     <el-card class="main-tabs-card" shadow="never">
         <el-tabs v-model="activeTab" class="main-tabs">
-            <el-tab-pane label="行情走势" name="quote" v-if="detail.features?.quote !== false">
-                <QuoteChartTab :quote="detail.quote" :charts="detail.charts" :performance="detail.performance || []" />
-            </el-tab-pane>
-
-            <el-tab-pane label="估值分析" name="valuation" v-if="detail.features?.valuation !== false">
-                <ValuationTab :valuation="detail.valuation" />
-            </el-tab-pane>
-
-            <el-tab-pane label="财务摘要" name="financial" v-if="detail.features?.financial">
-                <FinancialTab :financial="detail.financial" />
-            </el-tab-pane>
-
-            <el-tab-pane label="资金流向" name="capitalFlow" v-if="detail.features?.capitalFlow !== false">
-                <CapitalFlowTab :capital-flow="detail.capitalFlow" />
-            </el-tab-pane>
-
-            <el-tab-pane label="成分/行业" name="industry">
-                <IndustryConstituentTab
-                    :target="detail.target"
-                    :industry="detail.industry"
-                    :constituents="detail.constituents"
-                    :fund-info="detail.fundInfo"
-                    :related-targets="detail.relatedTargets"
+            <!-- 行情详情：K线、区间表现、复权因子、行情明细。 -->
+            <el-tab-pane label="行情详情" name="quote" v-if="detail.quote !== null">
+                <QuoteDetailPage
+                    :quote="detail.quote"
+                    :charts="detail.charts || []"
+                    :performance="detail.performance || []"
+                    :quote-rows="detail.quoteRows || []"
                 />
             </el-tab-pane>
 
-            <el-tab-pane label="新闻公告" name="news" v-if="detail.features?.news !== false">
-                <NewsEventTab :events="detail.events" :news="detail.news" />
+            <!-- 估值详情：PE/PB/PS/股息率、市值股本、换手明细。 -->
+            <el-tab-pane label="估值详情" name="valuation" v-if="detail.valuation !== null">
+                <ValuationDetailPage
+                    :valuation="detail.valuation"
+                    :valuation-rows="detail.valuationRows || []"
+                    :valuation-detail="detail.valuationDetail"
+                />
             </el-tab-pane>
 
-            <el-tab-pane label="历史分析" name="history" v-if="detail.features?.analysisHistory !== false">
-                <AnalysisHistoryTab
-                    :records="historyRecords"
-                    :loading="historyLoading"
-                    :total="historyTotal"
-                    :page-no="historyPageNo"
-                    :page-size="historyPageSize"
-                    @query-change="$emit('history-query-change', $event)"
-                    @page-change="$emit('history-page-change', $event)"
+            <!-- 财务详情：利润表、资产负债表、现金流量表、财务指标四表。 -->
+            <el-tab-pane label="财务详情" name="financial" v-if="detail.financial !== null">
+                <FinancialDetailPage
+                    :financial="detail.financial || undefined"
+                    :financial-detail="detail.financialDetail"
+                />
+            </el-tab-pane>
+
+            <!-- 资金流向详情：仅使用 stock_moneyflow_daily 已定义字段，不展示未落库的北向/两融数据。 -->
+            <el-tab-pane label="资金流向详情" name="capitalFlow" v-if="detail.capitalFlow !== null">
+                <CapitalFlowDetailPage
+                    :capital-flow="detail.capitalFlow || undefined"
+                    :money-flow-rows="detail.moneyFlowRows || []"
+                    :quote-rows="detail.quoteRows || []"
+                />
+            </el-tab-pane>
+
+            <!-- 成分/行业详情：指数展示成分，股票展示行业与同业对比。 -->
+            <el-tab-pane label="行业详情" name="industry">
+                <ConstituentIndustryDetailPage
+                    :target="detail.target"
+                    :industry="detail.industry || undefined"
+                    :constituents="detail.constituents || undefined"
+                    :index-profile="detail.indexProfile"
+                    :stock-profile="detail.stockProfile"
+                    :industry-detail="detail.industryDetail"
+                    :constituent-rows="detail.constituentRows || []"
+                    :industry-peer-rows="detail.industryPeerRows || []"
                 />
             </el-tab-pane>
         </el-tabs>
@@ -48,31 +56,19 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { AnalysisHistoryQuery, AnalysisRecord, TargetDetailDTO } from '/@/types/targetdetail/targetDetailCenter'
-import QuoteChartTab from './tabs/QuoteChartTab.vue'
-import ValuationTab from './tabs/ValuationTab.vue'
-import FinancialTab from './tabs/FinancialTab.vue'
-import CapitalFlowTab from './tabs/CapitalFlowTab.vue'
-import IndustryConstituentTab from './tabs/IndustryConstituentTab.vue'
-import NewsEventTab from './tabs/NewsEventTab.vue'
-import AnalysisHistoryTab from './tabs/AnalysisHistoryTab.vue'
-
-
-const emits = defineEmits<{
-    (e: 'history-query-change', query: Partial<AnalysisHistoryQuery>): void
-    (e: 'history-page-change', pagination: { pageNo: number; pageSize: number }): void
-}>()
+import type { TargetDetail } from '/@/types/targetdetail/targetDetailType'
+import QuoteDetailPage from './details/QuoteDetailPage.vue'
+import ValuationDetailPage from './details/ValuationDetailPage.vue'
+import FinancialDetailPage from './details/FinancialDetailPage.vue'
+import CapitalFlowDetailPage from './details/CapitalFlowDetailPage.vue'
+import ConstituentIndustryDetailPage from './details/ConstituentIndustryDetailPage.vue'
 
 defineProps<{
-    detail: TargetDetailDTO
-    historyRecords: AnalysisRecord[]
-    historyLoading: boolean
-    historyTotal: number
-    historyPageNo: number
-    historyPageSize: number
+    detail: TargetDetail
 }>()
 
 const activeTab = ref('quote')
+
 </script>
 
 <style scoped>

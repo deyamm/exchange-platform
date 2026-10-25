@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # finance data schema
     FINANCE_DATA_URI: str = "mysql+aiomysql://root:qq16281091@localhost/type_finance_data?charset=utf8mb4"
 
+    # redis config
+    REDIS_URI: str = "redis://:qq16281091@localhost:6379/0"
+
     # tushare account
     TUSHARE_TOKEN: str = "92c6ece658c377bcc32995a68319cf01696e1266ed60be0ae0dd0947"
 

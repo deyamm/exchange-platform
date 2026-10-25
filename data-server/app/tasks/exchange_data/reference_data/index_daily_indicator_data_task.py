@@ -33,17 +33,25 @@ class IndexDailyIndicatorDataTask(BaseCollectTask):
             1）传入交易日期，获取该交易日所有大盘指数的每日指标数据，此时ts_code、start_date和end_date不需要传入；
             2）传入指数代码、开始日期和结束日期，获取指定大盘指数在该日期范围内的每日指标数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定大盘指数的所有历史每日指标数据（单次最多3000条）。
         '''
+        ts_codes = params.get("ts_codes", None)
+        if ts_codes == None or ts_codes == "":
+            raise ValueError("ts_codes参数不能为空")
+
+        if isinstance(ts_codes, str):
+            ts_code_list = [item.strip() for item in ts_codes.split(",") if item.strip()]
+        else:
+            ts_code_list = list(ts_codes)
+        
+        if len(ts_code_list) == 0:
+            raise ValueError("ts_codes参数不能为空")
 
         trade_date = params.get("trade_date", None)
         if trade_date != None:
-            index_daily_basic = await self.ts.index_daily_indicator(trade_date=trade_date)
+            index_daily_basic = await self.ts.index_daily_indicator(ts_code=ts_codes, trade_date=trade_date)
         else:
-            ts_code = params.get("ts_code", None)
-            if ts_code == None:
-                raise ValueError("ts_code和trade_date参数不能同时为空")
             start_date = params.get("start_date", '')
             end_date = params.get("end_date", '')
-            index_daily_basic = await self.ts.index_daily_indicator(ts_code=ts_code, start_date=start_date, end_date=end_date)
+            index_daily_basic = await self.ts.index_daily_indicator(ts_code=ts_codes, start_date=start_date, end_date=end_date)
         
         index_daily_basic = index_daily_basic.replace([np.inf, -np.inf], np.nan)
         index_daily_basic = index_daily_basic.astype(object).where(index_daily_basic.notnull(), None)
@@ -66,22 +74,24 @@ def register_index_daily_indicator_data_task():
         TaskTemplateInfo(
             task_code='index_daily_indicator_data',
             task_name='大盘指数每日指标数据采集',
-            task_desc="""采集大盘指数每日指标，包含两种场景：
-            1）传入交易日期，获取该交易日所有大盘指数的每日指标数据，此时ts_code、start_date和end_date不需要传入，如果传入了trade_date参数，ts_code、start_date和end_date将被忽略；
-            2）传入指数代码、开始日期和结束日期，获取指定大盘指数在该日期范围内的每日指标数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定大盘指数的所有历史每日指标数据（单次最多3000条）""",
+            task_desc="""采集指定指数列表每日指标，包含两种场景：
+            1）传入交易日期，获取该交易日指定指数列表的每日指标数据，此时start_date和end_date不需要传入，如果传入了trade_date参数，start_date和end_date将被忽略；
+            2）传入指数代码、开始日期和结束日期，获取指定指数列表在该日期范围内的每日指标数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定大盘指数的所有历史每日指标数据（单次最多3000条）
+            从参数ts_codes读取需要初始化的指数代码列表，多个指数代码用英文逗号分隔
+            注：不是每个指数都有，应该是大盘指数才有每日指标数据，采集前请确认指数代码是否正确且有每日指标数据""",
             handler_name='index_daily_indicator_data_handler',
             data_source='TUSHARE',
             asset_type='指数',
             biz_type='每日指标',
             params_schema=[
                 OutputField(
-                    field_code="ts_code",
-                    field_name="指数代码",
+                    field_code="ts_codes",
+                    field_name="指数代码列表",
                     field_type="STRING",
-                    required=False,
+                    required=True,
                     unique_key=False,
                     sort_no=1,
-                    field_desc="指数代码，需要包括后缀，选填，如果没有传入trade_date参数，则该参数必填，如000001.SH、399001.SZ等"
+                    field_desc="指数代码列表，需要采集的指数代码列表，需要包括后缀，选填，如果没有传入trade_date参数，则该参数必填，如000001.SH、399001.SZ等"
                 ),
                 OutputField(
                     field_code="trade_date",

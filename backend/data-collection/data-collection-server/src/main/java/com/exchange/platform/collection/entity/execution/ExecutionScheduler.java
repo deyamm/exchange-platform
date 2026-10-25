@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.exchange.platform.collection.api.enums.ScheduleStatus;
+import com.exchange.platform.collection.api.enums.TriggerType;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
@@ -32,6 +33,10 @@ public class ExecutionScheduler {
     @TableField("task_code")
     private String taskCode;
 
+    /** 触发类型 */
+    @TableField("trigger_type")
+    private TriggerType triggerType;
+
     /** Cron 表达式 */
     @TableField("cron_expression")
     private String cronExpression;
@@ -39,6 +44,22 @@ public class ExecutionScheduler {
     /** 时区 */
     @TableField("time_zone")
     private String timeZone;
+
+    /** 业务表数据源编号 */
+    @TableField("biz_data_source_code")
+    private String bizDataSourceCode;
+
+    /** 业务表模式 */
+    @TableField("biz_table_schema")
+    private String bizTableSchema;
+
+    /** 业务表名称 */
+    @TableField("biz_table_name")
+    private String bizTableName;
+
+    /** 业务表调度依据字段 */
+    @TableField("biz_schedule_column")
+    private String bizScheduleColumn;
 
     /** 调度状态 */
     @TableField("status")

@@ -114,19 +114,19 @@ public class DataTopicServiceImpl extends ServiceImpl<DataTopicMapper, DataTopic
             throw new BusinessException(4001, "saveOrUpdate参数值无效，必须为save或update");
         }
         entity.setDataTopicName(request.dataTopicName())
-                .setDataTopicLabel(StringUtils.hasText(request.dataTopicLabel()) ? request.dataTopicLabel().trim() : null)
-                .setParentCode(parentCode)
-                .setNodeLevel(request.nodeLevel())
-                .setIsLeaf(request.isLeaf())
-                .setStatus(request.status())
-                .setSortNo(request.sortNo())
-                .setDescription(StringUtils.hasText(request.description()) ? request.description().trim() : null);
+            .setDataTopicLabel(StringUtils.hasText(request.dataTopicLabel()) ? request.dataTopicLabel().trim() : null)
+            .setParentCode(parentCode)
+            .setNodeLevel(request.nodeLevel())
+            .setIsLeaf(request.isLeaf())
+            .setStatus(request.status())
+            .setSortNo(request.sortNo())
+            .setDescription(StringUtils.hasText(request.description()) ? request.description().trim() : null);
         saveOrUpdate(entity);
 
         // 将父节点更新为非叶子节点
         update(
-                new DataTopic().setIsLeaf(false),
-                new LambdaQueryWrapper<DataTopic>().eq(DataTopic::getDataTopicCode, parentCode)
+            new DataTopic().setIsLeaf(false),
+            new LambdaQueryWrapper<DataTopic>().eq(DataTopic::getDataTopicCode, parentCode)
         );
 
         log.info("[Service] saveDataTopic success, operation={}, dataTopicCode={}", creating ? "CREATE" : "UPDATE", entity.getDataTopicCode());
