@@ -1,6 +1,6 @@
 <template>
     <div class="valuation-detail-page">
-        <template v-if="valuation || valuationRows.length || valuationDetail.length || channelRows.length || trendRows.length || dividendRows.length">
+        <template v-if="resolvedValuation || resolvedValuationRows.length || resolvedChannelRows.length || resolvedTrendRows.length || resolvedDividendRows.length">
             <el-row :gutter="12">
                 <el-col :xs="24" :sm="12" :lg="6" v-for="item in valuationCards" :key="item.key">
                     <el-card class="metric-card" shadow="never">
@@ -154,37 +154,67 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { EChartsOption } from 'echarts'
 import type {
     DividendTrendRow,
+    TargetDividendTrendDetail,
+    TargetValuationChannelDetail,
+    TargetValuationSummaryDetail,
+    TargetValuationTrendDetail,
     ValuationChannelRow,
     ValuationDailyRow,
     ValuationMetricSummary,
     ValuationTrendRow,
-    TargetValuationSummaryDetail,
-    TargetValuationChannelDetail,
-    TargetValuationTrendDetail,
-    TargetDividendTrendDetail
-} from '/@/types/targetdetail/targetDetailType'
+    ValuationInfo
+} from '/@/types/targetdetail/valuationDetailType'
 import type { ValuationMetricCode, ValuationTimeRangeCode } from '/@/types/marketoverview/constants'
+import {
+    queryTargetDividendTrend,
+    queryTargetValuationChannel,
+    queryTargetValuationSummary,
+    queryTargetValuationTrend
+} from '/@/api/targetdetail/valuationDetailApi'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatNumber, formatPercent } from '/@/utils/marketUtils'
 
-type ValuationDetailPageProps = TargetValuationSummaryDetail
-    & Partial<TargetValuationChannelDetail>
-    & Partial<TargetValuationTrendDetail>
-    & Partial<TargetDividendTrendDetail>
+interface ValuationDetailPageProps {
+    /** 完整代码；传入后页面会按估值指标与时间范围自行加载数据。 */
+    fullSymbol?: string
+    /** 查询截止交易日；不传时由后端解析最近可用交易日。 */
+    tradeDate?: string | null
+
+    valuation?: ValuationInfo | null
+    valuationRows?: ValuationDailyRow[]
+
+    metricSummaries?: ValuationMetricSummary[]
+    channelRows?: ValuationChannelRow[]
+    trendRows?: ValuationTrendRow[]
+    dividendRows?: DividendTrendRow[]
+}
 
 const props = withDefaults(
     defineProps<ValuationDetailPageProps>(), {
         valuationRows: () => [],
-        valuationDetail: () => [],
+        metricSummaries: () => [],
         channelRows: () => [],
         trendRows: () => [],
         dividendRows: () => [],
-        meta: () => ({})
-})
+    }
+)
+
+const summaryState = ref<TargetValuationSummaryDetail | null>(null)
+const channelState = ref<TargetValuationChannelDetail | null>(null)
+const trendState = ref<TargetValuationTrendDetail | null>(null)
+const dividendState = ref<TargetDividendTrendDetail | null>(null)
+
+/** 父组件传入与接口返回二选一，接口数据优先。 */
+const resolvedValuation = computed(() => summaryState.value?.valuation ?? props.valuation)
+const resolvedValuationRows = computed(() => summaryState.value?.valuationRows ?? props.valuationRows)
+const resolvedMetricSummaries = computed(() => trendState.value?.metricSummaries ?? props.metricSummaries)
+const resolvedChannelRows = computed(() => channelState.value?.channelRows ?? props.channelRows)
+const resolvedTrendRows = computed(() => trendState.value?.trendRows ?? props.trendRows)
+const resolvedDividendRows = computed(() => dividendState.value?.dividendRows ?? props.dividendRows)
 
 const metricOptions: Array<{ label: string; value: ValuationMetricCode; field: keyof ValuationDailyRow }> = [
     { label: 'PE TTM', value: 'PE_TTM', field: 'peTtm' },
@@ -201,12 +231,101 @@ const rangeOptions: Array<{ label: string; value: ValuationTimeRangeCode; days: 
 
 const activeChannelMetric = ref<ValuationMetricCode>('PE_TTM')
 const activeTrendMetric = ref<ValuationMetricCode>('PE_TTM')
-const channelRange = ref<ValuationTimeRangeCode>('3Y')
-const trendRange = ref<ValuationTimeRangeCode>('3Y')
-const dividendRange = ref<ValuationTimeRangeCode>('3Y')
+const channelRange = ref<ValuationTimeRangeCode>('1Y')
+const trendRange = ref<ValuationTimeRangeCode>('1Y')
+const dividendRange = ref<ValuationTimeRangeCode>('1Y')
+
+/** 加载估值摘要。 */
+async function loadValuationSummary(): Promise<void> {
+    const fullSymbol = props.fullSymbol
+    if (!fullSymbol) return
+
+    try {
+        summaryState.value = await queryTargetValuationSummary({
+            fullSymbol,
+            tradeDate: props.tradeDate
+        })
+    } catch (error) {
+        console.error('加载估值摘要失败', error)
+    }
+}
+
+/** 加载当前指标与时间范围下的估值通道。 */
+async function loadValuationChannel(): Promise<void> {
+    const fullSymbol = props.fullSymbol
+    if (!fullSymbol) return
+
+    try {
+        channelState.value = await queryTargetValuationChannel({
+            fullSymbol,
+            tradeDate: props.tradeDate,
+            metricCode: activeChannelMetric.value,
+            rangeCode: channelRange.value
+        })
+    } catch (error) {
+        console.error('加载估值通道失败', error)
+    }
+}
+
+/** 加载当前指标与时间范围下的估值走势。 */
+async function loadValuationTrend(): Promise<void> {
+    const fullSymbol = props.fullSymbol
+    if (!fullSymbol) return
+
+    try {
+        trendState.value = await queryTargetValuationTrend({
+            fullSymbol,
+            tradeDate: props.tradeDate,
+            metricCode: activeTrendMetric.value,
+            rangeCode: trendRange.value
+        })
+    } catch (error) {
+        console.error('加载估值走势失败', error)
+    }
+}
+
+/** 加载当前时间范围下的分红走势。 */
+async function loadDividendTrend(): Promise<void> {
+    const fullSymbol = props.fullSymbol
+    if (!fullSymbol) return
+
+    try {
+        dividendState.value = await queryTargetDividendTrend({
+            fullSymbol,
+            tradeDate: props.tradeDate,
+            rangeCode: dividendRange.value
+        })
+    } catch (error) {
+        console.error('加载分红走势失败', error)
+    }
+}
+
+watch(
+    () => [props.fullSymbol, props.tradeDate] as const,
+    () => { void loadValuationSummary() },
+    { immediate: true }
+)
+
+watch(
+    () => [props.fullSymbol, props.tradeDate, activeChannelMetric.value, channelRange.value] as const,
+    () => { void loadValuationChannel() },
+    { immediate: true }
+)
+
+watch(
+    () => [props.fullSymbol, props.tradeDate, activeTrendMetric.value, trendRange.value] as const,
+    () => { void loadValuationTrend() },
+    { immediate: true }
+)
+
+watch(
+    () => [props.fullSymbol, props.tradeDate, dividendRange.value] as const,
+    () => { void loadDividendTrend() },
+    { immediate: true }
+)
 
 const latestRow = computed(() => {
-    const rows = sortByTradeDate(props.valuationRows)
+    const rows = sortByTradeDate(resolvedValuationRows.value)
     return rows[rows.length - 1]
 })
 
@@ -214,63 +333,63 @@ const valuationCards = computed(() => [
     {
         key: 'peTtm',
         label: 'PE TTM',
-        value: formatNumber(latestRow.value?.peTtm ?? props.valuation?.peTtm, 2),
+        value: formatNumber(latestRow.value?.peTtm ?? resolvedValuation.value?.peTtm, 2),
         desc: '市盈率 TTM'
     },
     {
         key: 'pb',
         label: 'PB',
-        value: formatNumber(latestRow.value?.pb ?? props.valuation?.pb, 2),
+        value: formatNumber(latestRow.value?.pb ?? resolvedValuation.value?.pb, 2),
         desc: '市净率'
     },
     {
         key: 'psTtm',
         label: 'PS TTM',
-        value: formatNumber(latestRow.value?.psTtm ?? props.valuation?.psTtm ?? props.valuation?.ps, 2),
+        value: formatNumber(latestRow.value?.psTtm ?? resolvedValuation.value?.psTtm ?? resolvedValuation.value?.ps, 2),
         desc: '市销率 TTM'
     },
     {
         key: 'totalMarketValue',
         label: '总市值',
-        value: formatAmount(latestRow.value?.totalMarketValue ?? props.valuation?.totalMarketValue),
+        value: formatAmount(latestRow.value?.totalMarketValue ?? resolvedValuation.value?.totalMarketValue),
         desc: '字段：totalMarketValue'
     }
 ])
 
 const activeTrendMetricLabel = computed(() => metricLabel(activeTrendMetric.value))
 
-const hasBackendChannelRows = computed(() => Boolean(props.channelRows?.length))
+const hasBackendChannelRows = computed(() => Boolean(resolvedChannelRows.value?.length))
 
 const channelRowsForDisplay = computed(() => {
-    const backendRows = sortByTradeDate((props.channelRows || [])
+    const backendRows = sortByTradeDate((resolvedChannelRows.value || [])
         .filter(row => row.metricCode === activeChannelMetric.value))
 
     if (backendRows.length) {
         return filterRowsByRange(backendRows, channelRange.value)
     }
 
-    return buildFallbackChannelRows(activeChannelMetric.value, filterRowsByRange(props.valuationRows, channelRange.value))
+    return buildFallbackChannelRows(activeChannelMetric.value, filterRowsByRange(resolvedValuationRows.value, channelRange.value))
 })
 
 const trendRowsForDisplay = computed(() => {
-    const backendRows = sortByTradeDate((props.trendRows || [])
+    const backendRows = sortByTradeDate((resolvedTrendRows.value || [])
         .filter(row => row.metricCode === activeTrendMetric.value))
 
     if (backendRows.length) {
         return filterRowsByRange(backendRows, trendRange.value)
     }
 
-    return buildFallbackTrendRows(activeTrendMetric.value, filterRowsByRange(props.valuationRows, trendRange.value))
+    return buildFallbackTrendRows(activeTrendMetric.value, filterRowsByRange(resolvedValuationRows.value, trendRange.value))
 })
 
 const dividendRowsForDisplay = computed(() => {
-    const backendRows = sortByTradeDate(props.dividendRows || [])
+    const backendRows = sortByTradeDate(resolvedDividendRows.value || [])
 
     if (backendRows.length) {
         return filterRowsByRange(backendRows, dividendRange.value)
     }
 
-    return buildFallbackDividendRows(filterRowsByRange(props.valuationRows, dividendRange.value))
+    return buildFallbackDividendRows(filterRowsByRange(resolvedValuationRows.value, dividendRange.value))
 })
 
 const trendSnapshot = computed(() => {
@@ -278,7 +397,7 @@ const trendSnapshot = computed(() => {
     const latest = rows[rows.length - 1]
     const stockValues = rows.map(row => normalizeNumber(row.stockValue)).filter(isNumber)
     const stockValue = normalizeNumber(latest?.stockValue)
-    const summary = props.valuationDetail?.find((item: ValuationMetricSummary) => item.metricCode === activeTrendMetric.value)
+    const summary = resolvedMetricSummaries.value?.find((item: ValuationMetricSummary) => item.metricCode === activeTrendMetric.value)
 
     return {
         stockValue: stockValue ?? summary?.currentValue ?? null,
@@ -596,6 +715,10 @@ function filterRowsByRange<T extends { tradeDate?: string | null }>(rows: T[], r
     })
 }
 
+/**
+ * 将各行记录按照 tradeDate 升序排序
+ * @param rows 
+ */
 function sortByTradeDate<T extends { tradeDate?: string | null }>(rows: T[] = []): T[] {
     return rows.slice().sort((a, b) => String(a.tradeDate || '').localeCompare(String(b.tradeDate || '')))
 }

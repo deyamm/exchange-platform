@@ -354,7 +354,7 @@ class BasicDataRepo:
         return [dict(row._mapping) for row in result]
 
     async def get_stock_sw_industry_memberships(self, stock_code: str) -> List[Dict[str, Any]]:
-        """查询个股所属申万行业指数候选。
+        """查询个股所属申万行业指数，可能包含多级行业。
 
         申万行业指数用 .SI 后缀识别；index_industry_level 提供行业层级、父级和名称。
         这里不在 repo 中做行业树加工，只读取所需字段，树形补全由 StockService 完成。
@@ -404,7 +404,7 @@ class BasicDataRepo:
         return [dict(row._mapping) for row in result]
 
     async def get_sw_industry_rows_by_codes(self, codes: List[str]) -> List[Dict[str, Any]]:
-        """按 index_code 查询申万行业层级行，用于补齐父级行业。"""
+        """按 codes 查询对应行业的申万行业层级信息"""
         clean_codes = [code.strip() for code in codes if code and code.strip()]
         if not clean_codes:
             return []

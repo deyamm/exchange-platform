@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import type { AlertRule, RelatedTarget, TargetEvent, TargetWatchInfo } from '/@/types/targetdetail/targetDetailType'
+import type { AlertRule, RelatedTarget, TargetEvent, TargetWatchInfo } from '/@/types/marketoverview/view'
 import { formatDateTime, formatPercent, signedClass } from '/@/utils/marketUtils'
 
 

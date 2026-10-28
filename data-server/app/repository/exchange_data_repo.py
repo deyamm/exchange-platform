@@ -325,7 +325,7 @@ class ExchangeDataRepo:
         trade_date: str | None = None,
         limit: int = 1250,
     ) -> List[Dict[str, Any]]:
-        """查询股票估值指标历史，返回 trade_date DESC。"""
+        """查询股票估值指标历史，按时间倒序排列。"""
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
@@ -381,7 +381,7 @@ class ExchangeDataRepo:
         if not codes or limit_trade_dates <= 0:
             return []
         in_sql, params = clause_params("stock", codes)
-        params["limit_trade_dates"] = str(max(1, int(limit_trade_dates)))
+        limit_trade_dates = max(1, int(limit_trade_dates))
         date_sql = ""
         if trade_date:
             date_sql = "WHERE trade_date <= :trade_date"
@@ -394,7 +394,7 @@ class ExchangeDataRepo:
                     FROM stock_indicator_daily
                     {date_sql}
                     ORDER BY trade_date DESC
-                    LIMIT :limit_trade_dates
+                    LIMIT {limit_trade_dates}
                 )
                 SELECT
                     s.full_symbol,

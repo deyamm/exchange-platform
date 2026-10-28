@@ -165,31 +165,153 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     }
 
     /**
-     * 查询股票详细信息
-     * @param targetCode
-     * @param tradeDate
-     * @param includeCharts
-     * @param includeFinancial
-     * @param includeHistory
-     * @return
+     * 查询标的详情首屏轻量数据。
+     * 仅包含顶部展示所需的基础信息、最新行情、指标卡和可用 Tab，
+     * K 线、估值、财务等大数组由各 Tab 接口按需加载。
      */
     @Override
-    public Map<String, Object> getStockDetails(String targetCode, String tradeDate, boolean includeCharts, boolean includeFinancial, boolean includeHistory) {
-        log.info("[Service] getStockDetails targetCode={}, tradeDate={}, includeCharts={}, includeFinancial={}, includeHistory={}",
-            targetCode, tradeDate, includeCharts, includeFinancial, includeHistory);
-        return dataServiceClient.getStockDetail(targetCode, tradeDate, includeCharts, includeFinancial, includeHistory);
+    public Map<String, Object> getStockDetailShell(String targetCode, String tradeDate) {
+        log.info("[Service] getStockDetailShell targetCode={}, tradeDate={}", targetCode, tradeDate);
+        return dataServiceClient.getTargetDetailShell(targetCode, tradeDate);
     }
 
     /**
-     * 查询指数详细信息
-     * @param targetCode
-     * @param tradeDate
-     * @param market
-     * @param includeHistory
-     * @param includeIndicator
-     * @param includeConstituents
-     * @return
+     * 查询标的综合概览。
+     * 对应详情页中部的综合分析结论。
      */
+    @Override
+    public Map<String, Object> getTargetOverview(String targetCode, String tradeDate) {
+        log.info("[Service] getTargetOverview targetCode={}, tradeDate={}", targetCode, tradeDate);
+        return dataServiceClient.getTargetOverviewDetail(targetCode, tradeDate);
+    }
+
+    /**
+     * 查询行情详情。
+     * 包含复权后的 K 线、技术指标图表、技术分析与区间表现。
+     */
+    @Override
+    public Map<String, Object> getTargetQuoteDetail(
+        String targetCode,
+        String tradeDate,
+        String rangeCode,
+        String adjustType,
+        String benchmarkCode,
+        String industryCode
+    ) {
+        log.info(
+            "[Service] getTargetQuoteDetail targetCode={}, tradeDate={}, rangeCode={}, adjustType={}, benchmarkCode={}, industryCode={}",
+            targetCode, tradeDate, rangeCode, adjustType, benchmarkCode, industryCode
+        );
+        return dataServiceClient.getTargetQuoteDetail(targetCode, tradeDate, rangeCode, adjustType, benchmarkCode, industryCode);
+    }
+
+    /**
+     * 查询估值摘要。
+     */
+    @Override
+    public Map<String, Object> getTargetValuationSummary(
+        String targetCode,
+        String tradeDate,
+        Integer historyLimit,
+        String rangeCode
+    ) {
+        log.info(
+            "[Service] getTargetValuationSummary targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
+            targetCode, tradeDate, historyLimit, rangeCode
+        );
+        return dataServiceClient.getTargetValuationSummary(targetCode, tradeDate, historyLimit, rangeCode);
+    }
+
+    /**
+     * 查询估值通道。
+     */
+    @Override
+    public Map<String, Object> getTargetValuationChannel(
+        String targetCode,
+        String tradeDate,
+        String metricCode,
+        Integer historyLimit,
+        String rangeCode
+    ) {
+        log.info(
+            "[Service] getTargetValuationChannel targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
+            targetCode, tradeDate, metricCode, historyLimit, rangeCode
+        );
+        return dataServiceClient.getTargetValuationChannel(targetCode, tradeDate, metricCode, historyLimit, rangeCode);
+    }
+
+    /**
+     * 查询估值走势。
+     */
+    @Override
+    public Map<String, Object> getTargetValuationTrend(
+        String targetCode,
+        String tradeDate,
+        String metricCode,
+        Integer historyLimit,
+        String rangeCode
+    ) {
+        log.info(
+            "[Service] getTargetValuationTrend targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
+            targetCode, tradeDate, metricCode, historyLimit, rangeCode
+        );
+        return dataServiceClient.getTargetValuationTrend(targetCode, tradeDate, metricCode, historyLimit, rangeCode);
+    }
+
+    /**
+     * 查询分红走势。
+     */
+    @Override
+    public Map<String, Object> getTargetDividendTrend(
+        String targetCode,
+        String tradeDate,
+        Integer historyLimit,
+        String rangeCode
+    ) {
+        log.info(
+            "[Service] getTargetDividendTrend targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
+            targetCode, tradeDate, historyLimit, rangeCode
+        );
+        return dataServiceClient.getTargetDividendTrend(targetCode, tradeDate, historyLimit, rangeCode);
+    }
+
+    /**
+     * 查询财务详情。
+     */
+    @Override
+    public Map<String, Object> getTargetFinancialDetail(String targetCode, Integer historyLimit) {
+        log.info("[Service] getTargetFinancialDetail targetCode={}, historyLimit={}", targetCode, historyLimit);
+        return dataServiceClient.getTargetFinancialDetail(targetCode, historyLimit);
+    }
+
+    /**
+     * 查询资金流向详情。
+     */
+    @Override
+    public Map<String, Object> getTargetCapitalFlowDetail(
+        String targetCode,
+        String tradeDate,
+        Integer historyLimit,
+        String rangeCode,
+        boolean includeQuoteRows
+    ) {
+        log.info(
+            "[Service] getTargetCapitalFlowDetail targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}, includeQuoteRows={}",
+            targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows
+        );
+        return dataServiceClient.getTargetCapitalFlowDetail(targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows);
+    }
+
+    /**
+     * 查询行业详情。
+     */
+    @Override
+    public Map<String, Object> getTargetIndustryDetail(String targetCode, String tradeDate) {
+        log.info("[Service] getTargetIndustryDetail targetCode={}, tradeDate={}", targetCode, tradeDate);
+        return dataServiceClient.getTargetIndustryDetail(targetCode, tradeDate);
+    }
+
+    /** 查询指数详细信息 */
     @Override
     public Map<String, Object> getIndexDetails(String targetCode, String tradeDate) {
         log.info("[Service] getIndexDetails targetCode={}, tradeDate={}", targetCode, tradeDate);

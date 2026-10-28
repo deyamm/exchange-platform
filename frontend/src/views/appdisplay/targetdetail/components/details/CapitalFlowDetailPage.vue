@@ -5,11 +5,11 @@
             当前物理表仅覆盖股票资金流 stock_moneyflow_daily；指数资金流、北向资金、融资融券未在当前表中定义，
             因此本页不展示未落库字段，避免前端产生不可追溯指标。
         -->
-        <el-empty v-if="!capitalFlow && !moneyFlowRows.length" description="暂无资金流向数据" />
+        <el-empty v-if="!resolvedCapitalFlow && !resolvedMoneyFlowRows.length" description="暂无资金流向数据" />
 
         <template v-else>
             <el-alert
-                v-if="!moneyFlowRows.length"
+                v-if="!resolvedMoneyFlowRows.length"
                 class="source-alert"
                 title="当前仅收到资金流摘要，若要展示买卖拆分和历史明细，请由后端补充 moneyFlowRows。"
                 type="info"
@@ -55,7 +55,7 @@
                         <template #header>
                             <span class="card-title">总净流入趋势</span>
                         </template>
-                        <el-empty v-if="!moneyFlowRows.length" description="暂无净流入趋势" />
+                        <el-empty v-if="!resolvedMoneyFlowRows.length" description="暂无净流入趋势" />
                         <TargetEcharts v-else :option="netFlowOption" height="340px" />
                     </el-card>
                 </el-col>
@@ -65,7 +65,7 @@
                         <template #header>
                             <span class="card-title">资金与价格联动</span>
                         </template>
-                        <el-empty v-if="!moneyFlowRows.length || !closeRows.length" description="暂无价格联动明细" />
+                        <el-empty v-if="!resolvedMoneyFlowRows.length || !resolvedCloseRows.length" description="暂无价格联动明细" />
                         <TargetEcharts v-else :option="flowPriceOption" height="340px" />
                     </el-card>
                 </el-col>
@@ -81,7 +81,7 @@
                     </div>
                 </template>
 
-                <el-table :data="moneyFlowRows.slice().reverse()" border height="460">
+                <el-table :data="resolvedMoneyFlowRows.slice().reverse()" border height="460">
                     <el-table-column prop="tradeDate" label="交易日期" width="110" align="center" fixed />
                     <el-table-column label="netMfAmount" min-width="130" align="right">
                         <template #default="{ row }">
@@ -142,34 +142,66 @@
                 </el-table>
             </el-card>
 
-            <el-card v-if="capitalFlow?.conclusion" class="detail-card" shadow="never">
+            <el-card v-if="resolvedCapitalFlow?.conclusion" class="detail-card" shadow="never">
                 <template #header>
                     <span class="card-title">资金流向结论</span>
                 </template>
-                <div class="note-text">{{ capitalFlow.conclusion }}</div>
+                <div class="note-text">{{ resolvedCapitalFlow.conclusion }}</div>
             </el-card>
         </template>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
-import type { TargetCapitalFlowDetail } from '/@/types/targetdetail/targetDetailType'
+import type { TargetCapitalFlowDetail } from '/@/types/targetdetail/quoteDetailType'
+import { queryTargetCapitalFlowDetail } from '/@/api/targetdetail/quoteDetailApi'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatPercent, signedClass } from '/@/utils/marketUtils'
 
+interface CapitalFlowDetailPageProps extends TargetCapitalFlowDetail {
+    /** 查询截止交易日；不传时由后端解析最近可用交易日。 */
+    tradeDate?: string | null
+}
+
 const props = withDefaults(
-    defineProps<TargetCapitalFlowDetail>(), {
+    defineProps<CapitalFlowDetailPageProps>(), {
         moneyFlowRows: () => [],
         close: () => [],
         meta: () => ({})
     }
 )
 
-const latestMoneyFlowRow = computed(() => props.moneyFlowRows[props.moneyFlowRows.length - 1])
+const fetched = ref<TargetCapitalFlowDetail | null>(null)
+const state = computed<TargetCapitalFlowDetail>(() => fetched.value ?? props)
+const resolvedCapitalFlow = computed(() => state.value.capitalFlow)
+const resolvedMoneyFlowRows = computed(() => state.value.moneyFlowRows || [])
+const resolvedCloseRows = computed(() => state.value.close || [])
 
-const historyRows = computed(() => props.moneyFlowRows.map(row => ({
+onMounted(() => {
+    if (props.fullSymbol) {
+        void loadCapitalFlow()
+    }
+})
+
+/** 加载资金流摘要、历史明细与价格联动数据。 */
+async function loadCapitalFlow(): Promise<void> {
+    try {
+        fetched.value = await queryTargetCapitalFlowDetail({
+            fullSymbol: props.fullSymbol as string,
+            tradeDate: props.tradeDate || props.capitalFlow?.tradeDate,
+            rangeCode: '3M',
+            includeQuoteRows: true
+        })
+    } catch (error) {
+        console.error('加载资金流向数据失败', error)
+    }
+}
+
+const latestMoneyFlowRow = computed(() => resolvedMoneyFlowRows.value[resolvedMoneyFlowRows.value.length - 1])
+
+const historyRows = computed(() => resolvedMoneyFlowRows.value.map(row => ({
     tradeDate: row.tradeDate,
     small: calcNet(row.buySmAmount, row.sellSmAmount),
     medium: calcNet(row.buyMdAmount, row.sellMdAmount),
@@ -179,11 +211,11 @@ const historyRows = computed(() => props.moneyFlowRows.map(row => ({
 
 const flowCards = computed(() => {
     const latest = latestMoneyFlowRow.value
-    const capitalFlowRecord = props.capitalFlow as Record<string, any> | undefined
-    const elgNet = latest ? calcNet(latest.buyElgAmount, latest.sellElgAmount) : props.capitalFlow?.elgNetMfAmount
-    const lgNet = latest ? calcNet(latest.buyLgAmount, latest.sellLgAmount) : props.capitalFlow?.lgNetMfAmount
-    const mdNet = latest ? calcNet(latest.buyMdAmount, latest.sellMdAmount) : props.capitalFlow?.mdNetMfAmount
-    const smNet = latest ? calcNet(latest.buySmAmount, latest.sellSmAmount) : props.capitalFlow?.smNetMfAmount
+    const capitalFlowRecord = resolvedCapitalFlow.value as Record<string, any> | undefined
+    const elgNet = latest ? calcNet(latest.buyElgAmount, latest.sellElgAmount) : resolvedCapitalFlow.value?.elgNetMfAmount
+    const lgNet = latest ? calcNet(latest.buyLgAmount, latest.sellLgAmount) : resolvedCapitalFlow.value?.lgNetMfAmount
+    const mdNet = latest ? calcNet(latest.buyMdAmount, latest.sellMdAmount) : resolvedCapitalFlow.value?.mdNetMfAmount
+    const smNet = latest ? calcNet(latest.buySmAmount, latest.sellSmAmount) : resolvedCapitalFlow.value?.smNetMfAmount
     const mainNet = (elgNet || 0) + (lgNet || 0)
     const totalNet = latest?.netMfAmount ?? capitalFlowRecord?.netMfAmount ?? capitalFlowRecord?.mainNetInflow ?? mainNet
 
@@ -270,20 +302,18 @@ const historyFlowOption = computed<EChartsOption>(() => ({
 
 const netFlowOption = computed(() => buildDetailLineOption(
     '总净流入额 / 净流入量',
-    props.moneyFlowRows,
+    resolvedMoneyFlowRows.value,
     [
         { name: '净流入额', field: 'netMfAmount' },
         { name: '净流入量', field: 'netMfVol' }
     ]
 ))
 
-const closeRows = computed(() => props.close || [])
-
 const flowPriceOption = computed<EChartsOption>(() => {
-    const rows = props.moneyFlowRows.map((row, index) => ({
+    const rows = resolvedMoneyFlowRows.value.map((row, index) => ({
         tradeDate: row.tradeDate,
         netMfAmount: row.netMfAmount,
-        close: closeRows.value[index]
+        close: resolvedCloseRows.value[index]
     }))
     return buildDetailLineOption(
         '净流入额与收盘价',

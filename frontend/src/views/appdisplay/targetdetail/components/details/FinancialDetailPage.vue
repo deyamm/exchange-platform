@@ -276,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import type {
     BalanceSheetRow,
@@ -294,7 +294,8 @@ import type {
     FinancialReportTypeCode,
     IncomeStatementRow,
     TargetFinancialDetail
-} from '/@/types/targetdetail/targetDetailType'
+} from '/@/types/targetdetail/financialDetailType'
+import { queryTargetFinancialDetail } from '/@/api/targetdetail/financialDetailApi'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
 
@@ -302,6 +303,29 @@ const props = withDefaults(defineProps<TargetFinancialDetail>(), {
     financialDetail: () => ({}),
     meta: () => ({})
 })
+
+const fetched = ref<TargetFinancialDetail | null>(null)
+const state = computed<TargetFinancialDetail>(() => fetched.value ?? props)
+const financial = computed(() => state.value.financial)
+const financialDetail = computed(() => state.value.financialDetail)
+
+onMounted(() => {
+    if (props.fullSymbol) {
+        void loadFinancialDetail()
+    }
+})
+
+/** 加载财务摘要、三大报表与财务指标明细。 */
+async function loadFinancialDetail(): Promise<void> {
+    try {
+        fetched.value = await queryTargetFinancialDetail({
+            fullSymbol: props.fullSymbol as string,
+            historyLimit: 5
+        })
+    } catch (error) {
+        console.error('加载财务详情数据失败', error)
+    }
+}
 
 type StatementTabName = 'income' | 'balance' | 'cashflow' | 'indicator'
 
@@ -376,10 +400,10 @@ const ratioMetricOptions: RatioMetricOption[] = [
     { label: '资产负债率', value: 'DEBT_TO_ASSETS', field: 'debtToAssets' }
 ]
 
-const incomeRows = computed<IncomeStatementRow[]>(() => sortByEndDate(props.financialDetail?.incomeRows || []))
-const balanceSheetRows = computed<BalanceSheetRow[]>(() => sortByEndDate(props.financialDetail?.balanceSheetRows || []))
-const cashflowRows = computed<CashflowStatementRow[]>(() => sortByEndDate(props.financialDetail?.cashflowRows || []))
-const indicatorRows = computed<FinanceIndicatorRow[]>(() => sortByEndDate(props.financialDetail?.indicatorRows || []))
+const incomeRows = computed<IncomeStatementRow[]>(() => sortByEndDate(financialDetail.value?.incomeRows || []))
+const balanceSheetRows = computed<BalanceSheetRow[]>(() => sortByEndDate(financialDetail.value?.balanceSheetRows || []))
+const cashflowRows = computed<CashflowStatementRow[]>(() => sortByEndDate(financialDetail.value?.cashflowRows || []))
+const indicatorRows = computed<FinanceIndicatorRow[]>(() => sortByEndDate(financialDetail.value?.indicatorRows || []))
 
 const latestIncome = computed(() => incomeRows.value[incomeRows.value.length - 1])
 const latestCashflow = computed(() => cashflowRows.value[cashflowRows.value.length - 1])
@@ -391,20 +415,21 @@ const hasFinancialDetail = computed(() => Boolean(
     balanceSheetRows.value.length ||
     cashflowRows.value.length ||
     indicatorRows.value.length ||
-    props.financialDetail?.profitTrendRows?.length ||
-    props.financialDetail?.ratioTrendRows?.length ||
-    props.financialDetail?.cashflowStructureRows?.length ||
-    props.financialDetail?.balanceStructureRows?.length
+    financialDetail.value?.profitTrendRows?.length ||
+    financialDetail.value?.ratioTrendRows?.length ||
+    financialDetail.value?.cashflowStructureRows?.length ||
+    financialDetail.value?.balanceStructureRows?.length
 ))
 
 const latestReportInfo = computed<FinancialReportInfo>(() => {
-    if (props.financialDetail?.reportInfo) return props.financialDetail.reportInfo
+    const reportInfo = financialDetail.value?.reportInfo
+    if (reportInfo) return reportInfo
 
     const latestEndDate = latestIncome.value?.endDate ||
         latestIndicator.value?.endDate ||
         latestCashflow.value?.endDate ||
         latestBalance.value?.endDate ||
-        props.financial?.endDate ||
+        financial.value?.endDate ||
         null
 
     const sourceRow = latestIncome.value ||
@@ -415,37 +440,37 @@ const latestReportInfo = computed<FinancialReportInfo>(() => {
     return {
         fullSymbol: sourceRow?.fullSymbol,
         endDate: latestEndDate,
-        annDate: props.financial?.annDate || sourceRow?.annDate || null,
-        fAnnDate: props.financial?.fAnnDate || ('fAnnDate' in (sourceRow || {}) ? (sourceRow as IncomeStatementRow | BalanceSheetRow | CashflowStatementRow).fAnnDate : null),
-        reportType: props.financial?.reportType || ('reportType' in (sourceRow || {}) ? (sourceRow as IncomeStatementRow | BalanceSheetRow | CashflowStatementRow).reportType : null),
+        annDate: financial.value?.annDate || sourceRow?.annDate || null,
+        fAnnDate: financial.value?.fAnnDate || ('fAnnDate' in (sourceRow || {}) ? (sourceRow as IncomeStatementRow | BalanceSheetRow | CashflowStatementRow).fAnnDate : null),
+        reportType: financial.value?.reportType || ('reportType' in (sourceRow || {}) ? (sourceRow as IncomeStatementRow | BalanceSheetRow | CashflowStatementRow).reportType : null),
         reportTypeCode: getReportTypeCode(latestEndDate),
-        reportTypeText: props.financial?.reportTypeText || getReportTypeText(latestEndDate)
+        reportTypeText: financial.value?.reportTypeText || getReportTypeText(latestEndDate)
     }
 })
 
 const summaryCards = computed(() => [
     {
         label: '营业收入',
-        value: formatAmount(latestIncome.value?.revenue ?? props.financial?.revenue),
-        desc: `营收同比：${formatPercent(latestIndicator.value?.revenueYoy ?? props.financial?.revenueYoy, 2, true)}`,
+        value: formatAmount(latestIncome.value?.revenue ?? financial.value?.revenue),
+        desc: `营收同比：${formatPercent(latestIndicator.value?.revenueYoy ?? financial.value?.revenueYoy, 2, true)}`,
         className: ''
     },
     {
         label: '归母净利润',
-        value: formatAmount(latestIncome.value?.nIncomeAttrP ?? props.financial?.nIncomeAttrP),
-        desc: `净利润同比：${formatPercent(latestIndicator.value?.netprofitYoy ?? props.financial?.netprofitYoy, 2, true)}`,
-        className: signedClass(latestIndicator.value?.netprofitYoy ?? props.financial?.netprofitYoy)
+        value: formatAmount(latestIncome.value?.nIncomeAttrP ?? financial.value?.nIncomeAttrP),
+        desc: `净利润同比：${formatPercent(latestIndicator.value?.netprofitYoy ?? financial.value?.netprofitYoy, 2, true)}`,
+        className: signedClass(latestIndicator.value?.netprofitYoy ?? financial.value?.netprofitYoy)
     },
     {
         label: '经营现金流',
-        value: formatAmount(latestCashflow.value?.nCashflowAct ?? props.financial?.nCashflowAct),
-        desc: `自由现金流：${formatAmount(latestCashflow.value?.freeCashflow ?? props.financial?.freeCashflow)}`,
-        className: signedClass(latestCashflow.value?.nCashflowAct ?? props.financial?.nCashflowAct)
+        value: formatAmount(latestCashflow.value?.nCashflowAct ?? financial.value?.nCashflowAct),
+        desc: `自由现金流：${formatAmount(latestCashflow.value?.freeCashflow ?? financial.value?.freeCashflow)}`,
+        className: signedClass(latestCashflow.value?.nCashflowAct ?? financial.value?.nCashflowAct)
     },
     {
         label: 'ROE / 资产负债率',
-        value: `${formatPercent(latestIndicator.value?.roe ?? props.financial?.roe)} / ${formatPercent(latestIndicator.value?.debtToAssets ?? props.financial?.debtToAssets)}`,
-        desc: `EPS：${formatNumber(latestIndicator.value?.eps ?? props.financial?.eps, 2)}`,
+        value: `${formatPercent(latestIndicator.value?.roe ?? financial.value?.roe)} / ${formatPercent(latestIndicator.value?.debtToAssets ?? financial.value?.debtToAssets)}`,
+        desc: `EPS：${formatNumber(latestIndicator.value?.eps ?? financial.value?.eps, 2)}`,
         className: ''
     },
     {
@@ -463,16 +488,16 @@ const summaryCards = computed(() => [
 ])
 
 const profitTrendRows = computed<FinancialProfitTrendRow[]>(() => {
-    if (props.financialDetail?.profitTrendRows?.length) {
-        return sortByEndDate(props.financialDetail.profitTrendRows)
+    if (financialDetail.value?.profitTrendRows?.length) {
+        return sortByEndDate(financialDetail.value?.profitTrendRows || [])
     }
 
     return buildProfitTrendRows()
 })
 
 const ratioTrendRows = computed<FinancialRatioTrendRow[]>(() => {
-    if (props.financialDetail?.ratioTrendRows?.length) {
-        return sortByEndDate(props.financialDetail.ratioTrendRows)
+    if (financialDetail.value?.ratioTrendRows?.length) {
+        return sortByEndDate(financialDetail.value?.ratioTrendRows || [])
     }
 
     return indicatorRows.value.map(row => ({
@@ -487,8 +512,8 @@ const ratioTrendRows = computed<FinancialRatioTrendRow[]>(() => {
 })
 
 const cashflowChartRows = computed<FinancialCashflowStructureRow[]>(() => {
-    if (props.financialDetail?.cashflowStructureRows?.length) {
-        return sortByEndDate(props.financialDetail.cashflowStructureRows)
+    if (financialDetail.value?.cashflowStructureRows?.length) {
+        return sortByEndDate(financialDetail.value?.cashflowStructureRows || [])
     }
 
     return buildStandaloneQuarterRows(cashflowRows.value, row => ({
@@ -504,8 +529,8 @@ const cashflowChartRows = computed<FinancialCashflowStructureRow[]>(() => {
 })
 
 const balanceChartRows = computed<FinancialBalanceStructureRow[]>(() => {
-    if (props.financialDetail?.balanceStructureRows?.length) {
-        return sortByEndDate(props.financialDetail.balanceStructureRows)
+    if (financialDetail.value?.balanceStructureRows?.length) {
+        return sortByEndDate(financialDetail.value?.balanceStructureRows || [])
     }
 
     return balanceSheetRows.value.map(row => {

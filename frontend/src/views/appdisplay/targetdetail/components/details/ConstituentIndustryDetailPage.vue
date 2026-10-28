@@ -232,45 +232,73 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import type {
     StockBelongIndexRow,
     StockSwIndustryRow,
     SwIndustryLevel,
     TargetIndustryDetail
-} from '/@/types/targetdetail/targetDetailType'
+} from '/@/types/targetdetail/industryDetailType'
+import { queryTargetIndustryDetail } from '/@/api/targetdetail/industryDetailApi'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
 
+interface IndustryDetailPageProps extends TargetIndustryDetail {
+    /** 查询截止交易日；不传时由后端解析最近可用交易日。 */
+    tradeDate?: string | null
+}
+
 const props = withDefaults(
-    defineProps<TargetIndustryDetail>(), {
+    defineProps<IndustryDetailPageProps>(), {
         constituentRows: () => [],
         industryPeerRows: () => [],
         meta: () => ({})
+    }
+)
+
+const fetched = ref<TargetIndustryDetail | null>(null)
+const state = computed<TargetIndustryDetail>(() => fetched.value ?? props)
+
+onMounted(() => {
+    if (props.fullSymbol) {
+        void loadIndustryDetail()
+    }
 })
 
+/** 加载申万行业归属、所属指数与同行业对比数据。 */
+async function loadIndustryDetail(): Promise<void> {
+    try {
+        fetched.value = await queryTargetIndustryDetail({
+            fullSymbol: props.fullSymbol as string,
+            tradeDate: props.tradeDate
+        })
+    } catch (error) {
+        console.error('加载行业详情数据失败', error)
+    }
+}
+
 const swIndustryRows = computed<StockSwIndustryRow[]>(() => {
-    const rows = (props.industryDetail?.swIndustryRows || []).slice().sort((a, b) => Number(a.industryLevel) - Number(b.industryLevel))
+    const rows = (state.value.industryDetail?.swIndustryRows || []).slice().sort((a, b) => Number(a.industryLevel) - Number(b.industryLevel))
 
     if (rows.length) return rows
 
-    const fallbackIndustryName = props.industry?.industryName || props.stockProfile?.industry
+    const fallbackIndustryName = state.value.industry?.industryName || state.value.stockProfile?.industry
 
     if (!fallbackIndustryName) return []
 
     return [
         {
-            fullSymbol: props.fullSymbol || props.stockProfile?.fullSymbol || props.indexProfile?.fullSymbol || '',
+            fullSymbol: state.value.fullSymbol || state.value.stockProfile?.fullSymbol || state.value.indexProfile?.fullSymbol || '',
             industryName: fallbackIndustryName,
             industryLevel: 3,
-            chgPct: props.industry?.avgChangePercent ?? null,
-            stockCount: props.industry?.stockCount ?? null
+            chgPct: state.value.industry?.avgChangePercent ?? null,
+            stockCount: state.value.industry?.stockCount ?? null
         }
     ]
 })
 
-const belongIndexRows = computed<StockBelongIndexRow[]>(() => props.industryDetail?.belongIndexRows || [])
+const belongIndexRows = computed<StockBelongIndexRow[]>(() => state.value.industryDetail?.belongIndexRows || [])
 
 const belongIndexCategorySummary = computed(() => belongIndexGroups.value.map(group => ({
     categoryName: group.categoryName,
@@ -298,7 +326,7 @@ const belongIndexGroups = computed(() => {
 
 
 const benchmarkIndustry = computed(() => {
-    const benchmarkLevel = props.industryDetail?.benchmarkIndustryLevel || 3
+    const benchmarkLevel = state.value.industryDetail?.benchmarkIndustryLevel || 3
     const explicitBenchmark = swIndustryRows.value.find(row => row.industryLevel === benchmarkLevel)
     const level3 = swIndustryRows.value.find(row => row.industryLevel === 3)
     const last = swIndustryRows.value[swIndustryRows.value.length - 1]
@@ -307,17 +335,17 @@ const benchmarkIndustry = computed(() => {
 })
 
 const benchmarkIndustryName = computed(() => (
-    props.industryDetail?.benchmarkIndustryName ||
+    state.value.industryDetail?.benchmarkIndustryName ||
     benchmarkIndustry.value?.industryName ||
-    props.industry?.industryName ||
-    props.stockProfile?.industry ||
+    state.value.industry?.industryName ||
+    state.value.stockProfile?.industry ||
     '-'
 ))
 
 
 const benchmarkPeerRows = computed(() => {
     const benchmarkName = benchmarkIndustryName.value
-    const filteredRows = props.industryPeerRows.filter(row => {
+    const filteredRows = (state.value.industryPeerRows || []).filter(row => {
         if (benchmarkName && benchmarkName !== '-' && row.industry) {
             return row.industry === benchmarkName
         }
@@ -325,7 +353,7 @@ const benchmarkPeerRows = computed(() => {
         return true
     })
 
-    return filteredRows.length ? filteredRows : props.industryPeerRows
+    return filteredRows.length ? filteredRows : (state.value.industryPeerRows || [])
 })
 
 const peerValuationOption = computed<EChartsOption>(() => buildMultiBarOption(

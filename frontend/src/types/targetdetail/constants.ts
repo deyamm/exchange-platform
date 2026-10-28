@@ -19,3 +19,4 @@ export interface TargetDetailQuery {
     /** 是否返回历史分析。 */
     includeHistory?: boolean
 }
+

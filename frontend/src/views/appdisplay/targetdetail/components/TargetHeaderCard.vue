@@ -106,7 +106,7 @@ import { computed } from 'vue'
 import type {
     TargetOverview,
     TargetProfile
-} from '/@/types/targetdetail/targetDetailType'
+} from '/@/types/targetdetail/targetDetailCenter'
 import type { MarketQuote } from '/@/types/marketoverview/view'
 import {
     formatAmount,

@@ -102,11 +102,6 @@ class StockService:
         self.exchange_repo = ExchangeDataRepo(exchange_conn)
         self.finance_repo = FinanceDataRepo(finance_conn)
 
-
-    # ------------------------------------------------------------------
-    # TargetDetail 拆分接口
-    # ------------------------------------------------------------------
-
     async def get_target_detail_shell(
         self,
         full_symbol: str,
@@ -131,21 +126,12 @@ class StockService:
             warnings.append("stock_k_daily / stock_indicator_daily 未找到最新行情")
 
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=260)
-        moneyflow_history = await self.exchange_repo.get_stock_moneyflow_history(resolved_full_symbol, resolved_trade_date, limit=20)
+        moneyflow_history = await self.exchange_repo.get_stock_moneyflow_history(resolved_full_symbol, resolved_trade_date, limit=260)
         financial_bundle = await self.finance_repo.get_latest_financial_bundle(resolved_full_symbol)
         industry_context = await self.load_industry_context(basic, resolved_full_symbol, resolved_trade_date)
 
-        industry_codes = [item.get("stock_code") for item in industry_context.get("benchmarkComponents", []) if item.get("stock_code")]
-        industry_indicator_rows = await self.exchange_repo.get_stock_indicator_rows_by_codes(
-            industry_codes,
-            resolved_trade_date,
-            limit_trade_dates=min(260, max(1, len(indicator_history) or 260)),
-        ) if industry_codes else []
-        industry_valuation_stats = self.build_industry_valuation_stats(industry_indicator_rows)
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_valuation_stats, history_limit=260)
-
         market_quote = self.build_market_quote(quote)
-        valuation = self.build_valuation_info(quote, indicator_history, valuation_detail)
+        valuation = self.build_valuation_info(quote, indicator_history)
         financial = self.build_financial_summary(financial_bundle)
         capital_flow = self.build_capital_flow_info(quote, moneyflow_history)
         industry = self.build_industry_info(industry_context)
@@ -174,7 +160,7 @@ class StockService:
         full_symbol: str,
         trade_date: str | None = None,
     ) -> Dict[str, Any]:
-        """综合分析结论接口。当前仍以可解释规则和预留入口生成。"""
+        """标的详情的综合分析结论部分。当前仍以可解释规则和预留入口生成。"""
         requested_trade_date = resolve_trade_date(trade_date)
         basic = await self.basic_repo.get_stock_basic_detail(full_symbol)
         resolved_full_symbol = (basic or {}).get("full_symbol") or full_symbol
@@ -183,7 +169,7 @@ class StockService:
         history = await self.exchange_repo.get_stock_history(resolved_full_symbol, resolved_trade_date, limit=260)
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=260)
         financial_bundle = await self.finance_repo.get_latest_financial_bundle(resolved_full_symbol)
-        valuation = self.build_valuation_info(quote, indicator_history, None)
+        valuation = self.build_valuation_info(quote, indicator_history)
         financial = self.build_financial_summary(financial_bundle)
         warnings = [] if quote else ["stock_k_daily / stock_indicator_daily 未找到行情快照"]
         return {
@@ -205,14 +191,15 @@ class StockService:
         sub_indicator_codes: Optional[Sequence[str]] = None,
         industry_code: str | None = None,
     ) -> Dict[str, Any]:
-        """行情 Tab 接口。
+        """获取行情 Tab 数据。
 
-        后端在这里完成复权价、技术指标、区间收益风险、成交表现和基准对比计算。
-        技术指标统一调用 indicator_utils.calculate_technical_indicator_rows。
+        行情历史先按复权口径处理，再统一计算技术指标。接口返回图表、技术分析和
+        当前区间统计；页面不再依赖原始 quoteRows 重新计算金融指标。
         """
         requested_trade_date = resolve_trade_date(trade_date)
         limit = self.normalize_history_limit(history_limit, range_code, default=RANGE_SIZE_MAP["1Y"])
         fetch_limit = limit + TECHNICAL_LOOKBACK_EXTRA
+
         adjust_type = (adjust_type or "NONE").upper()
         if adjust_type not in VALID_ADJUST_TYPES:
             adjust_type = "NONE"
@@ -222,22 +209,25 @@ class StockService:
         quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
         resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
 
-        history = await self.exchange_repo.get_stock_history(resolved_full_symbol, resolved_trade_date, limit=fetch_limit)
-        indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=fetch_limit)
+        history = await self.exchange_repo.get_stock_history(
+            resolved_full_symbol, resolved_trade_date, limit=fetch_limit
+        )
+        indicator_history = await self.exchange_repo.get_stock_indicator_history(
+            resolved_full_symbol, resolved_trade_date, limit=fetch_limit
+        )
+
         if adjust_type != "NONE":
             factors = await self.exchange_repo.get_stock_adjust_factors(resolved_full_symbol)
             history = self.apply_adjust_type_to_k_rows(history, factors, adjust_type)
 
         quote_rows_full = self.build_quote_rows(history, indicator_history)
-        technical_rows_full = self.normalize_technical_indicator_rows(
-            calculate_technical_indicator_rows(quote_rows_full) if quote_rows_full else []
-        )
+        technical_rows_full = calculate_technical_indicator_rows(quote_rows_full) if quote_rows_full else []
         technical_rows = technical_rows_full[-limit:]
+
         quote_rows = [self.extract_market_quote_row(row) for row in technical_rows]
         latest_quote = quote_rows[-1] if quote_rows else self.build_market_quote(quote)
 
-        charts = self.build_charts(technical_rows, [], [], None, [])
-        performance = self.build_performance_from_quote_rows(quote_rows)
+        charts = self.build_quote_market_charts(technical_rows)
         comparison = await self.build_quote_range_comparison_for_rows(
             quote_rows,
             benchmark_code or DEFAULT_BENCHMARK_CODE,
@@ -256,13 +246,11 @@ class StockService:
             "fullSymbol": resolved_full_symbol,
             "quote": latest_quote,
             "charts": charts,
-            "performance": performance,
-            "quoteRows": quote_rows,
-            "quoteTechnicalAnalysis": self.build_quote_technical_analysis(technical_rows),
-            "quoteRangeComparison": comparison,
+            "quoteTechnicalAnalysis": self.build_quote_technical_analysis(
+                technical_rows, resolved_trade_date
+            ),
             "rangePerformance": range_performance,
             "adjustType": adjust_type,
-            "period": period or "DAILY",
             "meta": self.build_meta(resolved_trade_date, warnings),
         })
 
@@ -281,13 +269,10 @@ class StockService:
         quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
         resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=limit)
-        industry_stats = await self.load_industry_valuation_stats(basic, resolved_full_symbol, resolved_trade_date, indicator_history, limit)
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_stats, history_limit=limit)
+
         return self.drop_none_top_level({
             "fullSymbol": resolved_full_symbol,
-            "valuation": self.build_valuation_info(quote, indicator_history, valuation_detail),
-            "valuationRows": self.build_valuation_rows(indicator_history, industry_stats),
-            "valuationDetail": (valuation_detail or {}).get("metricSummaries"),
+            "valuation": self.build_valuation_info(quote, indicator_history),
             "meta": self.build_meta(resolved_trade_date, [] if indicator_history else ["stock_indicator_daily 未找到估值历史"]),
         })
 
@@ -308,9 +293,12 @@ class StockService:
         quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
         resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=limit)
-        industry_stats = await self.load_industry_valuation_stats(basic, resolved_full_symbol, resolved_trade_date, indicator_history, limit)
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_stats, history_limit=limit)
-        rows = [row for row in (valuation_detail or {}).get("channelRows", []) if row.get("metricCode") == metric_code]
+
+        rows = self.build_valuation_channel_rows(
+            indicator_history,
+            metric_code,
+            history_limit=limit,
+        )
         return {
             "fullSymbol": resolved_full_symbol,
             "metricCode": metric_code,
@@ -326,7 +314,11 @@ class StockService:
         history_limit: int | None = None,
         range_code: str | None = None,
     ) -> Dict[str, Any]:
-        """估值趋势接口。"""
+        """估值趋势接口。
+
+        对外参数和返回结构保持不变。内部只计算指定 metric_code 的摘要和趋势，
+        行业统计也只聚合该指标所需字段。
+        """
         requested_trade_date = resolve_trade_date(trade_date)
         limit = self.normalize_valuation_history_limit(history_limit, range_code, default=VALUATION_RANGE_SIZE_MAP["1Y"])
         metric_code = self.normalize_metric_code(metric_code)
@@ -335,15 +327,37 @@ class StockService:
         quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
         resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=limit)
-        industry_stats = await self.load_industry_valuation_stats(basic, resolved_full_symbol, resolved_trade_date, indicator_history, limit)
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_stats, history_limit=limit)
+
+        metric_field = VALUATION_METRICS[metric_code]["field"]
+        industry_stats = await self.load_industry_valuation_stats(
+            basic,
+            resolved_full_symbol,
+            resolved_trade_date,
+            indicator_history,
+            limit,
+            fields=(metric_field,),
+        )
+
+        metric_summaries = self.build_valuation_metric_summaries(
+            indicator_history,
+            industry_stats,
+            history_limit=limit,
+            metric_codes=(metric_code,),
+        )
+        trend_rows = self.build_valuation_trend_rows(
+            indicator_history,
+            industry_stats,
+            metric_code
+        )
+
         return {
             "fullSymbol": resolved_full_symbol,
             "metricCode": metric_code,
-            "metricSummaries": [row for row in (valuation_detail or {}).get("metricSummaries", []) if row.get("metricCode") == metric_code],
-            "trendRows": [row for row in (valuation_detail or {}).get("trendRows", []) if row.get("metricCode") == metric_code],
+            "metricSummaries": metric_summaries,
+            "trendRows": trend_rows,
             "meta": self.build_meta(resolved_trade_date, [] if indicator_history else ["stock_indicator_daily 未找到估值历史"]),
         }
+
 
     async def get_target_dividend_trend_detail(
         self,
@@ -352,7 +366,11 @@ class StockService:
         range_code: str | None = "1Y",
         history_limit: int | None = None,
     ) -> Dict[str, Any]:
-        """分红 TTM 趋势接口。"""
+        """分红 TTM 趋势接口。
+
+        对外参数和返回结构保持不变。内部只加载 dividendRows 所需的 dv_ttm
+        行业统计，避免额外聚合 PE/PB/PS。
+        """
         requested_trade_date = resolve_trade_date(trade_date)
         limit = self.normalize_valuation_history_limit(history_limit, range_code, default=VALUATION_RANGE_SIZE_MAP["1Y"])
         basic = await self.basic_repo.get_stock_basic_detail(full_symbol)
@@ -360,9 +378,19 @@ class StockService:
         quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
         resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
         indicator_history = await self.exchange_repo.get_stock_indicator_history(resolved_full_symbol, resolved_trade_date, limit=limit)
-        industry_stats = await self.load_industry_valuation_stats(basic, resolved_full_symbol, resolved_trade_date, indicator_history, limit)
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_stats, history_limit=limit)
-        rows = (valuation_detail or {}).get("dividendRows", [])
+
+        industry_stats = await self.load_industry_valuation_stats(
+            basic,
+            resolved_full_symbol,
+            resolved_trade_date,
+            indicator_history,
+            limit,
+            fields=("dv_ttm",),
+        )
+        rows = self.build_dividend_trend_rows(
+            indicator_history,
+            industry_stats,
+        )
         return {
             "fullSymbol": resolved_full_symbol,
             "dividendRows": rows,
@@ -514,7 +542,16 @@ class StockService:
         trade_date: str,
         indicator_history: List[Dict[str, Any]],
         limit: int,
+        fields: Optional[Sequence[str]] = None,
     ) -> Dict[str, Dict[str, Optional[float]]]:
+        """加载并聚合申万三级行业估值。
+
+        fields 为内部优化参数：
+        - None：保持旧行为，计算 PE_TTM / PB / PS_TTM / DV_TTM 全部统计；
+        - 指定字段：只聚合当前接口真正需要的估值字段。
+
+        该参数仅影响 service 内部计算，不改变任何对外接口。
+        """
         context = await self.load_industry_context(basic, full_symbol, trade_date)
         codes = [item.get("stock_code") for item in context.get("benchmarkComponents", []) if item.get("stock_code")]
         rows = await self.exchange_repo.get_stock_indicator_rows_by_codes(
@@ -522,7 +559,7 @@ class StockService:
             trade_date,
             limit_trade_dates=min(limit, max(1, len(indicator_history) or limit)),
         ) if codes else []
-        return self.build_industry_valuation_stats(rows)
+        return self.build_industry_valuation_stats(rows, fields=fields)
 
     def apply_adjust_type_to_k_rows(
         self,
@@ -583,33 +620,6 @@ class StockService:
                 return factor
         return factors[-1][1]
 
-    def normalize_technical_indicator_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """为 indicator_utils 生成的列补齐前端/旧 service 使用的 camel/lower 别名。"""
-        normalized: List[Dict[str, Any]] = []
-        for source in rows:
-            row = dict(source)
-            for key, value in list(source.items()):
-                if key.startswith("MA") and key[2:].isdigit():
-                    row.setdefault(f"ma{key[2:]}", value)
-                elif key.startswith("EMA") and key[3:].isdigit():
-                    row.setdefault(f"ema{key[3:]}", value)
-                elif key.startswith("RSI") and key[3:].isdigit():
-                    row.setdefault(f"rsi{key[3:]}", value)
-                elif key.startswith("ATR") and key[3:].isdigit():
-                    row.setdefault(f"atr{key[3:]}", value)
-                elif key.startswith("CCI") and key[3:].isdigit():
-                    row.setdefault(f"cci{key[3:]}", value)
-                elif key.startswith("VWAP") and key[4:].isdigit():
-                    row.setdefault(f"vwap{key[4:]}", value)
-                elif key.startswith("OBV"):
-                    row.setdefault(key[:1].lower() + key[1:], value)
-            if "SAR" in source:
-                row.setdefault("sar", source.get("SAR"))
-            if "SARTrend" in source:
-                row.setdefault("sarTrend", source.get("SARTrend"))
-            normalized.append(row)
-        return normalized
-
     def extract_market_quote_row(self, row: Mapping[str, Any]) -> Dict[str, Any]:
         return self.compact_dict({
             "fullSymbol": row.get("fullSymbol") or row.get("full_symbol"),
@@ -631,24 +641,6 @@ class StockService:
             "priceUnit": row.get("priceUnit") or "元",
         })
 
-    def build_performance_from_quote_rows(self, quote_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        periods = [("1M", "近1月", 22), ("3M", "近3月", 66), ("6M", "近6月", 132), ("1Y", "近1年", 250)]
-        result: List[Dict[str, Any]] = []
-        for code, name, length in periods:
-            sample = quote_rows[-length:] if len(quote_rows) >= length else quote_rows
-            if len(sample) < 2:
-                result.append({"periodCode": code, "periodName": name, "changePercent": None, "maxDrawdown": None, "volatility": None, "rankingText": None})
-                continue
-            change = self.calculate_rows_return(sample)
-            result.append({
-                "periodCode": code,
-                "periodName": name,
-                "changePercent": round_or_none(change),
-                "maxDrawdown": round_or_none(max_drawdown_from_rows(sample)),
-                "volatility": round_or_none(annualized_volatility_from_pct([row.get("chgPct") for row in sample])),
-                "rankingText": None,
-            })
-        return result
 
     def build_range_performance(
         self,
@@ -901,7 +893,7 @@ class StockService:
         moneyflow_history = await self.exchange_repo.get_stock_moneyflow_history(
             resolved_full_symbol,
             resolved_trade_date,
-            limit=60,
+            limit=indicator_limit,
         )
 
         financial_bundle: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -919,18 +911,18 @@ class StockService:
         industry_indicator_rows = await self.exchange_repo.get_stock_indicator_rows_by_codes(
             benchmark_codes,
             resolved_trade_date,
-            limit_trade_dates=min(260, max(1, len(indicator_history) or 260)),
+            limit_trade_dates=len(indicator_history),
         ) if benchmark_codes else []
         industry_valuation_stats = self.build_industry_valuation_stats(industry_indicator_rows)
 
         quote_rows = self.build_quote_rows(history, indicator_history)
-        technical_rows = self.normalize_technical_indicator_rows(calculate_technical_indicator_rows(quote_rows)) if quote_rows else []
+        technical_rows = calculate_technical_indicator_rows(quote_rows) if quote_rows else []
         valuation_rows = self.build_valuation_rows(indicator_history, industry_valuation_stats)
         money_flow_rows = self.build_money_flow_rows(moneyflow_history)
         financial_detail = self.build_financial_detail(financial_detail_bundle) if include_financial else None
 
         valuation_detail = self.build_valuation_detail(indicator_history, industry_valuation_stats)
-        valuation = self.build_valuation_info(quote, indicator_history, valuation_detail)
+        valuation = self.build_valuation_info(quote, indicator_history)
         financial = self.build_financial_summary(financial_bundle) if include_financial else None
         capital_flow = self.build_capital_flow_info(quote, moneyflow_history)
         industry = self.build_industry_info(industry_context)
@@ -940,7 +932,6 @@ class StockService:
         market_quote = self.build_market_quote(quote)
         overview = self.build_overview(quote, history, valuation, financial)
         metric_cards = self.build_metric_cards(quote, valuation, financial, capital_flow)
-        performance = self.build_performance(history) if include_history else []
         charts = self.build_charts(technical_rows, valuation_rows, money_flow_rows, financial_detail, financial_history) if include_charts else []
         related_targets = self.build_related_targets(industry_context)
 
@@ -957,7 +948,6 @@ class StockService:
                 "industry": industry is not None,
             },
             "charts": charts,
-            "performance": performance,
             "valuation": valuation,
             "financial": financial,
             "capitalFlow": capital_flow,
@@ -968,9 +958,7 @@ class StockService:
             "events": [],
             "relatedTargets": related_targets,
             # 详情页扩展载荷
-            "quoteRows": quote_rows,
-            "quoteTechnicalAnalysis": self.build_quote_technical_analysis(technical_rows),
-            "quoteRangeComparison": self.build_quote_range_comparison(quote, industry_context),
+            "quoteTechnicalAnalysis": self.build_quote_technical_analysis(technical_rows, resolved_trade_date),
             "valuationRows": valuation_rows,
             "valuationDetail": valuation_detail,
             "financialDetail": financial_detail,
@@ -1024,7 +1012,7 @@ class StockService:
         return self.camelize_row(row, date_fields={"list_date", "delist_date"})
 
     def build_market_quote(self, row: Optional[Dict[str, Any]], price_unit: str = "元") -> Optional[Dict[str, Any]]:
-        """构建 MarketQuote。"""
+        """根据最新行情 quote 构建首页展示的 MarketQuote。"""
         if not row:
             return None
         pre_close = to_float_or_none(row.get("pre_close"))
@@ -1163,37 +1151,27 @@ class StockService:
         """
         stock_name = (basic or {}).get("name")
         memberships = await self.basic_repo.get_stock_sw_industry_memberships(full_symbol)
-        leaf = self.pick_benchmark_sw_industry(memberships)
+        level3 = [row for row in memberships if self.parse_sw_level(row.get("level")) == 3]
+        # 优化选择个股所属的三级行业，若没有，选择最高层级的行业作为叶子节点
+        leaf = level3[0] if level3 else memberships[0]
         sw_tree_rows = await self.build_sw_industry_tree_rows(leaf, stock_name, trade_date)
 
         benchmark_row = next((row for row in sw_tree_rows if row.get("industryLevel") == 3), None) or (sw_tree_rows[-1] if sw_tree_rows else None)
         benchmark_index_code = (benchmark_row or {}).get("indexCode")
-        benchmark_industry_code = (benchmark_row or {}).get("industryCode")
-        benchmark_industry_name = (benchmark_row or {}).get("industryName")
 
         benchmark_components = await self.basic_repo.get_index_components(benchmark_index_code, trade_date=trade_date) if benchmark_index_code else []
-        peer_components = benchmark_components[:50]
-        peer_codes = [row.get("stock_code", '') for row in peer_components if row.get("stock_code")]
+        peer_codes = [row.get("stock_code", '') for row in benchmark_components]
         peer_basic_map = await self.basic_repo.get_stock_basic_by_codes(peer_codes) if peer_codes else {}
         peer_snapshots = await self.exchange_repo.get_stock_latest_snapshots_by_codes(peer_codes, trade_date) if peer_codes else []
 
         belong_index_rows = await self.build_belong_index_rows(full_symbol, stock_name, trade_date)
-        industry_detail = {
-            "swIndustryRows": [self.remove_internal_keys(row) for row in sw_tree_rows],
-            "belongIndexRows": belong_index_rows,
-            "benchmarkIndustryLevel": 3 if benchmark_row else None,
-            "benchmarkIndustryCode": benchmark_industry_code,
-            "benchmarkIndustryName": benchmark_industry_name,
-        }
-
         return {
             "swIndustryRows": sw_tree_rows,
-            "industryDetail": self.compact_dict(industry_detail),
             "benchmarkIndexCode": benchmark_index_code,
-            "benchmarkIndustryCode": benchmark_industry_code,
-            "benchmarkIndustryName": benchmark_industry_name,
+            "benchmarkIndustryCode": (benchmark_row or {}).get("industryCode"),
+            "benchmarkIndustryName": (benchmark_row or {}).get("industryName"),
             "benchmarkComponents": benchmark_components,
-            "peerComponents": peer_components,
+            "peerComponents": benchmark_components,
             "peerBasicMap": peer_basic_map,
             "peerSnapshots": peer_snapshots,
             "stockName": stock_name,
@@ -1201,15 +1179,8 @@ class StockService:
             "belongIndexRows": belong_index_rows,
         }
 
-    def pick_benchmark_sw_industry(self, memberships: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """优先选择申万三级行业；如果数据缺失，则选择可用的最高层级 .SI 行业。"""
-        if not memberships:
-            return None
-        level3 = [row for row in memberships if self.parse_sw_level(row.get("level")) == 3]
-        return level3[0] if level3 else memberships[0]
-
     async def build_sw_industry_tree_rows(self, leaf: Optional[Dict[str, Any]], stock_name: Optional[str], trade_date: str) -> List[Dict[str, Any]]:
-        """由申万三级叶子行业向上补齐一/二/三级行业展示行。"""
+        """由申万三级叶子行业向上补齐一/二/三级行业，并获取各指数的成分和快照信息。"""
         if not leaf:
             return []
 
@@ -1229,17 +1200,20 @@ class StockService:
             codes = [code for code in parent_codes if code]
             if not codes:
                 break
-            parents = await self.basic_repo.get_sw_industry_rows_by_codes(codes)
+            rows = await self.basic_repo.get_sw_industry_rows_by_codes(codes)
             parent_codes = []
-            for row in parents:
+            for row in rows:
                 put(row)
                 if row.get("parent_code"):
                     parent_codes.append(row.get("parent_code"))
 
+        # index_code 与 industry_code 对应的信息可能重复，去重后按 level 排序。
         unique_rows = list({id(row): row for row in rows_by_code.values()}.values())
         unique_rows.sort(key=lambda row: self.parse_sw_level(row.get("level")) or 99)
+        # 获取最终的行业指数代码
         index_codes = [row.get("index_code", '') for row in unique_rows if row.get("index_code")]
-        counts = await self.basic_repo.get_index_component_counts(index_codes)
+        component_counts = await self.basic_repo.get_index_component_counts(index_codes)
+        # 获取行业指数快照，便于展示涨跌幅、总市值、换手率等指标
         snapshots = await self.exchange_repo.get_index_latest_snapshots_by_codes(index_codes, trade_date) if index_codes else []
         snapshot_map = {row.get("full_symbol"): row for row in snapshots if row.get("full_symbol")}
 
@@ -1261,7 +1235,7 @@ class StockService:
                 "chgPct": round_or_none(snap.get("chg_pct")),
                 "totalMarketValue": round_or_none(snap.get("total_market_value"), 2),
                 "turnover": round_or_none(snap.get("turnover"), 2),
-                "stockCount": counts.get(row.get("index_code", ''), 0),
+                "componentCount": component_counts.get(row.get("index_code", ''), 0),
                 "peTtm": round_or_none(snap.get("pe_ttm")),
                 "pb": round_or_none(snap.get("pb")),
                 "psTtm": None,
@@ -1375,15 +1349,10 @@ class StockService:
             }))
         return result
 
-    # ------------------------------------------------------------------
-    # 估值与行业估值聚合
-    # ------------------------------------------------------------------
-
     def build_valuation_info(
         self,
         quote: Optional[Dict[str, Any]],
         indicator_history: List[Dict[str, Any]],
-        valuation_detail: Optional[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
         """构建 ValuationInfo 摘要。"""
         if not quote and not indicator_history:
@@ -1406,12 +1375,27 @@ class StockService:
             "valuationStatus": valuation_status,
         })
 
-    def build_industry_valuation_stats(self, rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Optional[float]]]:
+
+    def build_industry_valuation_stats(
+        self,
+        rows: List[Dict[str, Any]],
+        fields: Optional[Sequence[str]] = None,
+    ) -> Dict[str, Dict[str, Optional[float]]]:
         """按交易日聚合申万三级行业成分股票估值。
 
         行业平均值按 float_market_value 加权；若当日缺少有效流通市值，退化为算术平均。
         中位数不加权。
+
+        fields 仅用于内部按需计算：
+        - None 时保持原逻辑，聚合 pe_ttm / pb / ps_ttm / dv_ttm；
+        - 指定 fields 时仅生成对应的 *_avg / *_median。
         """
+        supported_fields = ("pe_ttm", "pb", "ps_ttm", "dv_ttm")
+        if fields is None:
+            requested_fields = supported_fields
+        else:
+            requested_fields = tuple(field for field in fields if field in supported_fields)
+
         grouped: Dict[str, List[Dict[str, Any]]] = {}
         for row in rows:
             trade_date = to_str_date(row.get("trade_date"))
@@ -1421,7 +1405,7 @@ class StockService:
         stats: Dict[str, Dict[str, Optional[float]]] = {}
         for trade_date, date_rows in grouped.items():
             item: Dict[str, Optional[float]] = {}
-            for field in ["pe_ttm", "pb", "ps_ttm", "dv_ttm"]:
+            for field in requested_fields:
                 pairs: List[Tuple[float, Optional[float]]] = []
                 for row in date_rows:
                     value = to_float_or_none(row.get(field))
@@ -1429,11 +1413,15 @@ class StockService:
                         continue
                     weight = to_float_or_none(row.get("float_market_value"))
                     pairs.append((value, weight))
+
                 values = [value for value, _ in pairs]
                 valid_weight_pairs = [(value, weight) for value, weight in pairs if weight is not None and weight > 0]
                 if valid_weight_pairs:
                     total_weight = sum(weight for _, weight in valid_weight_pairs if weight is not None)
-                    item[f"{field}_avg"] = sum(value * (weight or 0) for value, weight in valid_weight_pairs) / total_weight if total_weight else None
+                    item[f"{field}_avg"] = (
+                        sum(value * (weight or 0) for value, weight in valid_weight_pairs) / total_weight
+                        if total_weight else None
+                    )
                 else:
                     item[f"{field}_avg"] = statistics.fmean(values) if values else None
                 item[f"{field}_median"] = statistics.median(values) if values else None
@@ -1479,98 +1467,216 @@ class StockService:
             }))
         return result
 
-    def build_valuation_detail(
+
+    def build_valuation_metric_summaries(
         self,
         indicator_history: List[Dict[str, Any]],
         industry_stats: Dict[str, Dict[str, Optional[float]]],
         history_limit: int = 260,
-    ) -> Optional[Dict[str, Any]]:
-        """构建估值扩展数据：摘要、通道、走势和分红走势。"""
+        metric_codes: Optional[Sequence[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """构建估值指标摘要。
+
+        metric_codes=None 时构建 PE_TTM/PB/PS_TTM 全部摘要；
+        指定 metric_codes 时仅构建请求指标，供拆分接口按需使用。
+        """
         if not indicator_history:
-            return None
+            return []
+
         limit = max(1, min(int(history_limit or 260), len(indicator_history)))
-        rows_asc = list(reversed(indicator_history[:limit]))
         latest = indicator_history[0]
         latest_date = to_str_date(latest.get("trade_date"))
         latest_stats = industry_stats.get(latest_date, {})
 
-        metric_summaries: List[Dict[str, Any]] = []
-        channel_rows: List[Dict[str, Any]] = []
-        trend_rows: List[Dict[str, Any]] = []
+        requested_codes = tuple(metric_codes) if metric_codes is not None else tuple(VALUATION_METRICS.keys())
+        result: List[Dict[str, Any]] = []
 
-        for metric_code, cfg in VALUATION_METRICS.items():
+        for metric_code in requested_codes:
+            cfg = VALUATION_METRICS.get(metric_code)
+            if not cfg:
+                continue
+
             field = cfg["field"]
             values = [row.get(field) for row in indicator_history[:limit]]
-            numeric_values = [v for v in (to_float_or_none(value) for value in values) if v is not None and v > 0]
             current_value = to_float_or_none(latest.get(field))
-            p30 = percentile_value(values, 30)
-            p70 = percentile_value(values, 70)
-            v_min = min(numeric_values) if numeric_values else None
-            v_median = statistics.median(numeric_values) if numeric_values else None
-            step = (v_median - v_min) * 0.5 if v_min is not None and v_median is not None else None
-            channel_multiples = [
-                v_min,
-                v_min + step if v_min is not None and step is not None else None,
-                v_median,
-                v_median + step if v_median is not None and step is not None else None,
-                v_median + 2 * step if v_median is not None and step is not None else None,
-            ]
             avg_key = f"{field}_avg"
             med_key = f"{field}_median"
-            metric_summaries.append(self.compact_dict({
+
+            result.append(self.compact_dict({
                 "metricCode": metric_code,
                 "metricName": cfg["name"],
                 "currentValue": round_or_none(current_value),
                 "percentileValue": percentile_rank(current_value, values),
-                "percentile30Value": round_or_none(p30),
-                "percentile70Value": round_or_none(p70),
+                "percentile30Value": round_or_none(percentile_value(values, 30)),
+                "percentile70Value": round_or_none(percentile_value(values, 70)),
                 "industryAverageValue": round_or_none(latest_stats.get(avg_key)),
                 "industryMedianValue": round_or_none(latest_stats.get(med_key)),
                 "latestTradeDate": latest_date,
                 "description": "同行业口径使用申万三级行业成分聚合；行业均值按流通市值加权。",
             }))
+        return result
 
-            for row in rows_asc:
-                trade_date = to_str_date(row.get("trade_date"))
-                value = to_float_or_none(row.get(field))
-                close = to_float_or_none(row.get("close"))
-                channel_item: Dict[str, Any] = {
-                    "fullSymbol": row.get("full_symbol"),
-                    "tradeDate": trade_date,
-                    "metricCode": metric_code,
-                    "close": round_or_none(close),
-                }
-                if value and value > 0 and close is not None:
-                    base_per_multiple = close / value
-                    for idx, multiple in enumerate(channel_multiples, start=1):
-                        channel_item[f"channelMultiple{idx}"] = round_or_none(multiple)
-                        channel_item[f"channelPrice{idx}"] = round_or_none(base_per_multiple * multiple if multiple is not None else None)
-                channel_rows.append(self.compact_dict(channel_item))
+    def build_valuation_channel_rows(
+        self,
+        indicator_history: List[Dict[str, Any]],
+        metric_code: str,
+        history_limit: int = 260,
+    ) -> List[Dict[str, Any]]:
+        """构建指定指标的估值通道。估值通道共包含5条线，中位线为指标中位数，其他4条线为中位数上下各50%的区间。"""
+        if not indicator_history:
+            return []
 
-                stats = industry_stats.get(trade_date, {})
-                trend_rows.append(self.compact_dict({
-                    "fullSymbol": row.get("full_symbol"),
-                    "tradeDate": trade_date,
-                    "metricCode": metric_code,
-                    "stockValue": round_or_none(value),
-                    "industryAverageValue": round_or_none(stats.get(avg_key)),
-                    "industryMedianValue": round_or_none(stats.get(med_key)),
-                    "percentile30Value": round_or_none(p30),
-                    "percentile70Value": round_or_none(p70),
-                    "percentileValue": percentile_rank(value, values),
-                }))
+        metric_code = self.normalize_metric_code(metric_code)
+        field = VALUATION_METRICS[metric_code]["field"]
 
-        dividend_rows = []
+        limit = max(1, min(int(history_limit or 260), len(indicator_history)))
+        values = [to_float_or_none(row.get(field)) for row in indicator_history[:limit]]
+        # 仅使用正数指标值计算通道，避免负数或零导致的通道异常。
+        numeric_values = [v for v in values if v is not None and v > 0]
+        if not numeric_values:
+            return []  # 如果没有有效的正数指标值，则无法计算通道，直接返回空列表。
+
+        v_min = min(numeric_values)
+        v_median = statistics.median(numeric_values)
+        step = (v_median - v_min) * 0.5
+        channel_multiples = [
+            v_min,
+            v_min + step,
+            v_median,
+            v_median + step,
+            v_median + 2 * step,
+        ]
+
+        result: List[Dict[str, Any]] = []
+        # 按时间升序遍历指标历史，构建每个交易日的估值通道数据。
+        for row in list(reversed(indicator_history[:limit])):
+            value = to_float_or_none(row.get(field))
+            close = to_float_or_none(row.get("close"))
+            item: Dict[str, Any] = {
+                "fullSymbol": row.get("full_symbol"),
+                "tradeDate": to_str_date(row.get("trade_date")),
+                "metricCode": metric_code,
+                "close": round_or_none(close),
+            }
+            if value and value > 0 and close is not None:
+                base_per_multiple = close / value
+                for idx, multiple in enumerate(channel_multiples, start=1):
+                    item[f"channelMultiple{idx}"] = round_or_none(multiple)
+                    item[f"channelPrice{idx}"] = round_or_none(base_per_multiple * multiple)
+            result.append(self.compact_dict(item))
+        return result
+
+    def build_valuation_trend_rows(
+        self,
+        indicator_history: List[Dict[str, Any]],
+        industry_stats: Dict[str, Dict[str, Optional[float]]],
+        metric_code: str,
+    ) -> List[Dict[str, Any]]:
+        """构建指定指标的估值趋势。包含指标值、行业均值、中位数、30/70分位数及对应的百分位排名。"""
+        if not indicator_history:
+            return []
+
+        metric_code = self.normalize_metric_code(metric_code)
+        field = VALUATION_METRICS[metric_code]["field"]
+
+        limit = len(indicator_history)
+        values = [row.get(field) for row in indicator_history[:limit]]
+        p30 = percentile_value(values, 30)
+        p70 = percentile_value(values, 70)
+        avg_key = f"{field}_avg"
+        med_key = f"{field}_median"
+
+        result: List[Dict[str, Any]] = []
+        # 按时间升序遍历指标历史，构建每个交易日的估值趋势数据。
+        for row in list(reversed(indicator_history[:limit])):
+            trade_date = to_str_date(row.get("trade_date"))
+            value = to_float_or_none(row.get(field))
+            stats = industry_stats.get(trade_date, {})
+            result.append(self.compact_dict({
+                "fullSymbol": row.get("full_symbol"),
+                "tradeDate": trade_date,
+                "metricCode": metric_code,
+                "stockValue": round_or_none(value),
+                "industryAverageValue": round_or_none(stats.get(avg_key)),
+                "industryMedianValue": round_or_none(stats.get(med_key)),
+                "percentile30Value": round_or_none(p30),
+                "percentile70Value": round_or_none(p70),
+                "percentileValue": percentile_rank(value, values),
+            }))
+        return result
+
+    def build_dividend_trend_rows(
+        self,
+        indicator_history: List[Dict[str, Any]],
+        industry_stats: Dict[str, Dict[str, Optional[float]]],
+    ) -> List[Dict[str, Any]]:
+        """构建分红 TTM 趋势，只依赖 dv_ttm 对应的行业统计。"""
+        if not indicator_history:
+            return []
+
+        limit = len(indicator_history)
+        rows_asc = list(reversed(indicator_history[:limit]))
+
+        result: List[Dict[str, Any]] = []
         for row in rows_asc:
             trade_date = to_str_date(row.get("trade_date"))
             stats = industry_stats.get(trade_date, {})
-            dividend_rows.append(self.compact_dict({
+            result.append(self.compact_dict({
                 "fullSymbol": row.get("full_symbol"),
                 "tradeDate": trade_date,
                 "dvTtm": round_or_none(row.get("dv_ttm")),
                 "industryAverageDvTtm": round_or_none(stats.get("dv_ttm_avg")),
                 "industryMedianDvTtm": round_or_none(stats.get("dv_ttm_median")),
             }))
+        return result
+
+    def build_valuation_detail(
+        self,
+        indicator_history: List[Dict[str, Any]],
+        industry_stats: Dict[str, Dict[str, Optional[float]]],
+        history_limit: int = 260,
+    ) -> Optional[Dict[str, Any]]:
+        """兼容旧 TargetDetail 数据流的完整估值详情聚合器。
+
+        对外结构保持原样：
+        {
+            metricSummaries,
+            channelRows,
+            trendRows,
+            dividendRows
+        }
+        """
+        if not indicator_history:
+            return None
+
+        metric_summaries = self.build_valuation_metric_summaries(
+            indicator_history,
+            industry_stats,
+            history_limit=history_limit,
+        )
+
+        channel_rows: List[Dict[str, Any]] = []
+        trend_rows: List[Dict[str, Any]] = []
+        for metric_code in VALUATION_METRICS:
+            channel_rows.extend(
+                self.build_valuation_channel_rows(
+                    indicator_history,
+                    metric_code,
+                    history_limit=history_limit,
+                )
+            )
+            trend_rows.extend(
+                self.build_valuation_trend_rows(
+                    indicator_history,
+                    industry_stats,
+                    metric_code
+                )
+            )
+
+        dividend_rows = self.build_dividend_trend_rows(
+            indicator_history,
+            industry_stats,
+        )
 
         return {
             "metricSummaries": metric_summaries,
@@ -1578,10 +1684,6 @@ class StockService:
             "trendRows": trend_rows,
             "dividendRows": dividend_rows,
         }
-
-    # ------------------------------------------------------------------
-    # 财务、资金流、图表、技术分析
-    # ------------------------------------------------------------------
 
     def build_financial_summary(self, bundle: Dict[str, Optional[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
         """构建 FinancialSummary。"""
@@ -1661,28 +1763,127 @@ class StockService:
         """构建 StockMoneyflowDailyRow。"""
         return [self.camelize_row(row, date_fields={"trade_date"}) for row in reversed(moneyflow_history)]
 
-    def build_performance(self, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """构建区间表现。history 为 trade_date DESC。"""
-        rows_asc = list(reversed(history))
-        periods = [("1M", "近1月", 21), ("3M", "近3月", 63), ("6M", "近6月", 126), ("1Y", "近1年", 252)]
-        result: List[Dict[str, Any]] = []
-        for code, name, length in periods:
-            sample = rows_asc[-length:] if len(rows_asc) >= length else rows_asc
-            if len(sample) < 2:
-                result.append({"periodCode": code, "periodName": name, "changePercent": None, "maxDrawdown": None, "volatility": None})
-                continue
-            start = to_float_or_none(sample[0].get("close"))
-            end = to_float_or_none(sample[-1].get("close"))
-            change = (end - start) / start * 100 if start and end is not None else None
-            result.append({
-                "periodCode": code,
-                "periodName": name,
-                "changePercent": round_or_none(change),
-                "maxDrawdown": round_or_none(max_drawdown_from_rows(sample)),
-                "volatility": round_or_none(annualized_volatility_from_pct([row.get("chg_pct") for row in sample])),
-                "rankingText": None,
+
+    def build_quote_market_charts(
+        self,
+        technical_rows: Sequence[Mapping[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """构建行情 Tab 使用的 K 线和技术指标 ChartGroup。
+
+        每个技术指标使用独立 chartId；所有序列均来自同一批已复权 technical_rows，
+        保证价格、技术指标和区间统计使用同一行情口径。
+        """
+        rows = list(technical_rows)
+        if not rows:
+            return []
+
+        charts: List[Dict[str, Any]] = []
+        x_axis = [row.get("tradeDate") or to_str_date(row.get("trade_date")) for row in rows]
+
+        def row_number(row: Mapping[str, Any], *keys: str) -> Optional[float]:
+            for key in keys:
+                value = to_float_or_none(row.get(key))
+                if value is not None:
+                    return value
+            return None
+
+        def number_series(*keys: str, digits: int = 4) -> List[Optional[float]]:
+            return [round_or_none(row_number(row, *keys), digits) for row in rows]
+
+        def append_chart(chart_id: str, title: str, chart_type: str, series: List[Dict[str, Any]]) -> None:
+            charts.append({
+                "chartId": chart_id,
+                "title": title,
+                "chartType": chart_type,
+                "period": "DAILY",
+                "xAxis": x_axis,
+                "series": series,
             })
-        return result
+
+        charts.append({
+            "chartId": "stockKlineDaily",
+            "title": "股票日K线",
+            "chartType": "CANDLESTICK",
+            "period": "DAILY",
+            "xAxis": x_axis,
+            "series": [{
+                "name": "OHLC",
+                "unit": "元",
+                "data": [self.extract_market_quote_row(row) for row in rows],
+            }],
+            "options": {
+                "mainIndicators": ["MA", "EMA", "BOLL", "SAR", "VWAP", "SUPER_TREND"],
+                "subIndicators": ["VOL", "TURNOVER", "TURNOVER_RATE", "MACD", "KDJ", "RSI", "CCI", "DMI", "ATR", "OBV"],
+            },
+        })
+
+        for window in (5, 10, 20, 60, 120, 250):
+            append_chart(f"MA{window}", f"MA{window}", "LINE", [
+                {"name": f"MA{window}", "data": number_series(f"ma{window}", f"MA{window}"), "unit": "元"}
+            ])
+
+        for window in (9, 12, 20, 26):
+            append_chart(f"EMA{window}", f"EMA{window}", "LINE", [
+                {"name": f"EMA{window}", "data": number_series(f"ema{window}", f"EMA{window}"), "unit": "元"}
+            ])
+
+        append_chart("BOLL", "BOLL", "LINE", [
+            {"name": "upper", "data": number_series("bollUpper"), "unit": "元"},
+            {"name": "mid", "data": number_series("bollMid"), "unit": "元"},
+            {"name": "lower", "data": number_series("bollLower"), "unit": "元"},
+        ])
+        append_chart("SAR", "SAR", "LINE", [
+            {"name": "SAR", "data": number_series("sar", "SAR"), "unit": "元"}
+        ])
+
+        for window in (1, 5, 10, 20, 60, 120):
+            append_chart(f"VWAP{window}", f"VWAP{window}", "LINE", [
+                {"name": f"VWAP{window}", "data": number_series(f"vwap{window}", f"VWAP{window}"), "unit": "元"}
+            ])
+
+        append_chart("SUPER_TREND", "SUPER_TREND", "LINE", [
+            {"name": "SuperTrend", "data": number_series("superTrend10"), "unit": "元"},
+            {"name": "SuperTrend Upper", "data": number_series("superTrendUpper10"), "unit": "元"},
+            {"name": "SuperTrend Lower", "data": number_series("superTrendLower10"), "unit": "元"},
+        ])
+        append_chart("VOL", "VOL", "BAR", [
+            {"name": "volume", "data": number_series("volume", digits=2), "unit": "股/手"}
+        ])
+        append_chart("TURNOVER", "成交额", "BAR", [
+            {"name": "turnover", "data": number_series("turnover", digits=2), "unit": "元"}
+        ])
+        append_chart("TURNOVER_RATE", "换手率", "LINE", [
+            {"name": "turnoverRate", "data": number_series("turnoverRate", "turnover_rate"), "unit": "%"}
+        ])
+        append_chart("MACD", "MACD", "LINE", [
+            {"name": "DIF", "data": number_series("macdDiff", "macd_diff")},
+            {"name": "DEA", "data": number_series("macdDea", "macd_dea")},
+            {"name": "MACD", "data": number_series("macd")},
+        ])
+        append_chart("KDJ", "KDJ", "LINE", [
+            {"name": "K", "data": number_series("kdjK")},
+            {"name": "D", "data": number_series("kdjD")},
+            {"name": "J", "data": number_series("kdjJ")},
+        ])
+        append_chart("RSI", "RSI", "LINE", [
+            {"name": "RSI14", "data": number_series("rsi14", "RSI14")}
+        ])
+        append_chart("CCI", "CCI", "LINE", [
+            {"name": "CCI14", "data": number_series("cci14", "CCI14")}
+        ])
+        append_chart("DMI", "DMI", "LINE", [
+            {"name": "+DI", "data": number_series("dmiPdi14")},
+            {"name": "-DI", "data": number_series("dmiMdi14")},
+            {"name": "ADX", "data": number_series("dmiAdx14")},
+        ])
+        append_chart("ATR", "ATR", "LINE", [
+            {"name": "ATR14", "data": number_series("atr14", "ATR14"), "unit": "元"}
+        ])
+        append_chart("OBV", "OBV", "LINE", [
+            {"name": "OBV", "data": number_series("obv", "OBV", digits=2), "unit": "股/手"},
+            {"name": "OBV14", "data": number_series("obv14", "OBV14", digits=2), "unit": "股/手"},
+        ])
+        return charts
 
     def build_charts(
         self,
@@ -1771,7 +1972,11 @@ class StockService:
             })
         return charts
 
-    def build_quote_technical_analysis(self, technical_rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    def build_quote_technical_analysis(
+        self,
+        technical_rows: List[Dict[str, Any]],
+        trade_date: str | None = None,
+    ) -> Optional[Dict[str, Any]]:
         """构建技术指标综合分析，字段对齐 targetDetailType.ts。"""
         if not technical_rows:
             return None
@@ -1829,8 +2034,8 @@ class StockService:
                 "summary": summary,
                 "score": score,
                 "signalStrength": signal_strength,
-                "period": "日线",
-                "updatedAt": get_current_datetime().isoformat(),
+                "period": "DAILY",
+                "updatedAt": trade_date or latest.get("tradeDate") or to_str_date(latest.get("trade_date")),
                 "levels": [
                     {"key": "trend", "label": "趋势", "level": self.score_to_level(trend_score), "tone": "up" if trend_score >= 60 else "down", "text": "收盘价与 MA20/MA60 的相对位置。"},
                     {"key": "momentum", "label": "动能", "level": self.score_to_level(momentum_score), "tone": "up" if momentum_score >= 60 else "down", "text": "MACD 与 RSI 的动能状态。"},
@@ -1861,22 +2066,6 @@ class StockService:
             "explanation": "技术指标由 indicator_utils.calculate_technical_indicator_rows 基于历史 K 线统一计算。",
         }
 
-    def build_quote_range_comparison(self, quote: Optional[Dict[str, Any]], context: Dict[str, Any]) -> Dict[str, Optional[float] | Optional[str]]:
-        """构建区间对比分析。当前物理表不提供全市场排名/Alpha/Beta，保留空值。"""
-        benchmark = next((row for row in context.get("swIndustryRows", []) if row.get("industryLevel") == 3), None)
-        stock_chg = to_float_or_none((quote or {}).get("chg_pct"))
-        industry_chg = to_float_or_none((benchmark or {}).get("chgPct"))
-        alpha_beta = calculate_alpha_beta_placeholder()
-        return {
-            "marketExcessReturn": None,
-            "industryExcessReturn": round_or_none(stock_chg - industry_chg) if stock_chg is not None and industry_chg is not None else None,
-            "industryRankText": None,
-            "marketRankText": None,
-            "alpha": alpha_beta.get("alpha"),
-            "beta": alpha_beta.get("beta"),
-            "correlation": alpha_beta.get("correlation"),
-            "relativeStrengthScore": None,
-        }
 
     # ------------------------------------------------------------------
     # 财务趋势明细构建
@@ -1963,10 +2152,6 @@ class StockService:
             "totalHldrEqyExcMinInt": row.get("totalHldrEqyExcMinInt"),
             "debtToAssets": (indicator_map.get(row.get("endDate"), {}) or {}).get("debtToAssets"),
         }) for row in balance_rows]
-
-    # ------------------------------------------------------------------
-    # 通用小工具
-    # ------------------------------------------------------------------
 
     def camelize_row(self, row: Mapping[str, Any], date_fields: Optional[set[str]] = None) -> Dict[str, Any]:
         """snake_case 数据库行转 camelCase，日期转字符串，数值转 float。"""

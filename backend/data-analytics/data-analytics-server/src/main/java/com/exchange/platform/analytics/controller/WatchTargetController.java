@@ -96,19 +96,183 @@ public class WatchTargetController {
         return ApiResponse.success(watchTargetService.getWatchTargetGroups(targetCode, targetType), requestId);
     }
 
-    @Operation(summary = "查询股票详细信息", description = "根据股票完整代码查询股票的详细信息，包括历史价格、财务指标、估值指标等")
+    @Operation(summary = "查询标的详情首屏数据", description = "返回详情页首屏所需的标的基础信息、最新行情、指标卡与各模块摘要，不包含大数组")
     @GetMapping("/{targetCode}/details")
-    public ApiResponse<Map<String, Object>> getStockDetails(
+    public ApiResponse<Map<String, Object>> getStockDetailShell(
         @PathVariable String targetCode,
-        @RequestParam String tradeDate,
-        @RequestParam(defaultValue = "True") boolean includeCharts,
-        @RequestParam(defaultValue = "True") boolean includeFinancial,
-        @RequestParam(defaultValue = "True") boolean includeHistory,
+        @RequestParam(required = false) String tradeDate,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
-        log.info("[{}] [Controller] getStockDetails: targetCode={}, tradeDate={}, includeCharts={}, includeFinancial={}, includeHistory={}", requestId, targetCode, tradeDate, includeCharts, includeFinancial, includeHistory);
-        return ApiResponse.success(watchTargetService.getStockDetails(targetCode, tradeDate, includeCharts, includeFinancial, includeHistory), requestId);
+        log.info("[{}] [Controller] getStockDetailShell: targetCode={}, tradeDate={}", requestId, targetCode, tradeDate);
+        return ApiResponse.success(watchTargetService.getStockDetailShell(targetCode, tradeDate), requestId);
+    }
+
+    @Operation(summary = "查询标的综合概览", description = "返回综合分析结论，包括综合观点、风险等级、估值状态、理由、风险点和建议")
+    @GetMapping("/{targetCode}/overview")
+    public ApiResponse<Map<String, Object>> getTargetOverview(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] getTargetOverview: targetCode={}, tradeDate={}", requestId, targetCode, tradeDate);
+        return ApiResponse.success(watchTargetService.getTargetOverview(targetCode, tradeDate), requestId);
+    }
+
+    @Operation(summary = "查询行情详情", description = "返回复权后的 K 线、技术指标图表、技术指标综合分析与区间表现")
+    @GetMapping("/{targetCode}/quote-detail")
+    public ApiResponse<Map<String, Object>> getTargetQuoteDetail(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false) String rangeCode,
+        @RequestParam(required = false, defaultValue = "NONE") String adjustType,
+        @RequestParam(required = false) String benchmarkCode,
+        @RequestParam(required = false) String industryCode,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetQuoteDetail: targetCode={}, tradeDate={}, rangeCode={}, adjustType={}, benchmarkCode={}, industryCode={}",
+            requestId, targetCode, tradeDate, rangeCode, adjustType, benchmarkCode, industryCode
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetQuoteDetail(targetCode, tradeDate, rangeCode, adjustType, benchmarkCode, industryCode),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询估值摘要", description = "返回估值 Tab 顶部 PE/PB/PS/股息率与总市值等摘要信息")
+    @GetMapping("/{targetCode}/valuation-summary")
+    public ApiResponse<Map<String, Object>> getTargetValuationSummary(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false) Integer historyLimit,
+        @RequestParam(required = false) String rangeCode,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetValuationSummary: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
+            requestId, targetCode, tradeDate, historyLimit, rangeCode
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetValuationSummary(targetCode, tradeDate, historyLimit, rangeCode),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询估值通道", description = "返回指定估值指标的收盘价与 5 条估值通道线")
+    @GetMapping("/{targetCode}/valuation-channel")
+    public ApiResponse<Map<String, Object>> getTargetValuationChannel(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false, defaultValue = "PE_TTM") String metricCode,
+        @RequestParam(required = false) Integer historyLimit,
+        @RequestParam(required = false) String rangeCode,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetValuationChannel: targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
+            requestId, targetCode, tradeDate, metricCode, historyLimit, rangeCode
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetValuationChannel(targetCode, tradeDate, metricCode, historyLimit, rangeCode),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询估值走势", description = "返回指定估值指标的股票值、行业平均/中位数、30/70 分位与当前分位排名")
+    @GetMapping("/{targetCode}/valuation-trend")
+    public ApiResponse<Map<String, Object>> getTargetValuationTrend(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false, defaultValue = "PE_TTM") String metricCode,
+        @RequestParam(required = false) Integer historyLimit,
+        @RequestParam(required = false) String rangeCode,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetValuationTrend: targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
+            requestId, targetCode, tradeDate, metricCode, historyLimit, rangeCode
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetValuationTrend(targetCode, tradeDate, metricCode, historyLimit, rangeCode),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询分红走势", description = "返回股票分红 TTM、申万三级行业平均与中位数分红率走势")
+    @GetMapping("/{targetCode}/dividend-trend")
+    public ApiResponse<Map<String, Object>> getTargetDividendTrend(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false) Integer historyLimit,
+        @RequestParam(required = false) String rangeCode,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetDividendTrend: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
+            requestId, targetCode, tradeDate, historyLimit, rangeCode
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetDividendTrend(targetCode, tradeDate, historyLimit, rangeCode),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询财务详情", description = "返回财务摘要、三大报表、财务指标与衍生趋势数据")
+    @GetMapping("/{targetCode}/financial-detail")
+    public ApiResponse<Map<String, Object>> getTargetFinancialDetail(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) Integer historyLimit,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] getTargetFinancialDetail: targetCode={}, historyLimit={}", requestId, targetCode, historyLimit);
+        return ApiResponse.success(
+            watchTargetService.getTargetFinancialDetail(targetCode, historyLimit),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询资金流向详情", description = "返回资金流摘要、历史明细以及资金与价格联动所需的收盘价序列")
+    @GetMapping("/{targetCode}/capital-flow-detail")
+    public ApiResponse<Map<String, Object>> getTargetCapitalFlowDetail(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        @RequestParam(required = false) Integer historyLimit,
+        @RequestParam(required = false) String rangeCode,
+        @RequestParam(required = false, defaultValue = "true") boolean includeQuoteRows,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info(
+            "[{}] [Controller] getTargetCapitalFlowDetail: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}, includeQuoteRows={}",
+            requestId, targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows
+        );
+        return ApiResponse.success(
+            watchTargetService.getTargetCapitalFlowDetail(targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows),
+            requestId
+        );
+    }
+
+    @Operation(summary = "查询行业详情", description = "股票返回申万三级行业归属、所属指数与同业对比；指数返回指数资料与成分股")
+    @GetMapping("/{targetCode}/industry-detail")
+    public ApiResponse<Map<String, Object>> getTargetIndustryDetail(
+        @PathVariable String targetCode,
+        @RequestParam(required = false) String tradeDate,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] getTargetIndustryDetail: targetCode={}, tradeDate={}", requestId, targetCode, tradeDate);
+        return ApiResponse.success(
+            watchTargetService.getTargetIndustryDetail(targetCode, tradeDate),
+            requestId
+        );
     }
 
     @Operation(summary = "查询指数详细信息", description = "根据指数完整代码查询指数的页面基本信息，主要包括指数概览、最新行情等，历史行业表现、技术指标、成分股等由其他接口提供")

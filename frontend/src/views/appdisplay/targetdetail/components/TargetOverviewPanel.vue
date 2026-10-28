@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TargetOverview } from '/@/types/targetdetail/targetDetailType'
+import type { TargetOverview } from '/@/types/targetdetail/targetDetailCenter'
 import {
     overallViewText,
     riskLevelText,

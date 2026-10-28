@@ -1,34 +1,36 @@
 <template>
     <div class="target-detail-center-page">
         <div v-loading="detailLoading" class="page-content">
-            <template v-if="detail">
+            <template v-if="shell">
                 <TargetHeaderCard
-                    :target="detail.targetProfile"
-                    :quote="detail.quote"
-                    :overview="detail.overview"
+                    :target="shell.targetProfile"
+                    :quote="shell.quote"
+                    :overview="overview?.overview"
                     @refresh="handleSearch"
                     @watch="handleWatch"
                     @create-alert="handleCreateAlert"
                 />
 
-                <TargetMetricCards :cards="detail.metricCards || []" />
+                <TargetMetricCards :cards="shell.metricCards || []" />
 
-                <TargetOverviewPanel :overview="detail.overview || {}" />
+                <TargetOverviewPanel :overview="overview?.overview || {}" />
 
                 <div class="content-grid">
-                    <!-- 多个tab -->
+                    <!-- 多个tab：各 Tab 使用自己的接口按需加载 -->
                     <div class="main-content">
                         <TargetMainTabs
-                            :detail="detail"
+                            :target="shell.targetProfile"
+                            :quote="shell.quote"
+                            :trade-date="queryForm.tradeDate"
                         />
                     </div>
 
                     <aside class="side-content">
                         <TargetSidePanel
-                            :watch="detail.watch || {}"
-                            :alerts="detail.alerts || []"
-                            :events="detail.events || []"
-                            :related-targets="detail.relatedTargets || []"
+                            :watch="shell.watch || {}"
+                            :alerts="shell.alerts || []"
+                            :events="shell.events || []"
+                            :related-targets="shell.relatedTargets || []"
                             @create-alert="handleCreateAlert"
                             @select-target="handleSelectTarget"
                         />
@@ -36,10 +38,10 @@
                 </div>
 
                 <div class="meta-line">
-                    数据来源：{{ detail.meta.dataSource }}
-                    <span v-if="detail.meta.dataVersion"> · 版本：{{ detail.meta.dataVersion }}</span>
-                    <span> · 生成时间：{{ formatDateTime(detail.meta.generatedAt) }}</span>
-                    <span v-if="detail.meta.partialData"> · 部分数据</span>
+                    数据来源：{{ shell.meta.dataSource }}
+                    <span v-if="shell.meta.dataVersion"> · 版本：{{ shell.meta.dataVersion }}</span>
+                    <span> · 生成时间：{{ formatDateTime(shell.meta.generatedAt) }}</span>
+                    <span v-if="shell.meta.partialData"> · 部分数据</span>
                 </div>
             </template>
 
@@ -51,8 +53,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { queryTargetDetail } from '/@/api/targetdetail/targetDetailApi'
-import type { TargetDetail } from '/@/types/targetdetail/targetDetailType'
+import { queryTargetDetailShell, queryTargetOverviewDetail } from '/@/api/targetdetail/targetDetailApi'
+import type { TargetDetailShell, TargetOverviewDetail } from '/@/types/targetdetail/targetDetailCenter'
 import type { TargetDetailQuery } from '/@/types/targetdetail/constants'
 import TargetHeaderCard from './components/TargetHeaderCard.vue'
 import TargetMetricCards from './components/TargetMetricCards.vue'
@@ -60,8 +62,6 @@ import TargetOverviewPanel from './components/TargetOverviewPanel.vue'
 import TargetMainTabs from './components/TargetMainTabs.vue'
 import TargetSidePanel from './components/TargetSidePanel.vue'
 import { formatDateTime } from '/@/utils/marketUtils'
-
-import { queryMockTargetDetail } from './mock/targetDetailMockData'
 
 
 const queryForm = reactive<TargetDetailQuery>({
@@ -75,7 +75,8 @@ const queryForm = reactive<TargetDetailQuery>({
     includeHistory: false
 })
 
-const detail = ref<TargetDetail | null>(null)
+const shell = ref<TargetDetailShell | null>(null)
+const overview = ref<TargetOverviewDetail | null>(null)
 const detailLoading = ref(false)
 onMounted(() => {
     handleSearch()
@@ -90,14 +91,27 @@ async function handleSearch(): Promise<void> {
     detailLoading.value = true
 
     try {
-        // detail.value = await queryTargetDetail({
-        //     ...queryForm,
-        //     targetCode: queryForm.targetCode.trim(),
-        // })
-        detail.value = await queryMockTargetDetail({
-            targetCode: queryForm.targetCode,
-            targetType: queryForm.targetType
-        })
+        const fullSymbol = queryForm.targetCode.trim()
+        const tradeDate = queryForm.tradeDate || undefined
+
+        // 首屏与综合分析拆为两个接口；概览失败时不影响首屏展示。
+        const [shellResult, overviewResult] = await Promise.allSettled([
+            queryTargetDetailShell({ fullSymbol, tradeDate }),
+            queryTargetOverviewDetail({ fullSymbol, tradeDate })
+        ])
+
+        if (shellResult.status === 'rejected') {
+            throw shellResult.reason
+        }
+
+        shell.value = shellResult.value
+
+        if (overviewResult.status === 'fulfilled') {
+            overview.value = overviewResult.value
+        } else {
+            overview.value = null
+            console.warn('查询标的综合概览失败', overviewResult.reason)
+        }
     } finally {
         detailLoading.value = false
     }
