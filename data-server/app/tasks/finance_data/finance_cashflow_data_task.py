@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from typing import Any, cast
@@ -59,21 +60,31 @@ class FinanceCashflowDataTask(BaseCollectTask):
 
     async def collect(self, params: dict[str, Any], ctx: ExecutionContext) -> list[dict[str, Any]]:
         """
-            采集股票现金流量表更新数据：
-            1）传入股票代码ts_code；
-            2）传入公告日期ann_date；
-            3）调用Tushare的cashflow接口，获取指定股票在指定公告日期发布的现金流量表数据。
+            按交易日期采集股票现金流量表更新数据：
+            1）传入交易日期trade_date；
+            2）调用Tushare的disclosure_date接口，以actual_date=trade_date获取当日实际披露财报的股票代码；
+            3）逐个调用Tushare的cashflow接口，获取这些股票在该交易日期发布的现金流量表数据。
         """
 
-        ts_code = params.get("ts_code", None)
-        ann_date = params.get("ann_date", None)
-        if ts_code == None or ann_date == None:
-            raise ValueError("ts_code和ann_date参数不能为空")
+        trade_date = params['trade_date']
+        if not trade_date:
+            raise ValueError("参数trade_date不能为空，格式为yyyymmdd，例如20240101")
 
-        finance_data = await self.ts.cashflow(ts_code=ts_code, ann_date=ann_date)
+        disclosure_data = await self.ts.disclosure_date(actual_date=trade_date)
+        if disclosure_data is None or len(disclosure_data) == 0:
+            return []
 
-        return self._to_records(finance_data)
+        ts_codes = disclosure_data["ts_code"].dropna().drop_duplicates().tolist()
 
+        records: list[dict[str, Any]] = []
+        for ts_code in ts_codes:
+            finance_data = await self.ts.cashflow(ts_code=ts_code, ann_date=trade_date)
+            records.extend(self._to_records(finance_data))
+
+            # 当前接口限速为每分钟200次请求，建议每次请求间隔0.4秒
+            await asyncio.sleep(0.4)
+
+        return records
 
 async def finance_cashflow_data_handler(request: TaskRunRequest) -> TaskRunResult:
     """采集任务的handler，负责调用task的execute方法并返回结果"""
@@ -90,29 +101,20 @@ def register_finance_cashflow_data_task():
         TaskTemplateInfo(
             task_code='finance_cashflow_data',
             task_name='股票现金流量表数据采集',
-            task_desc='采集股票现金流量表更新数据。任务需要传入ts_code和ann_date参数，调用Tushare的cashflow接口获取指定股票在指定公告日期发布的现金流量表数据。',
+            task_desc='采集在指定交易日期发布财报的所有股票的现金流量表数据。任务需要传入trade_date参数，调用Tushare的disclosure_date和cashflow接口获取在指定交易日期发布的财务指标数据。注：财报的发布一般是在发布日期的上一个交易日发布完毕，所以在发布日期的任一时刻采集就可以获取完整的财务数据，trade_date正常设置为触发日期就可以。',
             handler_name='finance_cashflow_data_handler',
             data_source='TUSHARE',
             asset_type='股票',
             biz_type='现金流量表',
             params_schema=[
                 OutputField(
-                    field_code="ts_code",
-                    field_name="股票代码",
-                    field_type="STRING",
-                    required=True,
-                    unique_key=False,
-                    sort_no=1,
-                    field_desc="股票代码，需要包括后缀，来源于股票基本数据接口返回的ts_code字段，如000001.SZ、600000.SH等"
-                ),
-                OutputField(
-                    field_code="ann_date",
-                    field_name="公告日期",
+                    field_code="trade_date",
+                    field_name="交易日期",
                     field_type="DATE",
                     required=True,
                     unique_key=False,
-                    sort_no=2,
-                    field_desc="公告日期，格式为YYYYMMDD"
+                    sort_no=1,
+                    field_desc="交易日期，格式为YYYYMMDD"
                 )
             ],
             output_fields=[

@@ -48,8 +48,6 @@ class StockAdjustFactorInitTask(BaseCollectTask):
         logger.info(f"共获取到{total_count}只股票，开始逐只采集历史复权因子数据")
 
         for index, ts_code in enumerate(ts_codes):
-            if index < 3810:  # 从第693只股票开始采集，前692只股票的复权因子数据已采集完成
-                continue
             logger.info(f"开始采集第 {index + 1}/{total_count} 只股票 {ts_code} 的历史复权因子数据")
 
             # 只传入ts_code参数，获取该股票全部历史复权因子数据

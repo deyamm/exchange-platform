@@ -192,7 +192,6 @@ class BasicDataRepo:
         self,
         index_code: str,
         limit: Optional[int] = None,
-        trade_date: str | None = None,
     ) -> List[Dict[str, Any]]:
         """查询指定指数最新成分股。
 
@@ -204,31 +203,18 @@ class BasicDataRepo:
 
         params: Dict[str, Any] = {"index_code": index_code}
         limit_sql = ""
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
         if limit is not None:
             params["limit"] = max(1, int(limit))
             limit_sql = "LIMIT :limit"
-
         result = await self.conn.execute(
             text(
                 f"""
-                WITH latest_trade_date AS (
-                    SELECT MAX(trade_date) AS trade_date
-                    FROM index_constituent_data
-                    WHERE index_code = :index_code
-                      {date_sql}
-                )
                 SELECT
-                    c.index_code AS index_code,
-                    c.stock_code AS stock_code,
-                    c.trade_date AS trade_date,
-                    c.weight AS weight
-                FROM index_constituent_data c
-                JOIN latest_trade_date d
-                  ON d.trade_date = c.trade_date
+                    c.index_code,
+                    c.stock_code,
+                    c.trade_date,
+                    c.weight
+                FROM type_basic_data.index_constituent_data c
                 WHERE c.index_code = :index_code
                 ORDER BY c.weight DESC, c.stock_code
                 {limit_sql}
@@ -422,7 +408,7 @@ class BasicDataRepo:
                     parent_code,
                     src
                 FROM index_industry_level
-                WHERE index_code IN ({in_sql})
+                WHERE industry_code IN ({in_sql})
                 ORDER BY
                     CASE
                         WHEN level = 'L1' THEN 0
@@ -562,16 +548,6 @@ class BasicDataRepo:
             params,
         )
         return [dict(row._mapping) for row in result]
-
-    async def get_sw_l3_component_codes(
-        self,
-        industry_index_code: str,
-        trade_date: str | None = None,
-        limit: Optional[int] = None,
-    ) -> List[str]:
-        """查询申万三级行业指数成分代码，供 service 做同业聚合。"""
-        rows = await self.get_index_components(industry_index_code, limit=limit, trade_date=trade_date)
-        return [row["stock_code"] for row in rows if row.get("stock_code")]
 
     async def get_index_peer_indices(
         self,
