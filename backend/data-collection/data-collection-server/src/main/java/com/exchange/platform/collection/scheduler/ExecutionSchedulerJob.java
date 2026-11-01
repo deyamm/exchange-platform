@@ -282,17 +282,13 @@ public class ExecutionSchedulerJob {
         // 这里对分隔符进行简单处理，规则为：如果parts为1，则认为没有数据源，直接使用默认格式解析；如果parts为2，则第一个部分为数据源，第二个部分为token，如果parts多于2，固定使用第一个和第二个部分，忽略后续部分
         String dataSource = parts.length > 1 ? parts[0] : "default";
         String tok = parts.length > 1 ? parts[1] : parts[0];
-        if (tok.equals("today")) {
-            dateStr = formatDateForDataSource(dataSource, DATE_FORMAT.format(today), DATE_FORMAT, zoneId, today, fireTime);
-        } else if (tok.equals("yesterday")) {
+        // 当前支持的 token 包括 prevDate、nextDate、fireDate、fireTime，其他token原样返回
+        if (tok.equals("prevDate")) {
             dateStr = formatDateForDataSource(dataSource, DATE_FORMAT.format(yesterday), DATE_FORMAT, zoneId, yesterday, fireTime);
-        } else if (tok.equals("tomorrow")) {
+        } else if (tok.equals("nextDate")) {
             dateStr = formatDateForDataSource(dataSource, DATE_FORMAT.format(tomorrow), DATE_FORMAT, zoneId, tomorrow, fireTime);
         } else if (tok.equals("fireDate")) {
             dateStr = formatDateForDataSource(dataSource, DATE_FORMAT.format(fireTime.toLocalDate()), DATE_FORMAT, zoneId, fireTime.toLocalDate(), fireTime);
-        } else if (tok.equals("now")) {
-            // now uses full datetime
-            dateStr = DATETIME_FORMAT.format(LocalDateTime.now(zoneId));
         } else if (tok.equals("fireTime")) {
             dateStr = DATETIME_FORMAT.format(fireTime);
         } else {

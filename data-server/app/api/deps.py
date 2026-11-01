@@ -64,9 +64,10 @@ def get_market_service(
 def get_stock_service(
     basic_conn: AsyncConnection = Depends(get_basic_conn),
     exchange_conn: AsyncConnection = Depends(get_exchange_conn),
-    finance_conn: AsyncConnection = Depends(get_finance_conn)
+    finance_conn: AsyncConnection = Depends(get_finance_conn),
+    redis_client: Redis = Depends(get_redis_client)
 ) -> StockService:
-    return StockService(basic_conn=basic_conn, exchange_conn=exchange_conn, finance_conn=finance_conn)
+    return StockService(basic_conn=basic_conn, exchange_conn=exchange_conn, finance_conn=finance_conn, redis_client=redis_client)
 
 def get_index_service(
     basic_conn: AsyncConnection = Depends(get_basic_conn),

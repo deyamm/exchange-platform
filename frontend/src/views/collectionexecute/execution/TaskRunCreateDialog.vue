@@ -249,11 +249,18 @@
                             :placeholder="getDatePlaceholder(field.fieldType, field.fieldDesc)"
                         />
                         <div class="param-token-row">
-                            <el-button size="small" @click="applyParamToken(field, 'today')">今天</el-button>
-                            <el-button size="small" @click="applyParamToken(field, 'tomorrow')">明天</el-button>
-                            <el-button size="small" @click="applyParamToken(field, 'fireDate')">执行日期</el-button>
-                            <el-button size="small" @click="applyParamToken(field, 'now')">现在</el-button>
-                            <el-button size="small" @click="applyParamToken(field, 'fireTime')">触发时间</el-button>
+                            <template v-if="createForm.triggerType === 'MANUAL'">
+                                <el-button size="small" @click="applyParamToken(field, 'today')">今天</el-button>
+                                <el-button size="small" @click="applyParamToken(field, 'yesterday')">昨天</el-button>
+                                <el-button size="small" @click="applyParamToken(field, 'tomorrow')">明天</el-button>
+                                <el-button v-if="isDateTimeField(field.fieldType)" size="small" @click="applyParamToken(field, 'now')">当前时间</el-button>
+                            </template>
+                            <template v-else-if="createForm.triggerType === 'SCHEDULED'">
+                                <el-button size="small" @click="applyParamToken(field, 'fireDate')">触发日</el-button>
+                                <el-button size="small" @click="applyParamToken(field, 'prevDate')">前一天</el-button>
+                                <el-button size="small" @click="applyParamToken(field, 'nextDate')">后一天</el-button>
+                                <el-button v-if="isDateTimeField(field.fieldType)" size="small" @click="applyParamToken(field, 'fireTime')">触发时刻</el-button>
+                            </template>
                             <el-button
                                 v-if="createForm.triggerType === 'BIZ_TABLE'"
                                 size="small"
@@ -817,8 +824,37 @@ async function handleCreate(): Promise<void> {
     }
 }
 
-function applyParamToken(field: ParamField, token: 'today' | 'tomorrow' | 'fireDate' | 'now' | 'fireTime'): void {
-    createForm.params[field.fieldCode] = resolveTokenValue(selectedTaskDetail.value?.currentVersion?.dataSource || 'default', createForm.triggerType, token)
+function applyParamToken(
+    field: ParamField,
+    token: 'today' | 'yesterday' | 'tomorrow' | 'now' | 'fireDate' | 'prevDate' | 'nextDate' | 'fireTime'
+): void {
+    if (createForm.triggerType === 'MANUAL') {
+        if (!['today', 'yesterday', 'tomorrow', 'now'].includes(token)) return
+
+        const date = new Date()
+        if (token === 'yesterday') date.setDate(date.getDate() - 1)
+        if (token === 'tomorrow') date.setDate(date.getDate() + 1)
+
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const dateText = `${year}-${month}-${day}`
+        const timeText = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
+        createForm.params[field.fieldCode] = token === 'now'
+            ? `${dateText} ${timeText}`
+            : isDateTimeField(field.fieldType) ? `${dateText} 00:00:00` : dateText
+        return
+    }
+
+    if (createForm.triggerType !== 'SCHEDULED') return
+
+    const dataSource = selectedTaskDetail.value?.currentVersion?.dataSource || 'default'
+    if (token === 'fireTime') {
+        createForm.params[field.fieldCode] = resolveTokenValue(dataSource, 'SCHEDULED', 'fireTime')
+    } else if (token === 'fireDate' || token === 'prevDate' || token === 'nextDate') {
+        const fireDateToken = resolveTokenValue(dataSource, 'SCHEDULED', token)
+        createForm.params[field.fieldCode] = isDateTimeField(field.fieldType) ? `${fireDateToken} 00:00:00` : fireDateToken
+    }
 }
 
 

@@ -6,6 +6,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.repository.basic_data_repo import BasicDataRepo
@@ -25,6 +26,7 @@ from app.utils.indicator_utils import (
 )
 from app.utils.target_detail_utils import build_default_watch_info, compact_dict, metric_card, net_flow, strip_exchange
 from app.utils.typing_utils import to_str_date
+from app.utils.decorators import stock_response_cache
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,7 @@ class StockService:
         basic_conn: AsyncConnection,
         exchange_conn: AsyncConnection,
         finance_conn: AsyncConnection,
+        redis_client: Redis,
     ):
         self.basic_conn = basic_conn
         self.exchange_conn = exchange_conn
@@ -101,7 +104,9 @@ class StockService:
         self.basic_repo = BasicDataRepo(basic_conn)
         self.exchange_repo = ExchangeDataRepo(exchange_conn)
         self.finance_repo = FinanceDataRepo(finance_conn)
+        self.redis_client = redis_client
 
+    @stock_response_cache("shell", ttl_seconds=120)
     async def get_target_detail_shell(
         self,
         full_symbol: str,
@@ -155,6 +160,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, warnings),
         })
 
+    @stock_response_cache("overview", ttl_seconds=120)
     async def get_target_overview_detail(
         self,
         full_symbol: str,
@@ -178,6 +184,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, warnings),
         }
 
+    @stock_response_cache("quote", ttl_seconds=120)
     async def get_target_quote_detail(
         self,
         full_symbol: str,
@@ -254,6 +261,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, warnings),
         })
 
+    @stock_response_cache("valuation_summary", ttl_seconds=120)
     async def get_target_valuation_summary_detail(
         self,
         full_symbol: str,
@@ -276,6 +284,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, [] if indicator_history else ["stock_indicator_daily 未找到估值历史"]),
         })
 
+    @stock_response_cache("valuation_channel", ttl_seconds=120)
     async def get_target_valuation_channel_detail(
         self,
         full_symbol: str,
@@ -306,6 +315,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, [] if rows else ["未生成估值通道数据"]),
         }
 
+    @stock_response_cache("valuation_trend", ttl_seconds=120)
     async def get_target_valuation_trend_detail(
         self,
         full_symbol: str,
@@ -357,8 +367,8 @@ class StockService:
             "trendRows": trend_rows,
             "meta": self.build_meta(resolved_trade_date, [] if indicator_history else ["stock_indicator_daily 未找到估值历史"]),
         }
-
-
+    
+    @stock_response_cache("dividend_trend", ttl_seconds=120)
     async def get_target_dividend_trend_detail(
         self,
         full_symbol: str,
@@ -397,17 +407,26 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, [] if rows else ["stock_indicator_daily 未找到分红历史"]),
         }
 
+    @stock_response_cache("financial", ttl_seconds=120)
     async def get_target_financial_detail(
         self,
         full_symbol: str,
         history_limit: int | None = None,
     ) -> Dict[str, Any]:
         """财务 Tab 接口。history_limit 表示向前展示的年数。"""
-        row_limit = self.normalize_financial_row_limit(history_limit)
+
+        # 这里将原先的历史财报数量 history_limit 修改为年数量
+        years = self.normalize_financial_year_limit(history_limit)
+        current_year = get_current_datetime().year
+        start_year = current_year - years + 1
+        # 从数据库中查询时，以start_date为起点，查询到当前的财务数据
+        start_end_date = f"{start_year}-01-01"
+
         basic = await self.basic_repo.get_stock_basic_detail(full_symbol)
         resolved_full_symbol = (basic or {}).get("full_symbol") or full_symbol
         financial_bundle = await self.finance_repo.get_latest_financial_bundle(resolved_full_symbol)
-        detail_bundle = await self.finance_repo.get_financial_statement_detail(resolved_full_symbol, limit=row_limit)
+        detail_bundle = await self.finance_repo.get_financial_statement_detail(resolved_full_symbol, limit=years * 4 + 4, start_end_date=start_end_date)  # limit作为数量上限，实际是按年份过滤
+        
         financial = self.build_financial_summary(financial_bundle)
         financial_detail = self.build_financial_detail(detail_bundle)
         data_version = (financial or {}).get("endDate")
@@ -418,6 +437,7 @@ class StockService:
             "meta": self.build_meta(data_version, [] if financial_detail else ["type_finance_data 未找到财务详情"]),
         })
 
+    @stock_response_cache("capital_flow", ttl_seconds=120)
     async def get_target_capital_flow_detail(
         self,
         full_symbol: str,
@@ -446,6 +466,7 @@ class StockService:
             "meta": self.build_meta(resolved_trade_date, [] if money_flow_rows else ["stock_moneyflow_daily 未找到资金流历史"]),
         })
 
+    # @stock_response_cache("target_industry", ttl_seconds=120)
     async def get_target_industry_detail(
         self,
         full_symbol: str,
@@ -456,23 +477,25 @@ class StockService:
         stock_basic = await self.basic_repo.get_stock_basic_detail(full_symbol)
         if stock_basic:
             resolved_full_symbol = stock_basic.get("full_symbol") or full_symbol
-            quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
-            resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
-            context = await self.load_industry_context(stock_basic, resolved_full_symbol, resolved_trade_date)
+            context = await self.load_industry_context(stock_basic, resolved_full_symbol, requested_trade_date)
+            industry = self.build_industry_info(context)
             return self.drop_none_top_level({
                 "fullSymbol": resolved_full_symbol,
-                "industry": self.build_industry_info(context),
+                "industry": industry,
                 "stockProfile": self.build_stock_profile(stock_basic, resolved_full_symbol),
                 "industryPeerRows": self.build_industry_peer_rows(context),
-                "industryDetail": context.get("industryDetail"),
-                "meta": self.build_meta(resolved_trade_date, [] if context.get("industryDetail") else ["未找到申万行业归属"]),
+                "industryDetail": {
+                    "swIndustryRows": context.get("swIndustryRows") or [],
+                    "benchmarkIndustryLevel": industry.get("industryLevel") if industry is not None else None,
+                    "benchmarkIndustryCode": context.get("benchmarkIndustryCode"),
+                    "benchmarkIndustryName": context.get("benchmarkIndustryName")
+                },
+                "meta": self.build_meta(requested_trade_date, [] if context.get("swIndustryRows") else ["未找到申万行业归属"]),
             })
 
         index_basic = await self.basic_repo.get_index_basic_detail(full_symbol)
         resolved_full_symbol = (index_basic or {}).get("full_symbol") or full_symbol
-        quote = await self.exchange_repo.get_index_latest_snapshot(resolved_full_symbol, requested_trade_date)
-        resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
-        constituent_rows = await self.build_constituent_rows(resolved_full_symbol, resolved_trade_date, limit=200)
+        constituent_rows = await self.build_constituent_rows(resolved_full_symbol, requested_trade_date, limit=200)
         return self.drop_none_top_level({
             "fullSymbol": resolved_full_symbol,
             "industry": self.build_industry_info_from_constituents(constituent_rows),
@@ -480,7 +503,7 @@ class StockService:
             "constituentRows": constituent_rows,
             "industryPeerRows": constituent_rows,
             "industryDetail": None,
-            "meta": self.build_meta(resolved_trade_date, [] if constituent_rows or index_basic else ["未找到指数行业/成分数据"]),
+            "meta": self.build_meta(requested_trade_date, [] if constituent_rows or index_basic else ["未找到指数行业/成分数据"]),
         })
 
     def normalize_history_limit(self, history_limit: int | None, range_code: str | None, default: int) -> int:
@@ -495,11 +518,10 @@ class StockService:
         code = (range_code or "").upper()
         return VALUATION_RANGE_SIZE_MAP.get(code, default)
 
-    def normalize_financial_row_limit(self, history_limit: int | None) -> int:
-        if history_limit is None:
-            return 20
-        # 年数 -> 季度报告行数，额外加 4 期用于同比或缺报兜底。
-        return max(4, min(80, int(history_limit) * 4 + 4))
+    def normalize_financial_year_limit(self, history_limit: int | None) -> int:
+        """财务历史范围：最近 N 个自然年（包含今年）。"""
+        years = 5 if history_limit is None else int(history_limit)
+        return max(1, min(20, years))
 
     def normalize_metric_code(self, metric_code: str | None) -> str:
         code = (metric_code or "PE_TTM").upper()
@@ -804,7 +826,7 @@ class StockService:
         return self.compact_dict(profile)
 
     async def build_constituent_rows(self, index_code: str, trade_date: str, limit: int = 200) -> List[Dict[str, Any]]:
-        components = await self.basic_repo.get_index_components(index_code, limit=limit, trade_date=trade_date)
+        components = await self.basic_repo.get_index_components(index_code, limit=limit)
         codes = [row.get("stock_code", '') for row in components if row.get("stock_code")]
         basic_map = await self.basic_repo.get_stock_basic_by_codes(codes) if codes else {}
         snapshots = await self.exchange_repo.get_stock_latest_snapshots_by_codes(codes, trade_date) if codes else []
@@ -857,125 +879,6 @@ class StockService:
             "peMedian": round_or_none(statistics.median(pe_values) if pe_values else None),
             "pbMedian": round_or_none(statistics.median(pb_values) if pb_values else None),
         })
-
-    async def get_stock_detail(
-        self,
-        full_symbol: str,
-        trade_date: str | None = None,
-        include_charts: bool = True,
-        include_financial: bool = True,
-        include_history: bool = True,
-    ) -> Dict[str, Any]:
-        """构建单只股票详情，返回 targetDetailType.TargetDetail。"""
-        logger.info("查询股票 TargetDetail，full_symbol=%s, trade_date=%s", full_symbol, trade_date)
-
-        warnings: List[str] = []
-        basic = await self.basic_repo.get_stock_basic_detail(full_symbol)
-        resolved_full_symbol = (basic or {}).get("full_symbol") or full_symbol
-
-        requested_trade_date = resolve_trade_date(trade_date)
-        quote = await self.exchange_repo.get_stock_latest_snapshot(resolved_full_symbol, requested_trade_date)
-        resolved_trade_date = to_str_date((quote or {}).get("trade_date")) or requested_trade_date
-
-        if not basic:
-            warnings.append("stock_basic_data 未找到股票基础信息")
-        if not quote:
-            warnings.append("stock_k_daily / stock_indicator_daily 未找到行情快照")
-
-        history_limit = 520 if include_history else 120
-        indicator_limit = 1250 if include_history else 260
-        history = await self.exchange_repo.get_stock_history(resolved_full_symbol, resolved_trade_date, limit=history_limit)
-        indicator_history = await self.exchange_repo.get_stock_indicator_history(
-            resolved_full_symbol,
-            resolved_trade_date,
-            limit=indicator_limit,
-        )
-        moneyflow_history = await self.exchange_repo.get_stock_moneyflow_history(
-            resolved_full_symbol,
-            resolved_trade_date,
-            limit=indicator_limit,
-        )
-
-        financial_bundle: Dict[str, Optional[Dict[str, Any]]] = {}
-        financial_detail_bundle: Dict[str, List[Dict[str, Any]]] = {}
-        financial_history: List[Dict[str, Any]] = []
-        if include_financial:
-            financial_bundle = await self.finance_repo.get_latest_financial_bundle(resolved_full_symbol)
-            financial_detail_bundle = await self.finance_repo.get_financial_statement_detail(resolved_full_symbol, limit=20)
-            financial_history = await self.finance_repo.get_financial_history(resolved_full_symbol, limit=12)
-            if not any(financial_bundle.values()):
-                warnings.append("type_finance_data 未找到财务数据")
-
-        industry_context = await self.load_industry_context(basic, resolved_full_symbol, resolved_trade_date)
-        benchmark_codes = [item.get("stock_code") for item in industry_context.get("benchmarkComponents", []) if item.get("stock_code")]
-        industry_indicator_rows = await self.exchange_repo.get_stock_indicator_rows_by_codes(
-            benchmark_codes,
-            resolved_trade_date,
-            limit_trade_dates=len(indicator_history),
-        ) if benchmark_codes else []
-        industry_valuation_stats = self.build_industry_valuation_stats(industry_indicator_rows)
-
-        quote_rows = self.build_quote_rows(history, indicator_history)
-        technical_rows = calculate_technical_indicator_rows(quote_rows) if quote_rows else []
-        valuation_rows = self.build_valuation_rows(indicator_history, industry_valuation_stats)
-        money_flow_rows = self.build_money_flow_rows(moneyflow_history)
-        financial_detail = self.build_financial_detail(financial_detail_bundle) if include_financial else None
-
-        valuation_detail = self.build_valuation_detail(indicator_history, industry_valuation_stats)
-        valuation = self.build_valuation_info(quote, indicator_history)
-        financial = self.build_financial_summary(financial_bundle) if include_financial else None
-        capital_flow = self.build_capital_flow_info(quote, moneyflow_history)
-        industry = self.build_industry_info(industry_context)
-        industry_peer_rows = self.build_industry_peer_rows(industry_context)
-        profile = self.build_target_profile(basic, resolved_full_symbol, industry_context)
-        stock_profile = self.build_stock_profile(basic, resolved_full_symbol)
-        market_quote = self.build_market_quote(quote)
-        overview = self.build_overview(quote, history, valuation, financial)
-        metric_cards = self.build_metric_cards(quote, valuation, financial, capital_flow)
-        charts = self.build_charts(technical_rows, valuation_rows, money_flow_rows, financial_detail, financial_history) if include_charts else []
-        related_targets = self.build_related_targets(industry_context)
-
-        target_detail = {
-            "targetProfile": profile,
-            "quote": market_quote,
-            "overview": overview,
-            "metricCards": metric_cards,
-            "features": {
-                "quote": market_quote is not None,
-                "valuation": valuation is not None,
-                "financial": financial is not None,
-                "capitalFlow": capital_flow is not None,
-                "industry": industry is not None,
-            },
-            "charts": charts,
-            "valuation": valuation,
-            "financial": financial,
-            "capitalFlow": capital_flow,
-            "industry": industry,
-            "constituents": None,
-            "watch": self.build_default_watch_info(),
-            "alerts": [],
-            "events": [],
-            "relatedTargets": related_targets,
-            # 详情页扩展载荷
-            "quoteTechnicalAnalysis": self.build_quote_technical_analysis(technical_rows, resolved_trade_date),
-            "valuationRows": valuation_rows,
-            "valuationDetail": valuation_detail,
-            "financialDetail": financial_detail,
-            "moneyFlowRows": money_flow_rows,
-            "stockProfile": stock_profile,
-            "industryPeerRows": industry_peer_rows,
-            "industryDetail": industry_context.get("industryDetail"),
-            "meta": {
-                "dataSource": "type_basic_data,type_exchange_data,type_finance_data",
-                "dataVersion": resolved_trade_date,
-                "generatedAt": get_current_datetime().isoformat(),
-                "partialData": bool(warnings),
-                # TargetDetailMeta 未声明 warnings，但保留扩展字段，便于排查数据缺口。
-                "warnings": warnings,
-            },
-        }
-        return self.drop_none_top_level(target_detail)
 
     # ------------------------------------------------------------------
     # 基础资料 / 行情 / 顶部概览
@@ -1150,18 +1053,22 @@ class StockService:
         申万三级行业指数成分。
         """
         stock_name = (basic or {}).get("name")
+        # 获取个股所属的各级申万行业信息
         memberships = await self.basic_repo.get_stock_sw_industry_memberships(full_symbol)
+        # 优先选择个股所属的三级行业作为基准行业
         level3 = [row for row in memberships if self.parse_sw_level(row.get("level")) == 3]
         # 优化选择个股所属的三级行业，若没有，选择最高层级的行业作为叶子节点
         leaf = level3[0] if level3 else memberships[0]
+        # 根据三级行业查找父行业并加载一些行业行情
         sw_tree_rows = await self.build_sw_industry_tree_rows(leaf, stock_name, trade_date)
 
         benchmark_row = next((row for row in sw_tree_rows if row.get("industryLevel") == 3), None) or (sw_tree_rows[-1] if sw_tree_rows else None)
         benchmark_index_code = (benchmark_row or {}).get("indexCode")
 
-        benchmark_components = await self.basic_repo.get_index_components(benchmark_index_code, trade_date=trade_date) if benchmark_index_code else []
+        benchmark_components = await self.basic_repo.get_index_components(benchmark_index_code) if benchmark_index_code else []
+
         peer_codes = [row.get("stock_code", '') for row in benchmark_components]
-        peer_basic_map = await self.basic_repo.get_stock_basic_by_codes(peer_codes) if peer_codes else {}
+        peer_basic_data = await self.basic_repo.get_stock_basic_by_codes(peer_codes) if peer_codes else {}
         peer_snapshots = await self.exchange_repo.get_stock_latest_snapshots_by_codes(peer_codes, trade_date) if peer_codes else []
 
         belong_index_rows = await self.build_belong_index_rows(full_symbol, stock_name, trade_date)
@@ -1171,8 +1078,7 @@ class StockService:
             "benchmarkIndustryCode": (benchmark_row or {}).get("industryCode"),
             "benchmarkIndustryName": (benchmark_row or {}).get("industryName"),
             "benchmarkComponents": benchmark_components,
-            "peerComponents": benchmark_components,
-            "peerBasicMap": peer_basic_map,
+            "peerBasicData": peer_basic_data,
             "peerSnapshots": peer_snapshots,
             "stockName": stock_name,
             "fallbackIndustry": (basic or {}).get("industry"),
@@ -1213,7 +1119,7 @@ class StockService:
         # 获取最终的行业指数代码
         index_codes = [row.get("index_code", '') for row in unique_rows if row.get("index_code")]
         component_counts = await self.basic_repo.get_index_component_counts(index_codes)
-        # 获取行业指数快照，便于展示涨跌幅、总市值、换手率等指标
+        # 获取行业指数快照，便于展示涨跌幅、总市值、换手率等指标，TODO: 申万行业还没有可以直接用的数据
         snapshots = await self.exchange_repo.get_index_latest_snapshots_by_codes(index_codes, trade_date) if index_codes else []
         snapshot_map = {row.get("full_symbol"): row for row in snapshots if row.get("full_symbol")}
 
@@ -1294,9 +1200,9 @@ class StockService:
         })
 
     def build_industry_peer_rows(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """构建 StockIndustryPeerRow，同业样本默认来自申万三级行业指数成分。"""
-        peer_components = context.get("peerComponents") or []
-        basic_map = context.get("peerBasicMap") or {}
+        """构建特定股票（个股的行业context）的同行业股票，同行业默认来自申万三级行业指数成分。"""
+        peer_components = context.get("benchmarkComponents") or []
+        basic_data = context.get("peerBasicData") or {}
         snapshot_map = {row.get("full_symbol"): row for row in context.get("peerSnapshots", []) if row.get("full_symbol")}
         level_rows = context.get("swIndustryRows") or []
         level_map = {row.get("industryLevel"): row for row in level_rows}
@@ -1304,7 +1210,7 @@ class StockService:
         result: List[Dict[str, Any]] = []
         for item in peer_components:
             code = item.get("stock_code")
-            basic = basic_map.get(code, {})
+            basic = basic_data.get(code, {})
             snap = snapshot_map.get(code, {})
             result.append(self.compact_dict({
                 **self.build_stock_profile(basic, code),

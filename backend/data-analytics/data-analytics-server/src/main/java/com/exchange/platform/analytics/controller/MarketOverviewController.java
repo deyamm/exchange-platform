@@ -39,7 +39,7 @@ public class MarketOverviewController {
     }
 
     @Operation(summary = "查询市场概览", description = "通过feign调用fastapi接口，查询指定日期的市场行情概览、指数概览、板块概览和涨跌分布")
-    @GetMapping("/market/overview")
+    @GetMapping("/market-overview")
     public ApiResponse<Map<String, Object>> getMarketOverview(
             @RequestParam(required = false) String tradeDate,
             HttpServletRequest request) {

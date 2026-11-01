@@ -34,6 +34,7 @@
                             </el-tag>
                         </el-descriptions-item>
                         <el-descriptions-item label="最近同步时间">{{ detail.taskInfo.latestSyncTime }}</el-descriptions-item>
+                        <el-descriptions-item label="任务描述">{{ detail.currentVersion?.taskDesc }}</el-descriptions-item>
                     </el-descriptions>
                 </el-card>
 
@@ -171,7 +172,7 @@ async function loadDetail(): Promise<void> {
 
 function goConfigMappingPage(): void {
     router.push({
-        path: `/collectionTask/config/${taskCode}`
+        path: `/collectionConfig/collectionTask/config/${taskCode}`
     })
 }
 </script>

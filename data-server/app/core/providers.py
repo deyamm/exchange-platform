@@ -211,6 +211,17 @@ class TuShareProviderAsync:
     async def adj_factor(self, ts_code: str = '', trade_date: str = '', start_date: str = '', end_date: str = '') -> pd.DataFrame:
         """股票复权因子数据"""
         return settings.TU_PRO.adj_factor(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
+
+    async def disclosure_date(self, ts_code: str = '', end_date: str = '', pre_date: str = '', ann_date: str = '', actual_date: str = '') -> pd.DataFrame:
+        """获取财报披露计划日期
+        Args:
+            ts_code (str): 股票代码
+            end_date (str): 财报周期（每个季度最后一天的日期，比如20181231表示2018年年报，20180630表示中报)
+            pre_date (str): 财报披露计划日期
+            ann_date (str): 最新披露公告日期
+            actual_date (str): 实际披露日期
+        """
+        return settings.TU_PRO.disclosure_date(ts_code=ts_code, end_date=end_date, pre_date=pre_date, ann_date=ann_date, actual_date=actual_date)
     
     async def balancesheet(self, ts_code: str = '', ann_date: str='', start_date: str='', end_date: str='') -> pd.DataFrame:
         """个股资产负债表数据，季度数据，传入公告日期，获取特征公告期的资产负债表数据，或者只传入股票代码，获取该股票所有公告期的资产负债表数据"""

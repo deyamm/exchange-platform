@@ -4,6 +4,7 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -707,26 +708,54 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
             .orderByDesc(TaskTemplateVersion::getVersionNo)
             .last("LIMIT 1")
         );
-        if (latestVersion != null && latestVersion.getOutputFieldsHash().equals(outputFieldsHash)) {
-            // 更新现有模板版本的基础信息，但不更新输出字段相关的信息，也不新增版本记录
-            latestVersion.setTaskName(syncData.taskName())
-                .setTaskDesc(syncData.taskDesc())
-                .setHandlerName(syncData.handlerName())
-                .setDataSource(syncData.dataSource())
-                .setAssetType(syncData.assetType())
-                .setBizType(syncData.bizType())
-                .setParamsSchemaJson(syncData.paramsSchema() != null ? JSON.toJSONString(syncData.paramsSchema()) : null)
-                .setRuleCategoryCodes(syncData.ruleCategoryCodes() != null ? String.join(",", syncData.ruleCategoryCodes()) : null)
-                .setSyncTime(syncData.syncTime() != null ? syncData.syncTime() : LocalDateTime.now());
-            taskTemplateVersionMapper.updateById(latestVersion);
-            // 更新taskTemplate的同步状态和最新同步时间，但不新增版本记录
-            this.update(new TaskTemplate()
-                .setSyncStatus(SyncStatus.SYNCED)
-                .setLatestSyncTime(syncData.syncTime() != null ? syncData.syncTime() : LocalDateTime.now()),
+        if (latestVersion != null && Objects.equals(latestVersion.getOutputFieldsHash(), outputFieldsHash)) {
+            // 输出字段未变化时，只比较当前版本的业务字段，不创建新版本。
+            // syncTime、版本号、ID等系统/同步元数据不参与比较，避免每次同步都被判断为变更。
+            String paramsSchemaJson = syncData.paramsSchema() != null
+                ? JSON.toJSONString(syncData.paramsSchema()) : null;
+            String ruleCategoryCodes = syncData.ruleCategoryCodes() != null
+                ? String.join(",", syncData.ruleCategoryCodes()) : null;
+
+            boolean versionChanged =
+                !Objects.equals(latestVersion.getTaskName(), syncData.taskName())
+                || !Objects.equals(latestVersion.getTaskDesc(), syncData.taskDesc())
+                || !Objects.equals(latestVersion.getHandlerName(), syncData.handlerName())
+                || !Objects.equals(latestVersion.getDataSource(), syncData.dataSource())
+                || !Objects.equals(latestVersion.getAssetType(), syncData.assetType())
+                || !Objects.equals(latestVersion.getBizType(), syncData.bizType())
+                || !Objects.equals(latestVersion.getParamsSchemaJson(), paramsSchemaJson)
+                || !Objects.equals(latestVersion.getRuleCategoryCodes(), ruleCategoryCodes);
+
+            // 每次成功拉取数据都需要恢复同步状态，避免保留前面批量设置的 PENDING。
+            TaskTemplate templateUpdate = new TaskTemplate().setSyncStatus(SyncStatus.SYNCED);
+
+            if (versionChanged) {
+                LocalDateTime syncTime = syncData.syncTime() != null
+                    ? syncData.syncTime() : LocalDateTime.now();
+
+                // 有业务字段变化：更新当前版本及变更时间，但不新增版本。
+                latestVersion.setTaskName(syncData.taskName())
+                    .setTaskDesc(syncData.taskDesc())
+                    .setHandlerName(syncData.handlerName())
+                    .setDataSource(syncData.dataSource())
+                    .setAssetType(syncData.assetType())
+                    .setBizType(syncData.bizType())
+                    .setParamsSchemaJson(paramsSchemaJson)
+                    .setRuleCategoryCodes(ruleCategoryCodes)
+                    .setSyncTime(syncTime);
+                taskTemplateVersionMapper.updateById(latestVersion);
+
+                // 仅实际发生变更时更新任务模板的 LatestSyncTime。
+                templateUpdate.setTaskName(syncData.taskName())
+                    .setLatestSyncTime(syncTime);
+            }
+
+            this.update(templateUpdate,
                 new LambdaQueryWrapper<TaskTemplate>()
                     .eq(TaskTemplate::getTaskCode, syncData.taskCode())
             );
-            log.info("No output fields changed for taskCode={}, update the existing version", syncData.taskCode());
+            log.info("Output fields unchanged for taskCode={}, versionChanged={}",
+                syncData.taskCode(), versionChanged);
             return;
         }
         // 不存在相同hash的记录，说明输出字段有变化，需要新增版本记录，最新版本号在原有基础上加1，如果不存在记录则版本号为1
