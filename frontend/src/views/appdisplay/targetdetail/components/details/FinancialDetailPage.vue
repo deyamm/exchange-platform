@@ -11,14 +11,31 @@
                 </el-col>
             </el-row>
 
-            <el-alert
-                v-if="financial?.conclusion"
-                class="conclusion"
-                :title="financial.conclusion"
-                type="info"
-                show-icon
-                :closable="false"
-            />
+            <div class="financial-range-bar">
+                <div class="range-info">
+                    <div class="range-title">
+                        <el-icon>
+                            <Calendar />
+                        </el-icon>
+                        <span>历史财务分析</span>
+                        <el-tag size="small" type="info" effect="plain">
+                            全页生效
+                        </el-tag>
+                    </div>
+                    <div class="range-desc">
+                        统一控制财务摘要、趋势分析及各类报表的数据范围
+                    </div>
+                </div>
+
+                <div class="range-actions">
+                    <span class="range-label">时间范围</span>
+                    <el-select v-model="historyLimit" size="default" style="width: 128px" :loading="financialLoading"
+                        :disabled="financialLoading || !props.fullSymbol" @change="loadFinancialDetail">
+                        <el-option v-for="item in historyLimitOptions" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-select>
+                </div>
+            </div>
 
             <el-card class="detail-card" shadow="never">
                 <template #header>
@@ -35,12 +52,8 @@
                 </template>
 
                 <el-tabs v-model="activeProfitMetric" class="metric-tabs">
-                    <el-tab-pane
-                        v-for="item in profitMetricOptions"
-                        :key="item.value"
-                        :label="item.label"
-                        :name="item.value"
-                    />
+                    <el-tab-pane v-for="item in profitMetricOptions" :key="item.value" :label="item.label"
+                        :name="item.value" />
                 </el-tabs>
 
                 <el-empty v-if="!profitChartRows.length" description="暂无利润趋势数据" />
@@ -58,12 +71,8 @@
                 </template>
 
                 <el-tabs v-model="activeRatioMetric" class="metric-tabs">
-                    <el-tab-pane
-                        v-for="item in ratioMetricOptions"
-                        :key="item.value"
-                        :label="item.label"
-                        :name="item.value"
-                    />
+                    <el-tab-pane v-for="item in ratioMetricOptions" :key="item.value" :label="item.label"
+                        :name="item.value" />
                 </el-tabs>
 
                 <el-empty v-if="!ratioTrendRows.length" description="暂无财务指标明细" />
@@ -102,48 +111,49 @@
                     </div>
                 </template>
 
+
                 <el-tabs v-model="activeStatementTab">
                     <el-tab-pane label="利润表" name="income">
                         <el-table :data="incomeRows.slice().reverse()" border height="460">
                             <el-table-column prop="endDate" label="报告期" width="110" align="center" fixed />
                             <el-table-column prop="annDate" label="公告日期" width="110" align="center" />
                             <el-table-column prop="reportType" label="报告类型" width="110" />
-                            <el-table-column prop="basicEps" label="basicEps" width="100" align="right" />
-                            <el-table-column prop="dilutedEps" label="dilutedEps" width="110" align="right" />
-                            <el-table-column label="totalRevenue" min-width="130" align="right">
+                            <el-table-column prop="basicEps" label="基本每股收益" width="100" align="right" />
+                            <el-table-column prop="dilutedEps" label="稀释每股收益" width="110" align="right" />
+                            <el-table-column label="营业总收入" min-width="130" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalRevenue) }}</template>
                             </el-table-column>
-                            <el-table-column label="revenue" min-width="130" align="right">
+                            <el-table-column label="营业收入" min-width="130" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.revenue) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalCogs" min-width="130" align="right">
+                            <el-table-column label="营业总成本" min-width="130" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalCogs) }}</template>
                             </el-table-column>
-                            <el-table-column label="operCost" min-width="130" align="right">
+                            <el-table-column label="营业成本" min-width="130" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.operCost) }}</template>
                             </el-table-column>
-                            <el-table-column label="sellExp" min-width="120" align="right">
+                            <el-table-column label="销售费用" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.sellExp) }}</template>
                             </el-table-column>
-                            <el-table-column label="adminExp" min-width="120" align="right">
+                            <el-table-column label="管理费用" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.adminExp) }}</template>
                             </el-table-column>
-                            <el-table-column label="finExp" min-width="120" align="right">
+                            <el-table-column label="财务费用" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.finExp) }}</template>
                             </el-table-column>
-                            <el-table-column label="rdExp" min-width="120" align="right">
+                            <el-table-column label="研发费用" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.rdExp) }}</template>
                             </el-table-column>
-                            <el-table-column label="operProfit" min-width="130" align="right">
+                            <el-table-column label="营业利润" min-width="130" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.operProfit) }}</template>
                             </el-table-column>
-                            <el-table-column label="nIncomeAttrP" min-width="140" align="right">
+                            <el-table-column label="归母净利润" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.nIncomeAttrP) }}</template>
                             </el-table-column>
-                            <el-table-column label="ebit" min-width="120" align="right">
+                            <el-table-column label="息税前利润" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.ebit) }}</template>
                             </el-table-column>
-                            <el-table-column label="ebitda" min-width="120" align="right">
+                            <el-table-column label="息税折旧摊销前利润" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.ebitda) }}</template>
                             </el-table-column>
                         </el-table>
@@ -153,40 +163,40 @@
                         <el-table :data="balanceSheetRows.slice().reverse()" border height="460">
                             <el-table-column prop="endDate" label="报告期" width="110" align="center" fixed />
                             <el-table-column prop="annDate" label="公告日期" width="110" align="center" />
-                            <el-table-column label="moneyCap" min-width="120" align="right">
+                            <el-table-column label="货币资金" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.moneyCap) }}</template>
                             </el-table-column>
-                            <el-table-column label="accountsReceiv" min-width="140" align="right">
+                            <el-table-column label="应收账款" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.accountsReceiv) }}</template>
                             </el-table-column>
-                            <el-table-column label="inventories" min-width="120" align="right">
+                            <el-table-column label="存货" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.inventories) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalCurAssets" min-width="140" align="right">
+                            <el-table-column label="流动资产合计" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalCurAssets) }}</template>
                             </el-table-column>
-                            <el-table-column label="fixAssets" min-width="120" align="right">
+                            <el-table-column label="固定资产" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.fixAssets) }}</template>
                             </el-table-column>
-                            <el-table-column label="goodwill" min-width="120" align="right">
+                            <el-table-column label="商誉" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.goodwill) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalAssets" min-width="140" align="right">
+                            <el-table-column label="资产总计" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalAssets) }}</template>
                             </el-table-column>
-                            <el-table-column label="stBorr" min-width="120" align="right">
+                            <el-table-column label="短期借款" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.stBorr) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalCurLiab" min-width="140" align="right">
+                            <el-table-column label="流动负债合计" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalCurLiab) }}</template>
                             </el-table-column>
-                            <el-table-column label="ltBorr" min-width="120" align="right">
+                            <el-table-column label="长期借款" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.ltBorr) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalLiab" min-width="140" align="right">
+                            <el-table-column label="负债合计" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalLiab) }}</template>
                             </el-table-column>
-                            <el-table-column label="totalHldrEqyExcMinInt" min-width="180" align="right">
+                            <el-table-column label="股东权益合计（不含少数股东权益）" min-width="180" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.totalHldrEqyExcMinInt) }}</template>
                             </el-table-column>
                         </el-table>
@@ -196,31 +206,31 @@
                         <el-table :data="cashflowRows.slice().reverse()" border height="460">
                             <el-table-column prop="endDate" label="报告期" width="110" align="center" fixed />
                             <el-table-column prop="annDate" label="公告日期" width="110" align="center" />
-                            <el-table-column label="netProfit" min-width="120" align="right">
+                            <el-table-column label="净利润" min-width="120" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.netProfit) }}</template>
                             </el-table-column>
-                            <el-table-column label="cInfFrOperateA" min-width="150" align="right">
+                            <el-table-column label="经营活动现金流入小计" min-width="150" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.cInfFrOperateA) }}</template>
                             </el-table-column>
-                            <el-table-column label="stCashOutAct" min-width="140" align="right">
+                            <el-table-column label="经营活动现金流出小计" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.stCashOutAct) }}</template>
                             </el-table-column>
-                            <el-table-column label="nCashflowAct" min-width="140" align="right">
+                            <el-table-column label="经营活动现金流量净额" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.nCashflowAct) }}</template>
                             </el-table-column>
-                            <el-table-column label="nCashflowInvAct" min-width="150" align="right">
+                            <el-table-column label="投资活动现金流量净额" min-width="150" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.nCashflowInvAct) }}</template>
                             </el-table-column>
-                            <el-table-column label="nCashFlowsFncAct" min-width="160" align="right">
+                            <el-table-column label="筹资活动现金流量净额" min-width="160" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.nCashFlowsFncAct) }}</template>
                             </el-table-column>
-                            <el-table-column label="nIncrCashCashEqu" min-width="160" align="right">
+                            <el-table-column label="现金及现金等价物净增加额" min-width="160" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.nIncrCashCashEqu) }}</template>
                             </el-table-column>
-                            <el-table-column label="freeCashflow" min-width="140" align="right">
+                            <el-table-column label="企业自由现金流量" min-width="140" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.freeCashflow) }}</template>
                             </el-table-column>
-                            <el-table-column label="cCashEquEndPeriod" min-width="160" align="right">
+                            <el-table-column label="期末现金及现金等价物余额" min-width="160" align="right">
                                 <template #default="{ row }">{{ formatAmount(row.cCashEquEndPeriod) }}</template>
                             </el-table-column>
                         </el-table>
@@ -230,38 +240,38 @@
                         <el-table :data="indicatorRows.slice().reverse()" border height="460">
                             <el-table-column prop="endDate" label="报告期" width="110" align="center" fixed />
                             <el-table-column prop="annDate" label="公告日期" width="110" align="center" />
-                            <el-table-column prop="eps" label="eps" width="90" align="right" />
-                            <el-table-column prop="bps" label="bps" width="90" align="right" />
-                            <el-table-column label="roe" width="100" align="right">
+                            <el-table-column prop="eps" label="基本每股收益" width="90" align="right" />
+                            <el-table-column prop="bps" label="每股净资产" width="90" align="right" />
+                            <el-table-column label="净资产收益率" width="100" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.roe) }}</template>
                             </el-table-column>
-                            <el-table-column label="roa" width="100" align="right">
+                            <el-table-column label="总资产报酬率" width="100" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.roa) }}</template>
                             </el-table-column>
-                            <el-table-column label="roic" width="100" align="right">
+                            <el-table-column label="投入资本回报率" width="100" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.roic) }}</template>
                             </el-table-column>
-                            <el-table-column label="grossMargin" width="130" align="right">
+                            <el-table-column label="销售毛利率" width="130" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.grossMargin) }}</template>
                             </el-table-column>
-                            <el-table-column label="netprofitMargin" width="150" align="right">
+                            <el-table-column label="销售净利率" width="150" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.netprofitMargin) }}</template>
                             </el-table-column>
-                            <el-table-column prop="currentRatio" label="currentRatio" width="130" align="right" />
-                            <el-table-column prop="quickRatio" label="quickRatio" width="120" align="right" />
-                            <el-table-column label="debtToAssets" width="130" align="right">
+                            <el-table-column prop="currentRatio" label="流动比率" width="130" align="right" />
+                            <el-table-column prop="quickRatio" label="速动比率" width="120" align="right" />
+                            <el-table-column label="资产负债率" width="130" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.debtToAssets) }}</template>
                             </el-table-column>
-                            <el-table-column prop="arTurn" label="arTurn" width="100" align="right" />
-                            <el-table-column prop="invTurn" label="invTurn" width="100" align="right" />
-                            <el-table-column prop="assetsTurn" label="assetsTurn" width="110" align="right" />
-                            <el-table-column label="revenueYoy" width="120" align="right">
+                            <el-table-column prop="arTurn" label="应收账款周转率" width="100" align="right" />
+                            <el-table-column prop="invTurn" label="存货周转率" width="100" align="right" />
+                            <el-table-column prop="assetsTurn" label="总资产周转率" width="110" align="right" />
+                            <el-table-column label="营业收入同比增长率" width="120" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.revenueYoy, 2, true) }}</template>
                             </el-table-column>
-                            <el-table-column label="netprofitYoy" width="130" align="right">
+                            <el-table-column label="归母净利润同比增长率" width="130" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.netprofitYoy, 2, true) }}</template>
                             </el-table-column>
-                            <el-table-column label="dtNetprofitYoy" width="140" align="right">
+                            <el-table-column label="扣非归母净利润同比增长率" width="140" align="right">
                                 <template #default="{ row }">{{ formatPercent(row.dtNetprofitYoy, 2, true) }}</template>
                             </el-table-column>
                         </el-table>
@@ -296,6 +306,7 @@ import type {
     TargetFinancialDetail
 } from '/@/types/targetdetail/financialDetailType'
 import { queryTargetFinancialDetail } from '/@/api/targetdetail/financialDetailApi'
+import { Calendar } from '@element-plus/icons-vue'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
 
@@ -308,6 +319,10 @@ const fetched = ref<TargetFinancialDetail | null>(null)
 const state = computed<TargetFinancialDetail>(() => fetched.value ?? props)
 const financial = computed(() => state.value.financial)
 const financialDetail = computed(() => state.value.financialDetail)
+/** 历史财务数据范围（年） */
+const historyLimit = ref<number>(5)
+/** 加载状态 */
+const financialLoading = ref(false)
 
 onMounted(() => {
     if (props.fullSymbol) {
@@ -315,15 +330,30 @@ onMounted(() => {
     }
 })
 
+/** 可选时间范围 */
+const historyLimitOptions = [
+    { label: '近 5 年', value: 5 },
+    { label: '近 10 年', value: 10 },
+    { label: '近 15 年', value: 15 },
+    { label: '近 20 年', value: 20 },
+    { label: '全部', value: 100 }
+]
+
 /** 加载财务摘要、三大报表与财务指标明细。 */
 async function loadFinancialDetail(): Promise<void> {
+    if (!props.fullSymbol || financialLoading.value) return
+
+    financialLoading.value = true
+
     try {
         fetched.value = await queryTargetFinancialDetail({
-            fullSymbol: props.fullSymbol as string,
-            historyLimit: 5
+            fullSymbol: props.fullSymbol,
+            historyLimit: historyLimit.value
         })
     } catch (error) {
         console.error('加载财务详情数据失败', error)
+    } finally {
+        financialLoading.value = false
     }
 }
 
@@ -557,10 +587,6 @@ const activeProfitMetricConfig = computed(() => (
     profitMetricOptions.find(item => item.value === activeProfitMetric.value) || profitMetricOptions[0]
 ))
 
-const activeRatioMetricConfig = computed(() => (
-    ratioMetricOptions.find(item => item.value === activeRatioMetric.value) || ratioMetricOptions[0]
-))
-
 const profitChartRows = computed<ProfitYearChartRow[]>(() => buildProfitYearChartRows(profitTrendRows.value, activeProfitMetricConfig.value))
 
 const profitTrendOption = computed<EChartsOption>(() => {
@@ -658,6 +684,10 @@ const profitTrendOption = computed<EChartsOption>(() => {
         ]
     }
 })
+
+const activeRatioMetricConfig = computed(() => (
+    ratioMetricOptions.find(item => item.value === activeRatioMetric.value) || ratioMetricOptions[0]
+))
 
 const ratioTrendOption = computed<EChartsOption>(() => {
     const config = activeRatioMetricConfig.value
@@ -969,11 +999,11 @@ function buildStandaloneQuarterRows<T extends { endDate: string; year?: number |
                 const currentValue = normalizeNumber(row[field])
                 const previousValue = previousRow ? normalizeNumber(previousRow[field]) : null
 
-                ;(standaloneRow as any)[field] = currentValue === null
-                    ? null
-                    : previousValue === null
-                        ? currentValue
-                        : currentValue - previousValue
+                    ; (standaloneRow as any)[field] = currentValue === null
+                        ? null
+                        : previousValue === null
+                            ? currentValue
+                            : currentValue - previousValue
             })
             result.push(standaloneRow)
             previousRow = row
@@ -1174,6 +1204,61 @@ function compactAmount(value?: number | null): string {
 
 .is-flat {
     color: var(--el-text-color-regular);
+}
+
+.financial-range-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 10px;
+    background: var(--el-fill-color-light);
+}
+
+.range-info {
+    flex: 1;
+    min-width: 220px;
+}
+
+.range-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+}
+
+.range-desc {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+}
+
+.range-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.range-label {
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .financial-range-bar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .range-actions {
+        align-self: flex-end;
+    }
 }
 
 @media (max-width: 768px) {

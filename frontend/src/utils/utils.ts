@@ -55,14 +55,19 @@ export function generateRequestId(): string {
     return `${prefix}-${Date.now()}-${random.slice(0, 10)}`
 }
 
-export function resolveTokenValue(dataSource: string, triggerType: TriggerType, token: 'today' | 'tomorrow' | 'fireDate' | 'now' | 'fireTime'): string {
+export function resolveTokenValue(dataSource: string, triggerType: TriggerType, token: 'today' | 'yesterday' | 'tomorrow' | 'now' | 'fireDate' | 'prevDate' | 'nextDate' | 'fireTime'): string {
     // 获取采集任务的数据源，默认为default，供token解析使用
     if (triggerType === 'SCHEDULED') {
         return `{${dataSource}:${token}}`
     }
     // Manual creation: return concrete formatted value according to datasource
     const now = new Date()
-    const baseDate = token === 'tomorrow' ? addDays(now, 1) : now
+    const baseDate = 
+        token === 'yesterday' ? addDays(now, -1) : 
+        token === 'prevDate' ? addDays(now, -1) : 
+        token === 'nextDate' ? addDays(now, 1) : 
+        token === 'tomorrow' ? addDays(now, 1) : 
+        now
 
     // now 和 fileTime 都是datetime类型，不区分数据源
     if (token === 'now' || token === 'fireTime') {

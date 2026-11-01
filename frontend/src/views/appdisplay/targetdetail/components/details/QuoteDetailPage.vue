@@ -531,7 +531,6 @@ async function loadMarketData(): Promise<void> {
             rangeCode: activeRange.value,
             adjustType: adjustMode.value
         })
-        console.log(result)
 
         if (!result) return
 

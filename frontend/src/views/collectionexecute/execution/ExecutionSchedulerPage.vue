@@ -23,7 +23,7 @@
                 </el-form-item>
             </el-form>
 
-            <el-table v-loading="tableLoading" :data="tableData" border height="calc(100vh - 300px)">
+            <el-table v-loading="tableLoading" :data="tableData" border height="calc(100vh - 350px)">
                 <el-table-column prop="schedulerId" label="调度编号" min-width="180" align="center" show-overflow-tooltip />
                 <el-table-column prop="taskCode" label="任务编码" min-width="160" align="center" />
                 <el-table-column label="调度规则" min-width="220" align="center" show-overflow-tooltip>

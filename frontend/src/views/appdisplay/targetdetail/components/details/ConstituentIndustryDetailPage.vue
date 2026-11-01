@@ -13,7 +13,7 @@
 
             <el-row :gutter="12">
                 <el-col :xs="24" :lg="12">
-                    <div class="section-subtitle">申万行业</div>
+                    <div class="section-subtitle">申万行业（尚未采集行情数据，只能先空着）</div>
                     <el-empty v-if="!swIndustryRows.length" description="暂无申万行业归属数据" />
                     <template v-else>
                         <div class="industry-path-panel">
@@ -273,6 +273,7 @@ async function loadIndustryDetail(): Promise<void> {
             fullSymbol: props.fullSymbol as string,
             tradeDate: props.tradeDate
         })
+        console.log(fetched.value)
     } catch (error) {
         console.error('加载行业详情数据失败', error)
     }
@@ -280,6 +281,7 @@ async function loadIndustryDetail(): Promise<void> {
 
 const swIndustryRows = computed<StockSwIndustryRow[]>(() => {
     const rows = (state.value.industryDetail?.swIndustryRows || []).slice().sort((a, b) => Number(a.industryLevel) - Number(b.industryLevel))
+    console.log('swIndustryRows', rows)
 
     if (rows.length) return rows
 
