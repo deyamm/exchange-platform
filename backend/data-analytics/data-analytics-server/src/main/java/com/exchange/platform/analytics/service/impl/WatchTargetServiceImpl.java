@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import com.exchange.platform.analytics.api.response.TargetGroupView;
 import com.exchange.platform.analytics.api.response.WatchTargetView;
 import com.exchange.platform.analytics.converter.WatchTargetConverter;
 import com.exchange.platform.analytics.entity.WatchTarget;
+import com.exchange.platform.analytics.mapper.TypeBasicDataMapper;
 import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.WatchTargetService;
 import com.exchange.platform.common.core.exception.BusinessException;
@@ -32,11 +34,14 @@ import com.exchange.platform.data.client.DataServiceClient;
 public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, WatchTarget> implements WatchTargetService {
 
     private static final Logger log = LoggerFactory.getLogger(WatchTargetServiceImpl.class);
+    private static final Pattern STOCK_CODE_PATTERN = Pattern.compile("^[0-9]+$");
 
     private final DataServiceClient dataServiceClient;
+    private final TypeBasicDataMapper typeBasicDataMapper;
 
-    public WatchTargetServiceImpl(DataServiceClient dataServiceClient) {
+    public WatchTargetServiceImpl(DataServiceClient dataServiceClient, TypeBasicDataMapper typeBasicDataMapper) {
         this.dataServiceClient = dataServiceClient;
+        this.typeBasicDataMapper = typeBasicDataMapper;
     }
 
     /**
@@ -74,6 +79,22 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
         Page<WatchTargetView> viewPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
         viewPage.setRecords(buildWatchTargetViews(entityPage.getRecords()));
         return viewPage;
+    }
+
+    @Override
+    public List<WatchTargetView> search(String keyword, Integer limit) {
+        if (!StringUtils.hasText(keyword)) {
+            return Collections.emptyList();
+        }
+
+        String normalizedKeyword = keyword.trim();
+        int normalizedLimit = (limit == null || limit <= 0) ? 10 : limit;
+
+        if (STOCK_CODE_PATTERN.matcher(normalizedKeyword).matches()) {
+            return buildWatchTargetViews(typeBasicDataMapper.searchByCode(normalizedKeyword, normalizedLimit));
+        }
+
+        return buildWatchTargetViews(typeBasicDataMapper.searchByName(normalizedKeyword, normalizedLimit));
     }
 
     /**

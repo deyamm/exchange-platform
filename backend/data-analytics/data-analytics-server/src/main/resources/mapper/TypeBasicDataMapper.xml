@@ -25,5 +25,54 @@
         WHERE 1 = 1
 
     </select>
+
+    <sql id="watchTargetSelectColumns"> 
+
+        SELECT 
+            full_symbol AS targetCode, 
+            name AS targetName, 
+            'STOCK' AS targetType, 
+            exchange AS marketCode, 
+            0 AS sortNo, 
+            FALSE AS importantFlag, 
+            3 AS watchStatus, 
+            NULL AS watchReason 
+        FROM type_basic_data.stock_basic_data 
+    
+    </sql>
+
+    <!-- 
+        输入为纯数字时按股票代码检索。
+        使用前缀匹配，输入 0000 时可以快速得到 000001、000002 等候选。
+        完全匹配优先。
+    -->
+    <select id="searchByCode" resultType="com.exchange.platform.analytics.entity.WatchTarget">
+        <include refid="watchTargetSelectColumns"/>
+            WHERE 
+                list_status = 'L' AND symbol LIKE CONCAT(#{keyword}, '%') 
+            ORDER BY 
+                CASE 
+                    WHEN symbol = #{keyword} THEN 0 ELSE 1 
+                END, 
+                symbol ASC 
+            LIMIT #{limit}
+    </select>
+    <!-- 
+        输入不是纯数字时按股票简称检索。
+        完全匹配 > 前缀匹配 > 包含匹配。
+    -->
+    <select id="searchByName" resultType="com.exchange.platform.analytics.entity.WatchTarget">
+        <include refid="watchTargetSelectColumns"/>
+            WHERE 
+                list_status = 'L' AND name LIKE CONCAT('%', #{keyword}, '%') 
+            ORDER BY 
+                CASE 
+                    WHEN name = #{keyword} THEN 0 
+                    WHEN name LIKE CONCAT(#{keyword}, '%') THEN 1 ELSE 2 
+                END, 
+                CHAR_LENGTH(name) ASC, 
+                symbol ASC 
+            LIMIT #{limit}
+    </select>
     
 </mapper>

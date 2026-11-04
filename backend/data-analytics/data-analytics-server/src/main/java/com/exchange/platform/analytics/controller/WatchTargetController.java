@@ -1,5 +1,6 @@
 package com.exchange.platform.analytics.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -55,6 +56,21 @@ public class WatchTargetController {
         );
         return ApiResponse.success(
             watchTargetService.queryWatchTargetPage(groupCode, targetCode, targetName, targetType, marketCode, pageNo, pageSize),
+            requestId
+        );
+    }
+
+    @Operation(summary = "根据代码或简称搜索股票或其他类型标的", description = "根据输入的关键字搜索股票或其他类型标的，返回匹配的标的列表")
+    @GetMapping("/search")
+    public ApiResponse<List<WatchTargetView>> searchStocks(
+        @RequestParam("keyword") String keyword,
+        @RequestParam(value = "limit", defaultValue = "10") Integer limit,
+        HttpServletRequest request
+    ) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] searchStocks: keyword={}, limit={}", requestId, keyword, limit);
+        return ApiResponse.success(
+            watchTargetService.search(keyword, limit),
             requestId
         );
     }

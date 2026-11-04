@@ -271,7 +271,7 @@ public class DataSourceServiceImpl implements DataSourceService {
                 String actualColumnType = JdbcUtils.normalizeColumnType(existingColumns.get(JdbcUtils.normalizeColumnName(column.columnName())));
                 if (!expectedColumnType.equals(actualColumnType)) {
                     throw new BusinessException(40002, "已选择的表 '" + tableName + "' 中字段 " + column.columnName()
-                        + " 类型不一致，期望 " + column.columnType() + "，实际 " + actualColumnType);
+                        + " 类型不一致，映射类型 " + column.columnType() + "，已有物理表类型 " + actualColumnType);
                 }
             }
         }
