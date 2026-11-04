@@ -63,14 +63,44 @@
 </template>
 
 <script setup lang="ts">
-import type { IndexConstituentInfo } from '/@/types/indexdetail/indexDetailCenter'
+import { ref, watch } from 'vue'
+import type { IndexConstituentInfo } from '/@/types/indexdetail/indexConstituentsType'
 import type { IndexProfile } from '/@/types/marketoverview/view'
 import { formatDate, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
+import { queryIndexConstituents } from '/@/api/indexdetail/indexConstituentsApi'
 
-defineProps<{
+const props = defineProps<{
     profile: IndexProfile
-    constituents?: IndexConstituentInfo
+    /** 首屏解析后的实际交易日 */
+    tradeDate?: string
 }>()
+
+/** 前十大权重由侧栏自行加载，不依赖首屏聚合数据。 */
+const constituents = ref<IndexConstituentInfo | null>(null)
+
+async function loadTopWeights(): Promise<void> {
+    if (!props.profile.fullSymbol) return
+
+    try {
+        const response = await queryIndexConstituents(
+            props.profile.fullSymbol,
+            props.tradeDate || undefined
+        )
+        constituents.value = response?.constituents || null
+    } catch (error) {
+        console.error('Failed to fetch index top weights:', error)
+        constituents.value = null
+    }
+}
+
+/** 指数代码或交易日变化时重新加载前十大权重。 */
+watch(
+    () => [props.profile.fullSymbol, props.tradeDate] as const,
+    () => {
+        loadTopWeights()
+    },
+    { immediate: true }
+)
 </script>
 
 <style scoped>

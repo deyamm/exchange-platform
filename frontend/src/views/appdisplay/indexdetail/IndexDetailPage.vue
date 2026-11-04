@@ -16,19 +16,20 @@
 
                 <div class="content-grid">
                     <div class="main-content">
-                        <IndexMainTabs 
-                            v-if="detail && market && constituents"
-                            :detail="detail" 
-                            :market="market" 
-                            :constituents="constituents" 
+                        <!-- 各 Tab 按自身功能域接口加载数据，首屏只负责指数基础信息 -->
+                        <IndexMainTabs
+                            v-if="detail"
+                            :detail="detail"
+                            :trade-date="resolvedTradeDate"
                         />
                     </div>
 
                     <aside class="side-content">
+                        <!-- 侧栏自行加载前十大权重 -->
                         <IndexSidePanel
-                            v-if="detail && constituents"
+                            v-if="detail"
                             :profile="detail.profile"
-                            :constituents="constituents.constituents"
+                            :trade-date="resolvedTradeDate"
                         />
                     </aside>
                 </div>
@@ -47,10 +48,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { queryIndexDetail, queryIndexMarket, queryIndexConstituents } from '/@/api/indexdetail/indexDetailApi'
-import type { IndexDetail, IndexMarket, IndexConstituents } from '/@/types/indexdetail/indexDetailCenter'
+import { useRoute } from 'vue-router'
+import { queryIndexDetail } from '/@/api/indexdetail/indexDetailApi'
+import type { IndexDetail } from '/@/types/indexdetail/indexDetailCenter'
 import IndexHeaderCard from './components/IndexHeaderCard.vue'
 import IndexMetricCards from './components/IndexMetricCards.vue'
 import IndexOverviewPanel from './components/IndexOverviewPanel.vue'
@@ -63,14 +65,30 @@ const queryForm = reactive({
     tradeDate: '',
 })
 
+const route = useRoute()
+
 const detail = ref<IndexDetail | null>(null)
-const market = ref<IndexMarket | null>(null)
-const constituents = ref<IndexConstituents | null>(null)
 const detailLoading = ref(false)
 
-onMounted(() => {
-    handleSearch()
-})
+/** 首屏返回的行情日期即后端解析后的实际交易日，供各 Tab 复用。 */
+const resolvedTradeDate = computed(
+    () => queryForm.tradeDate || detail.value?.quote?.tradeDate || undefined
+)
+
+function routeFullSymbol(): string {
+    const routeValue = route.params.fullSymbol ?? route.query.fullSymbol ?? route.query.targetCode
+    const value = Array.isArray(routeValue) ? routeValue[0] : routeValue
+    return typeof value === 'string' && value.trim() ? value.trim() : '000001.SH'
+}
+
+watch(
+    () => [route.params.fullSymbol, route.query.fullSymbol, route.query.targetCode],
+    () => {
+        queryForm.fullSymbol = routeFullSymbol()
+        void handleSearch()
+    },
+    { immediate: true },
+)
 
 async function handleSearch(): Promise<void> {
     if (!queryForm.fullSymbol.trim()) {
@@ -81,28 +99,13 @@ async function handleSearch(): Promise<void> {
     detailLoading.value = true
 
     try {
-        const [detailData, marketData, constituentsData] = await Promise.all([
-            queryIndexDetail(
-                queryForm.fullSymbol.trim(),
-                queryForm.tradeDate
-            ),
-            queryIndexMarket(
-                queryForm.fullSymbol.trim(),
-                queryForm.tradeDate,
-                250
-            ),
-            queryIndexConstituents(
-                queryForm.fullSymbol.trim(),
-                queryForm.tradeDate,
-            ),
-        ])
-
-        detail.value = detailData
-        market.value = marketData
-        constituents.value = constituentsData
+        // 首屏只拉取指数详情壳数据；行情、成分股由对应 Tab 自行加载。
+        detail.value = await queryIndexDetail(
+            queryForm.fullSymbol.trim(),
+            queryForm.tradeDate
+        )
     } finally {
         detailLoading.value = false
-        console.log(market.value)
     }
 }
 

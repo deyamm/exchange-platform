@@ -200,13 +200,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { EChartsOption } from 'echarts'
-import type { IndexRangePerformance, QuoteTechnicalAnalysis } from '/@/types/indexdetail/indexDetailCenter'
+import type { IndexRangePerformance, QuoteTechnicalAnalysis } from '/@/types/indexdetail/indexMarketType'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatDateTime, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
 import { ChartGroup, ChartSeries, MarketQuote, OHLCData } from '/@/types/marketoverview/view'
-import { queryIndexMarket } from '/@/api/indexdetail/indexDetailApi'
+import { queryIndexMarket } from '/@/api/indexdetail/indexMarketApi'
 import { rangeSizeMap, rangeOptions, RangeCode, mainIndicatorOptions, subIndicatorOptions, MainIndicatorCode, SubIndicatorCode } from '/@/types/marketoverview/constants'
 import { ElMessage } from 'element-plus'
 
@@ -220,23 +220,29 @@ interface RangeMetricItem {
 
 const props = withDefaults(
     defineProps<{
+        /** 首屏行情快照，用于获取指数代码与交易日 */
         quote?: MarketQuote
-        charts?: ChartGroup[]
-        analysis?: QuoteTechnicalAnalysis
-        rangePerformance?: IndexRangePerformance
+        /** 首屏解析后的实际交易日；为空时回退到 quote.tradeDate */
+        tradeDate?: string
     }>(),
     {
-        charts: () => [],
-        analysis: () => ({} as QuoteTechnicalAnalysis),
-        rangePerformance: () => ({} as IndexRangePerformance)
+        tradeDate: undefined
     }
 )
 
-const localProps = reactive({
-    charts: props.charts,
-    analysis: props.analysis,
-    rangePerformance: props.rangePerformance
+/** 行情数据由本 Tab 自行加载，避免父页面一次性聚合全部接口。 */
+const localProps = reactive<{
+    charts: ChartGroup[]
+    analysis: QuoteTechnicalAnalysis
+    rangePerformance: IndexRangePerformance
+}>({
+    charts: [],
+    analysis: {} as QuoteTechnicalAnalysis,
+    rangePerformance: {} as IndexRangePerformance
 })
+
+const resolvedFullSymbol = computed(() => props.quote?.fullSymbol || '')
+const resolvedTradeDate = computed(() => props.tradeDate || props.quote?.tradeDate || undefined)
 
 const selectedRange = ref<RangeCode>('6M')
 const customStartDate = ref('')
@@ -355,24 +361,32 @@ function handleRangeChange(value: RangeCode): void {
 }
 
 async function loadMarketData(): Promise<void> {
-    if (!props.quote?.fullSymbol) return
+    if (!resolvedFullSymbol.value) return
 
     try {
         const marketData = await queryIndexMarket(
-            props.quote.fullSymbol,
-            props.quote.tradeDate,
-            rangeSizeMap[selectedRange.value] || 250
+            resolvedFullSymbol.value,
+            resolvedTradeDate.value,
+            selectedRange.value === 'CUSTOM' ? undefined : rangeSizeMap[selectedRange.value] || 250
         )
         if (marketData) {
-            localProps.charts = marketData.marketCharts
-            localProps.analysis = marketData.quoteAnalysis
-            localProps.rangePerformance = marketData.rangePerformance
-            console.log('行情数据加载成功', marketData)
+            localProps.charts = marketData.marketCharts || []
+            localProps.analysis = marketData.quoteAnalysis || ({} as QuoteTechnicalAnalysis)
+            localProps.rangePerformance = marketData.rangePerformance || ({} as IndexRangePerformance)
         }
     } catch (error) {
         console.error('加载行情数据失败', error)
     }
 }
+
+/** 指数代码或交易日变化时重新加载当前区间的行情数据。 */
+watch(
+    [resolvedFullSymbol, resolvedTradeDate],
+    () => {
+        loadMarketData()
+    },
+    { immediate: true }
+)
 
 function isOhlcData(value: unknown): value is OHLCData {
     return Boolean(value && typeof value === 'object' && 'tradeDate' in value && 'open' in value && 'close' in value)

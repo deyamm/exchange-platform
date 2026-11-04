@@ -9,7 +9,7 @@
             </div>
 
             <div class="metric-value" :class="trendClass(item.trend)">
-                {{ item.displayValue || item.value }}
+                {{ item.displayValue }}
                 <span v-if="item.unit && !item.displayValue" class="metric-unit">{{ item.unit }}</span>
             </div>
 

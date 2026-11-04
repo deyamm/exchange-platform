@@ -51,8 +51,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 import { queryTargetDetailShell, queryTargetOverviewDetail } from '/@/api/targetdetail/targetDetailApi'
 import type { TargetDetailShell, TargetOverviewDetail } from '/@/types/targetdetail/targetDetailCenter'
 import type { TargetDetailQuery } from '/@/types/targetdetail/constants'
@@ -75,12 +76,25 @@ const queryForm = reactive<TargetDetailQuery>({
     includeHistory: false
 })
 
+const route = useRoute()
+
 const shell = ref<TargetDetailShell | null>(null)
 const overview = ref<TargetOverviewDetail | null>(null)
 const detailLoading = ref(false)
-onMounted(() => {
-    handleSearch()
-})
+function routeTargetCode(): string {
+    const routeValue = route.params.targetCode ?? route.query.targetCode ?? route.query.fullSymbol
+    const value = Array.isArray(routeValue) ? routeValue[0] : routeValue
+    return typeof value === 'string' && value.trim() ? value.trim() : '000001.SZ'
+}
+
+watch(
+    () => [route.params.targetCode, route.query.targetCode, route.query.fullSymbol],
+    () => {
+        queryForm.targetCode = routeTargetCode()
+        void handleSearch()
+    },
+    { immediate: true },
+)
 
 async function handleSearch(): Promise<void> {
     if (!queryForm.targetCode.trim()) {

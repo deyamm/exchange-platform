@@ -62,3 +62,23 @@ export function deleteTargetGroup(groupCode: string): Promise<void> | any {
         `/api/v1/analytics/target-groups/${groupCode}`,
     );
 }
+
+/**
+ * 检索股票候选项。
+ *
+ * 后端规则：
+ * 1. keyword 全部为数字：按股票代码 symbol 检索；
+ * 2. 否则：按股票简称 name 检索；
+ * 3. 最多返回 10 条。
+ */
+export function searchStockTargets(keyword: string, limit = 10): Promise<WatchTarget[]> | any {
+    return http.get<WatchTarget[]>(
+        '/api/v1/analytics/watch-targets/search',
+        {
+            params: {
+                keyword,
+                limit,
+            },
+        },
+    );
+}

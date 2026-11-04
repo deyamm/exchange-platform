@@ -7,7 +7,8 @@
                     任务配置与存储映射：{{ taskDetail?.taskInfo?.taskName }}（{{ taskCode }}）
                 </span>
             </div>
-            <el-button type="primary" :loading="savingMapping" :disabled="mappingLocked" @click="handleSaveMappingDraft">
+            <el-button type="primary" :loading="savingMapping" :disabled="mappingLocked"
+                @click="handleSaveMappingDraft">
                 保存映射草稿
             </el-button>
         </div>
@@ -36,14 +37,17 @@
                         <el-descriptions-item label="配置编码">{{ taskDetail.config.taskConfigCode }}</el-descriptions-item>
                         <el-descriptions-item label="数据主题">{{ taskDetail.config.dataTopicCode }}</el-descriptions-item>
                         <el-descriptions-item label="数据类型">{{ taskDetail.config.dataTypeCode }}</el-descriptions-item>
-                        <el-descriptions-item label="数据类型版本">V{{ taskDetail.config.dataTypeVersionNo }}</el-descriptions-item>
+                        <el-descriptions-item label="数据类型版本">V{{ taskDetail.config.dataTypeVersionNo
+                            }}</el-descriptions-item>
                         <el-descriptions-item label="配置状态">
                             <el-tag :type="CONFIG_STATUS_TAG_TYPE[taskDetail.config.configStatus as ConfigStatus]">
                                 {{ CONFIG_STATUS_TEXT[taskDetail.config.configStatus as ConfigStatus] }}
                             </el-tag>
                         </el-descriptions-item>
-                        <el-descriptions-item label="存储映射编码">{{ taskDetail.config.storageMappingCode }}</el-descriptions-item>
-                        <el-descriptions-item label="配置说明" :span="3">{{ taskDetail.config.description }}</el-descriptions-item>
+                        <el-descriptions-item label="存储映射编码">{{ taskDetail.config.storageMappingCode
+                            }}</el-descriptions-item>
+                        <el-descriptions-item label="配置说明" :span="3">{{ taskDetail.config.description
+                            }}</el-descriptions-item>
                     </el-descriptions>
                 </el-card>
 
@@ -56,88 +60,52 @@
                                 <el-button size="small" :disabled="mappingLocked" @click="handleResetMappingFromFields">
                                     根据返回字段重新生成
                                 </el-button>
-                                <el-button
-                                    v-if="mappingForm.mappingStatus === 'DRAFT' && hasDraft"
-                                    type="success"
-                                    size="small"
-                                    @click="handleConfirmMapping"
-                                >
+                                <el-button v-if="mappingForm.mappingStatus === 'DRAFT'" type="success" size="small"
+                                    :disabled="!hasDraft" @click="handleConfirmMapping">
                                     确认映射
                                 </el-button>
                             </div>
                         </div>
                     </template>
 
-                    <el-alert
-                        v-if="!taskDetail.config?.dataTypeCode"
-                        title="当前任务暂未配置数据类型，无法生成字段映射。"
-                        type="warning"
-                        show-icon
-                        :closable="false"
-                    />
+                    <el-alert v-if="!taskDetail.config?.dataTypeCode" title="当前任务暂未配置数据类型，无法生成字段映射。" type="warning"
+                        show-icon :closable="false" />
 
                     <template v-else>
-                        <el-form
-                            ref="mappingFormRef"
-                            :model="mappingForm"
-                            :rules="mappingRules"
-                            label-width="120px"
-                            class="mapping-form"
-                        >
+                        <el-form ref="mappingFormRef" :model="mappingForm" :rules="mappingRules" label-width="120px"
+                            class="mapping-form">
                             <el-row :gutter="24">
                                 <el-col :span="6">
                                     <el-form-item label="数据源" prop="dataSourceCode">
-                                        <el-select
-                                            v-model="mappingForm.dataSourceCode"
-                                            placeholder="请选择数据源"
-                                            filterable
-                                            clearable
-                                            style="width: 100%"
-                                            :disabled="mappingLocked"
-                                            @change="handleDataSourceChange"
-                                        >
-                                            <el-option
-                                                v-for="source in dataSources"
-                                                :key="source.dataSourceCode"
+                                        <el-select v-model="mappingForm.dataSourceCode" placeholder="请选择数据源" filterable
+                                            clearable style="width: 100%" :disabled="mappingLocked"
+                                            @change="handleDataSourceChange">
+                                            <el-option v-for="source in dataSources" :key="source.dataSourceCode"
                                                 :label="source.dataSourceName + '（' + source.databaseName + '）'"
-                                                :value="source.dataSourceCode"
-                                            />
+                                                :value="source.dataSourceCode" />
                                         </el-select>
                                     </el-form-item>
                                 </el-col>
                                 <el-col :span="6">
                                     <el-form-item label="物理表 Schema" prop="physicalSchemaName">
-                                        <el-input
-                                            v-model="mappingForm.physicalSchemaName"
-                                            placeholder="由数据源自动带出"
-                                            disabled
-                                        />
+                                        <el-input v-model="mappingForm.physicalSchemaName" placeholder="由数据源自动带出"
+                                            disabled />
                                     </el-form-item>
                                 </el-col>
                                 <el-col :span="6">
                                     <el-form-item label="物理表 Name" prop="physicalTableName">
-                                        <el-select
-                                            v-model="mappingForm.physicalTableName"
-                                            filterable
-                                            allow-create
-                                            default-first-option
-                                            placeholder="输入或选择已有表"
-                                            style="width: 100%"
-                                            :disabled="mappingLocked"
-                                            @change="handlePhysicalTableNameChange"
-                                        >
-                                            <el-option
-                                                v-for="table in dataSourceTables"
-                                                :key="table.tableName"
-                                                :label="table.tableName"
-                                                :value="table.tableName"
-                                            />
+                                        <el-select v-model="mappingForm.physicalTableName" filterable allow-create
+                                            default-first-option placeholder="输入或选择已有表" style="width: 100%"
+                                            :disabled="mappingLocked" @change="handlePhysicalTableNameChange">
+                                            <el-option v-for="table in dataSourceTables" :key="table.tableName"
+                                                :label="table.tableName" :value="table.tableName" />
                                         </el-select>
                                     </el-form-item>
                                 </el-col>
                                 <el-col :span="6">
                                     <el-form-item label="写入策略">
-                                        <el-select v-model="mappingForm.writeStrategy" style="width: 100%" :disabled="mappingLocked" @change="markNeedSave">
+                                        <el-select v-model="mappingForm.writeStrategy" style="width: 100%"
+                                            :disabled="mappingLocked" @change="markNeedSave">
                                             <el-option label="追加写入" value="APPEND" />
                                             <el-option label="覆盖写入" value="OVERWRITE" />
                                             <el-option label="主键更新" value="UPSERT" />
@@ -146,32 +114,25 @@
                                 </el-col>
                                 <el-col :span="6">
                                     <el-form-item label="映射状态">
-                                        <el-tag :type="MAPPING_STATUS_TAG_TYPE[mappingForm.mappingStatus as MappingStatus]">
-                                            {{ MAPPING_STATUS_TEXT[mappingForm.mappingStatus as MappingStatus] || mappingForm.mappingStatus }}
+                                        <el-tag
+                                            :type="MAPPING_STATUS_TAG_TYPE[mappingForm.mappingStatus as MappingStatus]">
+                                            {{ MAPPING_STATUS_TEXT[mappingForm.mappingStatus as MappingStatus] ||
+                                            mappingForm.mappingStatus }}
                                         </el-tag>
                                     </el-form-item>
                                 </el-col>
                             </el-row>
 
                             <el-form-item label="确认备注">
-                                <el-input
-                                    v-model="mappingForm.confirmRemark"
-                                    type="textarea"
-                                    :rows="2"
-                                    placeholder="确认映射时的备注"
-                                    style="max-width: 600px;"
-                                    :disabled="mappingLocked"
-                                    @input="markNeedSave"
-                                />
+                                <el-input v-model="mappingForm.confirmRemark" type="textarea" :rows="2"
+                                    placeholder="确认映射时的备注" style="max-width: 600px;" :disabled="mappingLocked"
+                                    @input="markNeedSave" />
                             </el-form-item>
                         </el-form>
 
                         <div class="mapping-columns">
                             <div class="mapping-columns-title">字段映射</div>
-                            <el-table
-                                :data="mappingForm.columns"
-                                class="mapping-table"
-                            >
+                            <el-table :data="mappingForm.columns" class="mapping-table">
                                 <el-table-column label="序号" width="60" align="center">
                                     <template #default="{ $index }">
                                         {{ $index + 1 }}
@@ -181,7 +142,8 @@
                                 <el-table-column label="数据类型字段" align="center">
                                     <el-table-column label="字段" min-width="100" align="center" show-overflow-tooltip>
                                         <template #default="{ row }">
-                                            <span>{{ row.dataTypeFieldCode }}/{{ row.dataTypeFieldName }}/{{ row.dataTypeFieldType }}</span>
+                                            <span>{{ row.dataTypeFieldCode }}/{{ row.dataTypeFieldName }}/{{
+                                                row.dataTypeFieldType }}</span>
                                         </template>
                                     </el-table-column>
                                     <el-table-column label="必填" width="80" align="center">
@@ -195,30 +157,20 @@
                                             <el-tag v-if="row.uniqueKey" type="warning">是</el-tag>
                                             <el-tag v-else type="info">否</el-tag>
                                         </template>
-                                    </el-table-column> 
+                                    </el-table-column>
                                 </el-table-column>
 
                                 <el-table-column label="任务返回字段" min-width="120" align="center">
                                     <template #default="{ row }">
-                                        <el-select
-                                            v-model="row.sourceFieldCode"
-                                            placeholder="请选择任务返回字段"
-                                            filterable
-                                            clearable
-                                            style="width: 100%"
-                                            :disabled="mappingLocked"
-                                            @change="(value: any) => handleSelectChange(value, row)"
-                                        >
-                                            <template
-                                                v-for="field in taskOutputFields"
-                                                :key="field.fieldCode"
-                                            >
-                                                <el-option
-                                                    v-if="isFieldOptionVisible(field, row)"
+                                        <el-select v-model="row.sourceFieldCode" placeholder="请选择任务返回字段" filterable
+                                            clearable style="width: 100%" :disabled="mappingLocked"
+                                            @change="(value: any) => handleSelectChange(value, row)">
+                                            <template v-for="field in taskOutputFields" :key="field.fieldCode">
+                                                <el-option v-if="isFieldOptionVisible(field, row)"
                                                     :label="field.fieldCode + '/' + field.fieldName + '/' + field.fieldType"
-                                                    :value="field.fieldCode"
-                                                >
-                                                    <span>{{ field.fieldCode + '/' + field.fieldName + '/' + field.fieldType }}</span>
+                                                    :value="field.fieldCode">
+                                                    <span>{{ field.fieldCode + '/' + field.fieldName + '/' +
+                                                        field.fieldType }}</span>
                                                 </el-option>
                                             </template>
                                         </el-select>
@@ -228,61 +180,36 @@
                                 <el-table-column label="物理表字段信息" align="center">
                                     <el-table-column label="物理字段名称" min-width="80" align="center">
                                         <template #default="{ row }">
-                                            <el-input
-                                                v-model="row.physicalColumnName"
-                                                placeholder="默认继承字段编码"
-                                                :disabled="mappingLocked"
-                                                @input="markNeedSave"
-                                            />
+                                            <el-input v-model="row.physicalColumnName" placeholder="默认继承字段编码"
+                                                :disabled="mappingLocked" @input="markNeedSave" />
                                         </template>
                                     </el-table-column>
                                     <el-table-column label="物理字段类型" min-width="180" align="center">
                                         <template #default="{ row }">
                                             <div class="mysql-column-type-editor">
-                                                <el-select
-                                                    v-model="row.physicalColumnBaseType"
-                                                    placeholder="类型"
-                                                    filterable
-                                                    style="width: 45%"
-                                                    :disabled="mappingLocked"
-                                                    @change="() => handlePhysicalColumnBaseTypeChange(row)"
-                                                >
-                                                    <el-option
-                                                        v-for="option in getMysqlBaseTypeOptions(row)"
-                                                        :key="option.value"
-                                                        :label="option.label"
-                                                        :value="option.value"
-                                                    />
+                                                <el-select v-model="row.physicalColumnBaseType" placeholder="类型"
+                                                    filterable style="width: 45%" :disabled="mappingLocked"
+                                                    @change="() => handlePhysicalColumnBaseTypeChange(row)">
+                                                    <el-option v-for="option in getMysqlBaseTypeOptions(row)"
+                                                        :key="option.value" :label="option.label"
+                                                        :value="option.value" />
                                                 </el-select>
 
-                                                <el-select
-                                                    v-model="row.physicalColumnTypeLength"
-                                                    placeholder="长度/精度"
-                                                    filterable
-                                                    allow-create
-                                                    default-first-option
-                                                    style="width: 55%"
+                                                <el-select v-model="row.physicalColumnTypeLength" placeholder="长度/精度"
+                                                    filterable allow-create default-first-option style="width: 55%"
                                                     :disabled="mappingLocked || !hasMysqlColumnTypeLength(row)"
-                                                    @change="() => syncPhysicalColumnType(row)"
-                                                >
-                                                    <el-option
-                                                        v-for="option in getMysqlColumnTypeLengthOptions(row)"
-                                                        :key="option.value"
-                                                        :label="option.label"
-                                                        :value="option.value"
-                                                    />
+                                                    @change="() => syncPhysicalColumnType(row)">
+                                                    <el-option v-for="option in getMysqlColumnTypeLengthOptions(row)"
+                                                        :key="option.value" :label="option.label"
+                                                        :value="option.value" />
                                                 </el-select>
                                             </div>
                                         </template>
                                     </el-table-column>
                                     <el-table-column label="默认值" min-width="80">
                                         <template #default="{ row }">
-                                            <el-input
-                                                v-model="row.defaultValue"
-                                                placeholder="默认值（可选）"
-                                                :disabled="mappingLocked"
-                                                @input="markNeedSave"
-                                            />
+                                            <el-input v-model="row.defaultValue" placeholder="默认值（可选）"
+                                                :disabled="mappingLocked" @input="markNeedSave" />
                                         </template>
                                     </el-table-column>
                                 </el-table-column>
@@ -294,12 +221,8 @@
         </div>
 
         <!-- 任务配置弹窗 -->
-        <TaskConfigFormDialog
-            v-model="configDialogVisible"
-            :task-template="taskDetail?.taskInfo || {} as TaskTemplate"
-            :existing-config="taskDetail?.config || null"
-            @success="handleConfigSaveSuccess"
-        />
+        <TaskConfigFormDialog v-model="configDialogVisible" :task-template="taskDetail?.taskInfo || {} as TaskTemplate"
+            :existing-config="taskDetail?.config || null" @success="handleConfigSaveSuccess" />
     </div>
 </template>
 
@@ -346,7 +269,7 @@ const mappingForm = reactive<StorageMappingForm>({
     physicalSchemaName: '',
     physicalTableName: '',
     writeStrategy: 'UPSERT', // APPEND / UPSERT / OVERWRITE
-    mappingStatus: 'DRAFT', 
+    mappingStatus: 'DRAFT',
     confirmRemark: '',
     columns: []
 })
@@ -593,7 +516,8 @@ async function handleSaveMappingDraft(): Promise<void> {
 
     savingMapping.value = true
     try {
-        const payload = buildStorageMappingPayload('SAVE')
+        const saveOrUpdate = taskDetail.value?.storageMapping?.storageMappingCode ? 'UPDATE' : 'SAVE'
+        const payload = buildStorageMappingPayload(saveOrUpdate)
 
         taskDetail.value.storageMapping = await saveStorageMappingDraft(taskCode, payload)
         hasDraft.value = true
@@ -786,7 +710,7 @@ function isFieldOptionVisible(field: ParamField, row: ColumnMappingForm): boolea
 }
 
 .section-header {
-    display: flex; 
+    display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;

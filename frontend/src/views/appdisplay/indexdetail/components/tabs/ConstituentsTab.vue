@@ -1,5 +1,5 @@
 <template>
-    <div class="constituents-tab">
+    <div v-loading="loading" class="constituents-tab">
         <el-empty
             v-if="!constituents"
             description="暂无成分股数据"
@@ -340,16 +340,21 @@
 import { computed, reactive, ref, watch } from 'vue'
 import type { EChartsOption } from 'echarts'
 import type {
-    IndexConstituents,
+    IndexConstituentInfo,
     IndexIndustryWeightItem
-} from '/@/types/indexdetail/indexDetailCenter'
-import type { IndexConstituentDetail, IndexProfile } from '/@/types/marketoverview/view'
+} from '/@/types/indexdetail/indexConstituentsType'
+import type { IndexConstituentDetail } from '/@/types/marketoverview/view'
 import TargetEcharts from '/@/components/common/TargetEcharts.vue'
-import { queryIndexConstituentPage } from '/@/api/indexdetail/indexDetailApi'
+import {
+    queryIndexConstituentPage,
+    queryIndexConstituents
+} from '/@/api/indexdetail/indexConstituentsApi'
 
 const props = defineProps<{
-    constituents?: IndexConstituents['constituents']
-    profile?: IndexProfile
+    /** 指数代码 */
+    fullSymbol: string
+    /** 首屏解析后的实际交易日 */
+    tradeDate?: string
 }>()
 
 const pagination = reactive({
@@ -357,7 +362,9 @@ const pagination = reactive({
     pageSize: 10,
 })
 const selectedIndustryNode = ref<IndexIndustryWeightItem | null>(null)
-const constituents = computed(() => props.constituents)
+const loading = ref(false)
+/** 成分股统计数据由当前 Tab 自行加载。 */
+const constituents = ref<IndexConstituentInfo | null>(null)
 const records = computed<IndexConstituentDetail[]>(
     () => constituents.value?.records || []
 )
@@ -434,7 +441,7 @@ const summaryCards = computed(() => [
     {
         key: 'top-ten',
         label: '前十大权重集中度',
-        value: displayPercent(props.constituents?.topTenWeightConcentration, 2),
+        value: displayPercent(constituents.value?.topTenWeightConcentration, 2),
         valueClass: 'is-primary',
         description: '前十大成分股权重之和'
     }
@@ -632,7 +639,7 @@ const topIndustryWeightBarOption = computed<EChartsOption>(() => ({
 }))
 
 const changeRangeRows = computed(() => {
-    const changeRanges = props.constituents?.changeRanges || []
+    const changeRanges = constituents.value?.changeRanges || []
         
     const rows = changeRanges.map(item => {
         return {
@@ -742,13 +749,32 @@ function changeClass(value: number | null | undefined): string {
     return numberValue > 0 ? 'is-up' : 'is-down'
 }
 
+/** 加载成分股统计数据；后端会同时把全量列表缓存到 Redis 供分页使用。 */
+async function loadConstituents(): Promise<void> {
+    if (!props.fullSymbol) return
+
+    loading.value = true
+    try {
+        const response = await queryIndexConstituents(
+            props.fullSymbol,
+            props.tradeDate || undefined
+        )
+        constituents.value = response?.constituents || null
+    } catch (error) {
+        console.error('Failed to fetch constituents:', error)
+        constituents.value = null
+    } finally {
+        loading.value = false
+    }
+}
+
 async function loadTable(): Promise<void> {
-    if (!constituents.value || !props.profile) return
+    if (!constituents.value || !props.fullSymbol) return
 
     try {
         const response = await queryIndexConstituentPage(
-            props.profile.fullSymbol,
-            props.constituents?.tradeDate || undefined,
+            props.fullSymbol,
+            constituents.value.tradeDate || props.tradeDate || undefined,
             pagination.currentPage,
             pagination.pageSize
         )
@@ -759,6 +785,16 @@ async function loadTable(): Promise<void> {
         console.error('Failed to fetch constituent page:', error)
     }
 }
+
+/** 指数代码或交易日变化时重新加载，并回到第一页。 */
+watch(
+    () => [props.fullSymbol, props.tradeDate] as const,
+    () => {
+        pagination.currentPage = 1
+        loadConstituents()
+    },
+    { immediate: true }
+)
 </script>
 
 <style scoped>

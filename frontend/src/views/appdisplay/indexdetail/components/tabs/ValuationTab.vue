@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import type { IndexIndicatorDaily } from '/@/types/indexdetail/indexDetailCenter'
+import type { IndexIndicatorDaily } from '/@/types/indexdetail/indexValuationType'
 import { formatAmount, formatNumber, formatPercent, statusTagType, valuationStatusText } from '/@/utils/marketUtils'
 
 defineProps<{

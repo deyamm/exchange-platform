@@ -15,7 +15,7 @@
                     <el-tag
                         v-if="quote?.marketStatus"
                         size="small"
-                        :type="quote.marketStatus === 'TRADING' ? 'success' : 'info'"
+                        :type="quote.marketStatus === '交易中' ? 'success' : 'info'"
                     >
                         {{ marketStatusText(quote.marketStatus) }}
                     </el-tag>
