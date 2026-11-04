@@ -6,7 +6,7 @@ export interface ScheduleContentInput {
     second: number
     minute: number
     hour: number
-    monthDay: number
+    monthDay: number | 'L'
     weekDays: string[]
 }
 
@@ -15,7 +15,8 @@ export function buildScheduleContent(input: ScheduleContentInput, needContent: S
     const second = clampNumber(input.second || 0, 0, 59)
     const minute = clampNumber(input.minute || 0, 0, 59)
     const hour = clampNumber(input.hour || 0, 0, 23)
-    const monthDay = clampNumber(input.monthDay || 1, 1, 31)
+    const monthDay = input.monthDay === 'L' ? 'L' : clampNumber(input.monthDay || 1, 1, 31)
+    const monthDayLabel = monthDay === 'L' ? '最后一天' : `第 ${monthDay} 日`
 
     const weekDays = normalizeWeekDays(input.weekDays, needContent)
 
@@ -25,7 +26,7 @@ export function buildScheduleContent(input: ScheduleContentInput, needContent: S
         HOUR: `每隔 ${interval} 小时，在第 ${minute} 分 ${second} 秒执行。`,
         DAY: `每隔 ${interval} 天，在 ${hour} 时 ${minute} 分 ${second} 秒执行。`,
         WEEK: `每周 ${weekDays}，在 ${hour} 时 ${minute} 分 ${second} 秒执行。`,
-        MONTH: `每隔 ${interval} 个月，在第 ${monthDay} 日 ${hour} 时 ${minute} 分 ${second} 秒执行。`,
+        MONTH: `每隔 ${interval} 个月，在${monthDayLabel} ${hour} 时 ${minute} 分 ${second} 秒执行。`,
         WEEKDAY: `每个交易日，在 ${hour} 时 ${minute} 分 ${second} 秒执行。`
     }
 
@@ -77,8 +78,9 @@ export function getScheduleTextFromCron(cronExpression?: string): string {
         return `每周 ${weekDays}，在 ${hour} 时 ${minute} 分 ${second} 秒执行。`
     }
 
-    if (isFixed(second) && isFixed(minute) && isFixed(hour) && isFixed(dayOfMonth) && monthEvery && dayOfWeek === '?') {
-        return `每隔 ${parseEvery(month)} 个月，在第 ${dayOfMonth} 日 ${hour} 时 ${minute} 分 ${second} 秒执行。`
+    if (isFixed(second) && isFixed(minute) && isFixed(hour) && (isFixed(dayOfMonth) || dayOfMonth === 'L') && monthEvery && dayOfWeek === '?') {
+        const monthDayLabel = dayOfMonth === 'L' ? '最后一天' : `第 ${dayOfMonth} 日`
+        return `每隔 ${parseEvery(month)} 个月，在${monthDayLabel} ${hour} 时 ${minute} 分 ${second} 秒执行。`
     }
 
     if (isFixed(second) && isFixed(minute) && isFixed(hour) && dayOfMonth === '?' && month === '*' && dayOfWeek === 'MON-FRI') {

@@ -1,6 +1,7 @@
 import math
+from numbers import Number
 import statistics
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from app.utils.datetime_utils import current_market_status, get_current_datetime
 from app.utils.typing_utils import pct, to_float, to_str_date
@@ -55,6 +56,7 @@ def metric_card(
     title: str,
     value: Any,
     unit: str | None = None,
+    format_type: Literal['number', 'amount', 'percent', 'price'] = 'number',
     sort_order: int = 0,
 ) -> Dict[str, Any]:
     """
@@ -65,18 +67,84 @@ def metric_card(
     - trend 统一使用 metric_trend。
     """
     numeric_value = round_optional(value, 2)
-    return compact_dict({
+    return {
         "key": key,
         "title": title,
         "value": numeric_value,
+        "displayValue": format_metric_value(
+            numeric_value,
+            format_type=format_type,
+            unit=unit,
+        ),
         "unit": unit,
-        "displayValue": f"{numeric_value}{unit or ''}" if numeric_value is not None else None,
         "trend": metric_trend(numeric_value),
         "status": "NORMAL",
         "description": None,
         "compareText": None,
         "sortOrder": sort_order,
-    })
+    }
+
+
+def format_metric_value(
+    value: Any,
+    format_type: Literal['number', 'amount', 'percent', 'price'],
+    unit: str | None = None,
+) -> str:
+    if value is None:
+        return "-"
+    
+    unit = unit or ""
+    if format_type == 'amount':
+        return format_amount(value, unit)
+    if format_type == 'percent':
+        return f"{value:.2f}%"
+    if format_type == 'price':
+        return f"{value:.2f}{unit}"
+
+    return f"{value:.2f}{unit}"
+
+
+def format_amount(
+    value: Any,
+    unit: str = "",
+    digits: int = 2,
+) -> str:
+    """
+    格式化金额/大数值。
+
+    示例：
+    1234 -> "1234.00元"
+    12345 -> "1.23万元"
+    123456789 -> "1.23亿元"
+    1234567890000 -> "1.23万亿元"
+    """
+
+    if value is None:
+        return "-"
+    if not isinstance(value, (int, float)):
+        return "-"
+
+    value = float(value)
+    if math.isnan(value) or math.isinf(value):
+        return "-"
+
+    abs_value = abs(value)
+    sign = "-" if value < 0 else ""
+
+    if abs_value >= 1_0000_0000_0000:
+        formatted = abs_value / 1_0000_0000_0000
+        suffix = "万亿"
+    elif abs_value >= 1_0000_0000:
+        formatted = abs_value / 1_0000_0000
+        suffix = "亿"
+    elif abs_value >= 1_0000:
+        formatted = abs_value / 1_0000
+        suffix = "万"
+    else:
+        formatted = abs_value
+        suffix = ""
+
+    return f"{sign}{formatted:.{digits}f}{suffix}{unit}"
 
 
 def build_market_quote(

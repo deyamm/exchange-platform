@@ -20,9 +20,10 @@ def get_latest_trade_date(trade_date: str | None) -> date:
     """
     获取最新的交易日期，
     后期可以从tushare获取交易日历
+    按照当前的数据采集逻辑，交易日为周一至周五，且每天17:30之后才算当天的交易日。
     当前先实现一个简单的逻辑：
      - 如果当前日期是周末，返回上一个工作日
-     - 如果当前时间易于17:30，将今天作为交易日，否则返回上一个工作日
+     - 如果当前时间晚于17:30，将今天作为交易日，否则返回上一个工作日
     
     :param trade_date: 指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据
     :return: 最新的交易日期
@@ -34,9 +35,12 @@ def get_latest_trade_date(trade_date: str | None) -> date:
 
     if now.weekday() >= 5:  # 如果是周末，返回上一个工作日
         return now.date() - timedelta(days=now.weekday() - 4)
-    elif now.time() < datetime.strptime("17:30:00", "%H:%M:%S").time():  # 如果当前时间早于17:30，返回上一个工作日
+    elif now.time() > datetime.strptime("17:30:00", "%H:%M:%S").time():  # 如果当前时间晚于17:30，返回当日
+        return now.date()
+    elif now.weekday() == 0:  # 如果是周一，返回上一个工作日（周五）
+        return now.date() - timedelta(days=3)
+    else:  # 否则返回上一个工作日
         return now.date() - timedelta(days=1)
-    return now.date()
 
 
 def get_previous_trade_date(trade_date: date | str) -> date:
@@ -48,7 +52,9 @@ def get_previous_trade_date(trade_date: date | str) -> date:
         previous_date -= timedelta(days=1)
     return previous_date
 
+
 def current_market_status() -> str:
+    """获取当前市场状态，周末为休市，9:30-11:30 和 13:00-15:00 为交易中，其余时间为已收盘"""
     now = get_current_datetime()
 
     if now.weekday() >= 5:

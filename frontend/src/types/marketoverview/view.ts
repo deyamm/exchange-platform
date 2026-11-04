@@ -8,8 +8,8 @@ export interface MetricCard {
     title: string
     /** 原始值。 */
     value?: number | string
-    /** 格式化展示值。 */
-    displayValue?: string
+    /** 最终展示值，由后端统一生成。 */
+    displayValue: string
     /** 单位。 */
     unit?: string | null
     /** 趋势。 */

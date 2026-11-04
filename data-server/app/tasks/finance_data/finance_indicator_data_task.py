@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Any, cast
+from tqdm import tqdm
 
 import numpy as np
 
@@ -76,7 +77,7 @@ class FinanceIndicatorDataTask(BaseCollectTask):
         ts_codes = disclosure_data["ts_code"].dropna().drop_duplicates().tolist()
 
         records: list[dict[str, Any]] = []
-        for ts_code in ts_codes:
+        for ts_code in tqdm(ts_codes, desc="采集财务指标数据"):
             finance_data = await self.ts.fina_indicator(ts_code=ts_code, ann_date=trade_date)
             records.extend(self._to_records(finance_data))
 

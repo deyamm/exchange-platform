@@ -63,16 +63,27 @@
                         </el-checkbox-group>
                     </div>
 
-                    <div v-if="createForm.scheduleMode === 'MONTH'" class="schedule-sub-block schedule-inline-row">
-                        <span class="schedule-sub-title">每月执行日期</span>
-                        <el-input-number
-                            v-model="createForm.scheduleMonthDay"
-                            :min="1"
-                            :max="31"
-                            controls-position="right"
-                            style="width: 120px"
-                        />
-                        <span class="schedule-hint">日</span>
+                    <div v-if="createForm.scheduleMode === 'MONTH'" class="schedule-sub-block">
+                        <div class="schedule-inline-row">
+                            <span class="schedule-sub-title">每月执行日期</span>
+                            <el-radio-group v-model="createForm.scheduleMonthDayType">
+                                <el-radio label="DAY">指定日期</el-radio>
+                                <el-radio label="LAST">最后一天</el-radio>
+                            </el-radio-group>
+                        </div>
+                        <div v-if="createForm.scheduleMonthDayType === 'DAY'" class="schedule-inline-row" style="margin-top: 10px">
+                            <el-input-number
+                                v-model="createForm.scheduleMonthDay"
+                                :min="1"
+                                :max="31"
+                                controls-position="right"
+                                style="width: 120px"
+                            />
+                            <span class="schedule-hint">日</span>
+                        </div>
+                        <div v-else class="schedule-hint" style="margin-top: 10px">
+                            将在每月最后一天执行。
+                        </div>
                     </div>
 
                     <div v-if="createForm.scheduleMode === 'WEEKDAY'" class="schedule-sub-block">
@@ -414,6 +425,7 @@ const createForm = reactive({
     scheduleMinute: 0,
     scheduleHour: 0,
     scheduleWeekDays: ['MON'],
+    scheduleMonthDayType: 'DAY' as 'DAY' | 'LAST',
     scheduleMonthDay: 1,
     bizDataSourceCode: '',
     bizTableKey: '',
@@ -470,6 +482,7 @@ function resetCreateForm(): void {
     createForm.scheduleMinute = 0
     createForm.scheduleHour = 0
     createForm.scheduleWeekDays = ['MON']
+    createForm.scheduleMonthDayType = 'DAY'
     createForm.scheduleMonthDay = 1
     resetBizTableForm()
     createForm.params = {}
@@ -718,7 +731,9 @@ function getScheduleContent(mode: string, needContent: 'text' | 'cron', cronExpr
             second: createForm.scheduleSecond,
             minute: createForm.scheduleMinute,
             hour: createForm.scheduleHour,
-            monthDay: createForm.scheduleMonthDay,
+            monthDay: mode === 'MONTH' && createForm.scheduleMonthDayType === 'LAST'
+                ? 'L'
+                : createForm.scheduleMonthDay,
             weekDays: createForm.scheduleWeekDays
         },
         needContent
@@ -736,7 +751,6 @@ async function handleTaskChange(taskCode: string): Promise<void> {
     const detailResult = await getTaskDetail(taskCode)
     selectedTaskDetail.value = detailResult
     paramFields.value = parseParamFields(detailResult.currentVersion?.paramsSchemaJson)
-    console.log(detailResult)
 
     const nextParams: Record<string, any> = {}
     paramFields.value.forEach((field) => {
@@ -838,7 +852,8 @@ function applyParamToken(
         const year = date.getFullYear()
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const day = String(date.getDate()).padStart(2, '0')
-        const dateText = `${year}-${month}-${day}`
+    
+        const dateText = selectedTaskDetail.value?.currentVersion?.dataSource?.toUpperCase() === 'TUSHARE' ? `${year}${month}${day}` : `${year}-${month}-${day}`
         const timeText = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
         createForm.params[field.fieldCode] = token === 'now'
             ? `${dateText} ${timeText}`

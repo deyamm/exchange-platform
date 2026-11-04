@@ -334,7 +334,7 @@ async def get_index_detail(
     description="返回指定指数的历史行情、图表数据、区间表现等。"
 )
 async def get_index_market_data(
-    full_symbol: str = Query(..., alias="fullSymbol", description="指数代码，例如 'S&P500'"),
+    full_symbol: str = Query(..., alias="fullSymbol", description="指数代码"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
     history_limit: int = Query(250, alias="historyLimit", description="获取历史数据的数量，默认为 250"),
     service: IndexService = Depends(get_index_service)

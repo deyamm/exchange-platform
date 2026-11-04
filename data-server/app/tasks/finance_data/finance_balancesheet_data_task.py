@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Any, cast
+from tqdm import tqdm
 
 import numpy as np
 
@@ -69,7 +70,6 @@ class FinanceBalancesheetDataTask(BaseCollectTask):
         trade_date = params['trade_date']
         if not trade_date:
             raise ValueError("参数trade_date不能为空，格式为yyyymmdd，例如20240101")
-
         disclosure_data = await self.ts.disclosure_date(actual_date=trade_date)
         if disclosure_data is None or len(disclosure_data) == 0:
             return []
@@ -77,7 +77,7 @@ class FinanceBalancesheetDataTask(BaseCollectTask):
         ts_codes = disclosure_data["ts_code"].dropna().drop_duplicates().tolist()
 
         records: list[dict[str, Any]] = []
-        for ts_code in ts_codes:
+        for ts_code in tqdm(ts_codes, desc="采集资产负债表数据"):
             finance_data = await self.ts.balancesheet(ts_code=ts_code, ann_date=trade_date)
             records.extend(self._to_records(finance_data))
 

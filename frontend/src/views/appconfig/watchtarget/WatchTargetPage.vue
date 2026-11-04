@@ -94,6 +94,9 @@
                     <div class="section-actions">
                         <el-button @click="backToGroupList">返回分组</el-button>
                         <el-button type="primary" @click="openTargetCreate">添加标的</el-button>
+                        <TargetSearchBox
+                            @select="navigateToTarget"
+                        />
                     </div>
                 </div>
             </template>
@@ -225,6 +228,8 @@ import { WATCH_STATUS_TEXT, WATCH_STATUS_TAG_TYPE, ASSET_TYPE_TEXT } from '/@/ty
 import { COMMON_STATUS_OPTIONS, COMMON_STATUS_TEXT, COMMON_STATUS_TAG_TYPE } from '/@/types/appscene/view';
 import WatchTargetFormDialog from './WatchTargetFormDialog.vue';
 import TargetGroupFormDialog from './TargetGroupFormDialog.vue';
+import TargetSearchBox from '/@/components/common/TargetSearchBox.vue';
+import { useTargetNavigation } from '/@/utils/useTargetNavigation';
 
 const groupQuery = reactive<TargetGroupQueryParams>({
     keyword: '',
@@ -240,6 +245,12 @@ const targetQuery = reactive<WatchTargetQueryParams>({
     groupCode: '',
     pageNo: 1,
     pageSize: 20,
+});
+
+// 统一标的导航能力：搜索选择和表格“查看”操作共用同一套解析与跳转逻辑。
+const { navigateToTarget } = useTargetNavigation({
+    indexRouteName: 'indexDetail',
+    targetRouteName: 'targetDetail'
 });
 
 const groupLoading = ref(false);
@@ -406,8 +417,8 @@ function openTargetEdit(row: WatchTarget) {
     targetDialogVisible.value = true;
 }
 
-function viewTarget(_row: WatchTarget) {
-    // 预留查看功能，后续按业务需要补充。
+function viewTarget(row: WatchTarget) {
+    void navigateToTarget(row);
 }
 
 async function handleTargetSaved() {

@@ -406,7 +406,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						},
 					},
 					{
-						path: '/appDisplay/targetDetail',
+						path: '/appDisplay/targetDetail/:targetCode?',
 						name: 'targetDetail',
 						component: () => import('/@/views/appdisplay/targetdetail/TargetDetailPage.vue'),
 						meta: {
@@ -421,7 +421,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						},
 					},
 					{
-						path: '/appDisplay/indexDetail',
+						path: '/appDisplay/indexDetail/:fullSymbol?',
 						name: 'indexDetail',
 						component: () => import('/@/views/appdisplay/indexdetail/IndexDetailPage.vue'),
 						meta: {

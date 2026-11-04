@@ -7,6 +7,7 @@ import type {
     TargetType,
     ValuationStatus
 } from '/@/types/marketoverview/constants'
+import type { MetricCard } from '/@/types/marketoverview/view'
 
 export function formatDateTime(input?: string | null): string {
     if (!input) return '-'

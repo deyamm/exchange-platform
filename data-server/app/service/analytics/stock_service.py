@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.repository.basic_data_repo import BasicDataRepo
 from app.repository.exchange_data_repo import ExchangeDataRepo
 from app.repository.finance_data_repo import FinanceDataRepo
-from app.utils.datetime_utils import get_current_datetime, resolve_trade_date
+from app.utils.datetime_utils import current_market_status, get_current_datetime, resolve_trade_date
 from app.utils.indicator_utils import (
     annualized_volatility_from_pct,
     calculate_alpha_beta_placeholder,
@@ -927,7 +927,7 @@ class StockService:
         return self.compact_dict({
             "fullSymbol": row.get("full_symbol"),
             "tradeDate": to_str_date(row.get("trade_date")),
-            "marketStatus": "CLOSED",
+            "marketStatus": current_market_status(),
             "open": round_or_none(row.get("open")),
             "high": round_or_none(row.get("high")),
             "low": round_or_none(row.get("low")),

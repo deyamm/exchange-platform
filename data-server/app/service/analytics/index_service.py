@@ -122,6 +122,7 @@ class IndexService:
 
         clean_symbol = full_symbol.strip()
         requested_trade_date = resolve_trade_date(trade_date)
+        print(requested_trade_date)
         
         basic = await self.basic_repo.get_index_basic_detail(clean_symbol)
         
@@ -472,7 +473,7 @@ class IndexService:
         if is_industry_index and descendant_l3_codes:
             component_rows = await self.basic_repo.get_index_components_by_indices(descendant_l3_codes, trade_date=trade_date)
         else:
-            component_rows = await self.basic_repo.get_index_components(index_code, trade_date=trade_date)
+            component_rows = await self.basic_repo.get_index_components(index_code)
 
         if not component_rows:
             return None
@@ -797,16 +798,16 @@ class IndexService:
     ) -> List[Dict[str, Any]]:
         """构建首页顶部指标卡，字段对齐 MetricCard。"""
         cards = [
-            self.metric_card("close", "最新点位", (quote or {}).get("close"), "点", sort_order=1),
-            self.metric_card("chgPct", "涨跌幅", (quote or {}).get("chg_pct"), "%", sort_order=2),
-            self.metric_card("turnover", "成交额", (quote or {}).get("turnover"), "千元", sort_order=3),
-            self.metric_card("turnoverRate", "换手率", (indicator or {}).get("turnoverRate"), "%", sort_order=4),
-            self.metric_card("peTtm", "市盈率TTM", (indicator or {}).get("peTtm"), None, sort_order=5),
-            self.metric_card("pb", "市净率", (indicator or {}).get("pb"), None, sort_order=6),
-            self.metric_card("totalMarketValue", "总市值", (indicator or {}).get("totalMarketValue"), "元", sort_order=7),
+            self.metric_card("close", "最新点位", (quote or {}).get("close"), "点", format_type="number", sort_order=1),
+            self.metric_card("chgPct", "涨跌幅", (quote or {}).get("chg_pct"), "%", format_type="percent", sort_order=2),
+            self.metric_card("turnover", "成交额", (quote or {}).get("turnover"), "元", format_type="amount", sort_order=3),
+            self.metric_card("turnoverRate", "换手率", (indicator or {}).get("turnoverRate"), "%", format_type="percent", sort_order=4),
+            self.metric_card("peTtm", "市盈率TTM", (indicator or {}).get("peTtm"), None, format_type="number", sort_order=5),
+            self.metric_card("pb", "市净率", (indicator or {}).get("pb"), None, format_type="number", sort_order=6),
+            self.metric_card("totalMarketValue", "总市值", (indicator or {}).get("totalMarketValue"), "元", format_type="amount", sort_order=7),
             # self.metric_card("totalCount", "成分数量", (constituents or {}).get("totalCount"), "只", sort_order=8),
         ]
-        return [card for card in cards if card.get("value") is not None]
+        return cards
 
     def build_overview(
         self,

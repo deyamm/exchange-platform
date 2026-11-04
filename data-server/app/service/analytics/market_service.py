@@ -9,8 +9,8 @@ from app.repository.exchange_data_repo import ExchangeDataRepo
 from app.utils.datetime_utils import (
     current_market_status,
     get_current_datetime,
-    resolve_trade_date,
     get_previous_trade_date,
+    resolve_trade_date,
 )
 from app.utils.market_utils import (
     build_component_rise_stats,
@@ -62,18 +62,22 @@ class MarketService:
             3. 构建stock_snapshot_map，供市场概况、热股、分布、指数成分股统计共同复用；
             4. 指数成分股只查basic库中的成分股关系，不再为每个指数重复查询stock_k_daily。
         """
-        logger.info(f"查询市场概览，trade_date={trade_date}")
-
         # 未传入 trade_date 时，统一使用 datetime_utils.resolve_trade_date 获取最近交易日；
-        # 传入历史日期时保持原值，避免查询日期被二次回退。
         latest_trade_date = resolve_trade_date(trade_date)
+        logger.info(f"查询市场概览，trade_date={latest_trade_date}")
 
-        # 一次性读取全市场股票快照，后续计算尽量复用该结果，避免大量重复查库。
+        # 读取全市场股票快照
         stock_rows = await self.exchange_repo.get_stock_snapshot(latest_trade_date)
-        stock_rows = await self.enrich_stock_rows_with_basic_data(stock_rows)
+        # 将股票基础信息合并到股票行情快照
+        stock_basic_map = await self.basic_repo.get_stock_basic_map()
+        for row in stock_rows:
+            stock_code = row.get("full_symbol", '')
+            basic_info = stock_basic_map.get(stock_code, {})
+            row["name"] = row.get("name") or basic_info.get("name") or stock_code or ""
+            row["industry"] = row.get("industry") or basic_info.get("industry") or "未分类"
+
         # 构建以full_symbol为key的股票快照字典，供后续指数成分股统计复用，避免重复查询行情库。
         stock_snapshot_map = build_stock_snapshot_map(stock_rows)
-
         # 成分股缓存用于避免同一个指数在“成分股统计”和“领涨股”中重复查basic库。
         component_cache: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -89,26 +93,6 @@ class MarketService:
             "distributionTabs": build_distribution_tabs(stock_rows),
         }
 
-    async def enrich_stock_rows_with_basic_data(self, stock_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-            将股票基础信息合并到股票行情快照。
-            该逻辑组合了basic_data_repo和exchange_data_repo的结果，因此放在service层。
-        """
-        stock_basic_map = await self.basic_repo.get_stock_basic_map()
-
-        enriched_rows = []
-        for row in stock_rows:
-            item = dict(row)
-            stock_code = item.get("full_symbol", '')
-            basic_info = stock_basic_map.get(stock_code, {})
-
-            item["name"] = item.get("name") or basic_info.get("name") or stock_code or ""
-            item["industry"] = item.get("industry") or basic_info.get("industry") or "未分类"
-
-            enriched_rows.append(item)
-
-        return enriched_rows
-
     async def build_market_summary(self, trade_date: str, stock_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
             构建市场概况。
@@ -118,18 +102,17 @@ class MarketService:
             - 额外查一次前一交易日成交额，用于amountChangePct；
             - 涨跌停数量暂按±9.8%近似统计，后续若接入涨跌停价字段可替换为精确口径。
         """
-        valid = [row for row in stock_rows if row.get("pct_chg") is not None]
-        pct_values = [to_float(row["pct_chg"]) for row in valid]
+        valid = [row for row in stock_rows if row.get("chg_pct") is not None]
+        pct_values = [to_float(row["chg_pct"]) for row in valid]
 
         total_count = len(valid)
         rise_count = sum(1 for value in pct_values if value > 0)
         limit_up_count = sum(1 for value in pct_values if value >= 9.8)
         limit_down_count = sum(1 for value in pct_values if value <= -9.8)
 
-        total_amount = sum(to_float(row.get("amount")) for row in stock_rows)
+        total_amount = sum(to_float(row.get("turnover")) for row in stock_rows)
 
         prev_date = get_previous_trade_date(trade_date)
-        # 仅额外查询一次前一交易日全市场总成交额，避免逐股票或逐模块重复查询。
         prev_amount = await self.exchange_repo.get_total_stock_amount(prev_date.strftime("%Y-%m-%d"))
 
         return {
@@ -226,11 +209,11 @@ class MarketService:
             # 兜底路径：用于没有预加载全市场快照的单独调用场景。
             stock_rows = await self.exchange_repo.get_stock_k_rows(stock_codes, trade_date)
 
-        valid_rows = [row for row in stock_rows if row.get("pct_chg") is not None]
+        valid_rows = [row for row in stock_rows if row.get("chg_pct") is not None]
         if not valid_rows:
             return "", 0.0
 
-        leader = max(valid_rows, key=lambda row: to_float(row.get("pct_chg")))
+        leader = max(valid_rows, key=lambda row: to_float(row.get("chg_pct")))
         leader_code = leader.get("full_symbol") or ""
 
         # 如果来自全市场快照，enrich_stock_rows已经补齐name；否则再少量补查一次基础信息。
@@ -239,7 +222,7 @@ class MarketService:
             stock_basic_map = await self.basic_repo.get_stock_basic_by_codes([leader_code])
             leader_name = stock_basic_map.get(leader_code, {}).get("name")
 
-        return leader_name or leader_code or "", round(to_float(leader.get("pct_chg")), 2)
+        return leader_name or leader_code or "", round(to_float(leader.get("chg_pct")), 2)
 
     async def build_index_item(
         self,
@@ -257,7 +240,6 @@ class MarketService:
             - basic库的成分股关系；
             - 股票快照中的成分股行情。
 
-            因此该组合逻辑放在service层。
         """
         full_symbol = row.get("full_symbol") or ""
         trade_date = to_str_date(row.get("trade_date"))
@@ -270,6 +252,7 @@ class MarketService:
         high = to_float(row.get("high"))
         low = to_float(row.get("low"))
 
+        # 计算振幅
         amplitude = round((high - low) / pre_close * 100, 2) if pre_close else 0.0
 
         # 历史数据不足时5日/20日涨跌幅固定为0.0，避免因数据不足导致异常。
@@ -281,6 +264,7 @@ class MarketService:
             component_cache=component_cache,
         )
 
+        # 计算成分股涨跌统计
         component_stats = await self.get_index_component_stats(
             index_code=full_symbol,
             trade_date=trade_date,
@@ -305,10 +289,10 @@ class MarketService:
             "market": row.get("market") or "",
             "latestPoint": round(current_close, 2),
             "preClosePoint": round(pre_close, 2),
-            "changePoint": round(to_float(row.get("change")), 2),
-            "changePct": round(to_float(row.get("pct_chg")), 2),
+            "changePoint": round(to_float(row.get("chg_amt")), 2),
+            "changePct": round(to_float(row.get("chg_pct")), 2),
             "amplitude": amplitude,
-            "amount": round(to_float(row.get("amount")), 2),
+            "amount": round(to_float(row.get("turnover")), 2),
             "changePct5d": change_pct_5d,
             "changePct20d": change_pct_20d,
             "componentRiseRatio": component_stats["componentRiseRatio"],
@@ -332,22 +316,18 @@ class MarketService:
             [row.get("full_symbol", '') for row in rows if row.get("full_symbol")]
         )
 
-        enriched_rows = []
         for row in rows:
-            item = dict(row)
-            full_symbol = item.get("full_symbol", '')
+            full_symbol = row.get("full_symbol", '')
             basic_info = index_basic_map.get(full_symbol, {})
 
-            item["name"] = item.get("name") or basic_info.get("name") or full_symbol
-            item["fullname"] = item.get("fullname") or basic_info.get("fullname") or ""
-            item["market"] = item.get("market") or basic_info.get("market") or ""
-            item["index_type"] = item.get("index_type") or basic_info.get("index_type") or ""
-            item["category"] = item.get("category") or basic_info.get("category") or ""
-
-            enriched_rows.append(item)
+            row["name"] = row.get("name") or basic_info.get("name") or full_symbol
+            row["fullname"] = row.get("fullname") or basic_info.get("fullname") or ""
+            row["market"] = row.get("market") or basic_info.get("market") or ""
+            row["index_type"] = row.get("index_type") or basic_info.get("index_type") or ""
+            row["category"] = row.get("category") or basic_info.get("category") or ""
 
         order_map = {code: index for index, code in enumerate(MAJOR_INDEX_CODES)}
-        enriched_rows.sort(key=lambda row: order_map.get(row.get("full_symbol"), 999))
+        rows.sort(key=lambda row: order_map.get(row.get("full_symbol", ''), 999))
 
         return [
             await self.build_index_item(
@@ -356,5 +336,5 @@ class MarketService:
                 stock_snapshot_map=stock_snapshot_map,
                 component_cache=component_cache,
             )
-            for row in enriched_rows
+            for row in rows
         ]

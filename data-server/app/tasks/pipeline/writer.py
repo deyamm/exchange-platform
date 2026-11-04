@@ -33,13 +33,13 @@ async def write_rows(mapping: StorageMapping, columns: list[StorageColumnMapping
     
 
     # 如果没有唯一键，或者写入模式是 APPEND，则直接插入，Mysql中，不需要schema_name.table_name 这种写法，直接 table_name 就行。
-    if mapping.write_strategy == "APPEND" or not unique_fields:
+    if mapping.write_strategy.upper() == "APPEND" or not unique_fields:
         sql = f"""
             INSERT INTO {table} ({column_sql})
             VALUES ({values_sql})
         """
 
-    elif mapping.write_strategy == "UPSERT":
+    elif mapping.write_strategy.upper() == "UPSERT":
         update_columns = [c for c in column_names if c not in unique_fields]
 
         if update_columns:

@@ -204,7 +204,7 @@
                             <td :class="getChangeClass(item.changePct)">
                                 {{ formatSignedPercent(item.changePct) }}
                             </td>
-                            <td>{{ formatAmount(item.amount) }}</td>
+                            <td>{{ formatAmount(item.turnover) }}</td>
                             <td>{{ formatPercent(item.turnoverRate) }}</td>
                             <td>
                                 <div class="heat-cell">
@@ -386,7 +386,7 @@ interface HotStock {
     sectorName: string
     latestPrice: number
     changePct: number
-    amount: number
+    turnover: number
     turnoverRate: number
     hotScore: number
     reason: string
@@ -431,7 +431,7 @@ const distributionTabs = computed<DistributionTab[]>(() => marketOverview.value.
 async function fetchMarketSummary() {
     try {
         const data = await queryMarketOverview({
-            tradeDate: '2026-06-18',
+            tradeDate: '',
         })
         console.log(data)
         marketOverview.value = data

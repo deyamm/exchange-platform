@@ -30,6 +30,7 @@ def build_hot_stock_list(stock_rows: List[Dict[str, Any]], limit: int = 10) -> L
         return turnover_score + pct_score + money_score + rise_bonus
 
     rows = sorted(valid, key=score, reverse=True)[:limit]
+    print(rows)
 
     result = []
     for row in rows:
@@ -171,15 +172,15 @@ def build_group_buckets(group_stats: List[Dict[str, Any]]) -> List[Dict[str, Any
 def build_amount_rank_from_stocks(stock_rows: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
     """构建个股成交额排行。"""
     rows = sorted(
-        [row for row in stock_rows if row.get("amount") is not None],
-        key=lambda row: to_float(row["amount"]),
+        [row for row in stock_rows if row.get("turnover") is not None],
+        key=lambda row: to_float(row["turnover"]),
         reverse=True,
     )[:limit]
 
     return [
         {
             "name": row.get("name") or row.get("full_symbol") or "",
-            "amount": round(to_float(row.get("amount")), 2),
+            "amount": round(to_float(row.get("turnover")), 2),
             "extra": f"{row.get('industry') or '未分类'} · 换手率 {round(to_float(row.get('turnover_rate')), 2)}%",
         }
         for row in rows
@@ -297,11 +298,7 @@ def build_stock_snapshot_map(stock_rows: List[Dict[str, Any]]) -> Dict[str, Dict
     MarketService 中指数成分股统计、行业指数领涨股等逻辑都需要按代码反查行情，
     统一封装后可以避免多个 service 重复书写字典推导式，也能集中处理空代码行。
     """
-    return {
-        row["full_symbol"]: row
-        for row in stock_rows
-        if row.get("full_symbol")
-    }
+    return { row["full_symbol"]: row for row in stock_rows if row.get("full_symbol") }
 
 
 def build_component_rise_stats(stock_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
