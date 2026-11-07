@@ -25,18 +25,6 @@ public class ExecutionSchedulerView {
     /** 触发类型 */
     private TriggerType triggerType;
 
-    /** 业务表数据源编号 */
-    private String bizDataSourceCode;
-
-    /** 业务表模式 */
-    private String bizTableSchema;
-
-    /** 业务表名称 */
-    private String bizTableName;
-
-    /** 业务表调度依据字段 */
-    private String bizScheduleColumn;
-
     /** 时区 */
     private String timeZone;
 

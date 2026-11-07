@@ -34,16 +34,16 @@ export const SCHEDULE_STATUS_TAG_TYPE: Record<ScheduleStatus, string> = {
 }
 
 export const DATASET_STATUS_TEXT: Record<DatasetStatus, string> = {
-    GENERATED: '已生成',
-    AVAILABLE: '可查询',
-    INVALID:   '无效',
+    DRAFT: '草稿',
+    ENABLED: '已启用',
+    DISABLED: '已停用',
     ARCHIVED:  '已归档'
 }
 
 export const DATASET_STATUS_TAG_TYPE: Record<DatasetStatus, string> = {
-    GENERATED: 'info',
-    AVAILABLE: 'success',
-    INVALID:   'danger',
+    DRAFT: 'info',
+    ENABLED: 'success',
+    DISABLED: 'danger',
     ARCHIVED:  'warning'
 }
 

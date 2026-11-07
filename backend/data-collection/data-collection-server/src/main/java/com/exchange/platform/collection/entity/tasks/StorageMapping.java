@@ -34,6 +34,15 @@ public class StorageMapping {
     @TableField("task_config_code")
     private String taskConfigCode;
 
+    @TableField("dataset_code")
+    private String datasetCode;
+
+    @TableField("dataset_name")
+    private String datasetName;
+
+    @TableField("dataset_desc")
+    private String datasetDesc;
+
     /** 数据源编码 */
     @TableField("data_source_code")
     private String dataSourceCode;

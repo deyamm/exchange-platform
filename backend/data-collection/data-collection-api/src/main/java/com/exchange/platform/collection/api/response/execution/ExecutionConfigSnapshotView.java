@@ -31,6 +31,8 @@ public class ExecutionConfigSnapshotView {
     /* 数据类型版本号 */
     private int dataTypeVersion;
 
+    private String datasetCode;
+
     /* 执行入口 */
     private String handlerName;
 

@@ -1030,14 +1030,14 @@ class StockService:
     ) -> List[Dict[str, Any]]:
         """构建顶部指标卡。"""
         cards = [
-            self.metric_card("close", "最新价", (quote or {}).get("close"), "元", sort_order=1),
-            self.metric_card("chgPct", "涨跌幅", (quote or {}).get("chg_pct"), "%", sort_order=2),
-            self.metric_card("turnover", "成交额", (quote or {}).get("turnover"), "元", sort_order=3),
-            self.metric_card("turnoverRate", "换手率", (quote or {}).get("turnover_rate"), "%", sort_order=4),
-            self.metric_card("peTtm", "PE TTM", (valuation or {}).get("peTtm"), None, sort_order=5),
-            self.metric_card("pb", "PB", (valuation or {}).get("pb"), None, sort_order=6),
-            self.metric_card("roe", "ROE", (financial or {}).get("roe"), "%", sort_order=7),
-            self.metric_card("netMfAmount", "资金净流入", (capital_flow or {}).get("netMfAmount"), "元", sort_order=8),
+            self.metric_card("close", "最新价", (quote or {}).get("close"), "元", format_type="number", sort_order=1),
+            self.metric_card("chgPct", "涨跌幅", (quote or {}).get("chg_pct"), "%", format_type="percent", sort_order=2),
+            self.metric_card("turnover", "成交额", (quote or {}).get("turnover"), "元", format_type="amount", sort_order=3),
+            self.metric_card("turnoverRate", "换手率", (quote or {}).get("turnover_rate"), "%", format_type="percent", sort_order=4),
+            self.metric_card("peTtm", "PE TTM", (valuation or {}).get("peTtm"), None, format_type="number", sort_order=5),
+            self.metric_card("pb", "PB", (valuation or {}).get("pb"), None, format_type="number", sort_order=6),
+            self.metric_card("roe", "ROE", (financial or {}).get("roe"), "%", format_type="percent", sort_order=7),
+            self.metric_card("netMfAmount", "资金净流入", (capital_flow or {}).get("netMfAmount"), "元", format_type="amount", sort_order=8),
         ]
         return [card for card in cards if card.get("value") is not None]
 

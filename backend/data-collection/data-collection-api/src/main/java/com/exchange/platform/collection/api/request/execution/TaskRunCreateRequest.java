@@ -23,9 +23,5 @@ public record TaskRunCreateRequest(
     TriggerType triggerType,
     @NotBlank String requestId,
     Map<String, Object> params,
-    String cronExpression,
-    String bizDataSourceCode,
-    String bizTableSchema,
-    String bizTableName,
-    String bizScheduleColumn
+    String cronExpression
 ) {}

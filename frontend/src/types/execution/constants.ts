@@ -7,13 +7,13 @@
 export type RunStatus = 'CREATED' | 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED'
 
 /** 触发方式 */
-export type TriggerType = 'MANUAL' | 'SCHEDULED' | 'BIZ_TABLE'
+export type TriggerType = 'MANUAL' | 'SCHEDULED'
 
 /** 调度状态 */
 export type ScheduleStatus = 'ACTIVE' | 'PAUSED'
 
 /** 数据集状态 */
-export type DatasetStatus = 'GENERATED' | 'AVAILABLE' | 'INVALID' | 'ARCHIVED'
+export type DatasetStatus = 'DRAFT' | 'ENABLED' | 'DISABLED' | 'ARCHIVED'
 
 /** 创建执行记录请求体（I-24） */
 export interface TaskRunCreateRequest {
@@ -21,10 +21,6 @@ export interface TaskRunCreateRequest {
     taskCode: string
     triggerType?: TriggerType
     cronExpression?: string
-    bizDataSourceCode?: string
-    bizTableSchema?: string
-    bizTableName?: string
-    bizScheduleColumn?: string
     requestId: string
     params?: Record<string, any>
     saveOrUpdate: 'SAVE' | 'UPDATE'

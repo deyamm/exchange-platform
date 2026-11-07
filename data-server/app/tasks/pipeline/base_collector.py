@@ -225,6 +225,7 @@ class BaseCollectTask(ABC):
     def build_success_result(self, ctx: ExecutionContext, runtime: TaskRuntime) -> TaskRunResult:
         return TaskRunResult(
             run_id=runtime.run_id,
+            dataset_code=ctx.dataset_code,
             status="SUCCESS",
             success_count=runtime.success_count,
             total_count=runtime.collected_count,
@@ -244,6 +245,7 @@ class BaseCollectTask(ABC):
         logger.info(runtime.logs)
         return TaskRunResult(
             run_id=runtime.run_id,
+            dataset_code=ctx.dataset_code,
             status="FAILED",
             success_count=runtime.success_count,
             total_count=runtime.collected_count,

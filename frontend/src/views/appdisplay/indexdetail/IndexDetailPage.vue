@@ -44,6 +44,15 @@
 
             <el-empty v-else description="请输入指数代码查询详情" :image-size="120" />
         </div>
+
+        <AddTargetFormDialog
+            v-model="watchDialogVisible"
+            title="添加指数自选"
+            :target-code="activeWatchIndex?.fullSymbol || ''"
+            :target-name="activeWatchIndex?.name"
+            target-type="INDEX"
+            @confirm="handleAddWatchConfirm"
+        />
     </div>
 </template>
 
@@ -53,6 +62,10 @@ import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { queryIndexDetail } from '/@/api/indexdetail/indexDetailApi'
 import type { IndexDetail } from '/@/types/indexdetail/indexDetailCenter'
+import type { IndexProfile } from '/@/types/marketoverview/view'
+import AddTargetFormDialog from '/@/components/common/AddTargetFormDialog.vue'
+import { saveOrUpdateWatchTarget } from '/@/api/watchtarget/watchTargetApi'
+import type { WatchTargetSaveRequest } from '/@/types/watchtarget/constants'
 import IndexHeaderCard from './components/IndexHeaderCard.vue'
 import IndexMetricCards from './components/IndexMetricCards.vue'
 import IndexOverviewPanel from './components/IndexOverviewPanel.vue'
@@ -69,6 +82,8 @@ const route = useRoute()
 
 const detail = ref<IndexDetail | null>(null)
 const detailLoading = ref(false)
+const watchDialogVisible = ref(false)
+const activeWatchIndex = ref<IndexProfile | null>(null)
 
 /** 首屏返回的行情日期即后端解析后的实际交易日，供各 Tab 复用。 */
 const resolvedTradeDate = computed(
@@ -110,7 +125,41 @@ async function handleSearch(): Promise<void> {
 }
 
 function handleWatch(): void {
-    ElMessage.info('这里可以接入指数关注功能')
+    if (!detail.value) return
+    activeWatchIndex.value = detail.value.profile
+    watchDialogVisible.value = true
+}
+
+async function handleAddWatchConfirm(payload: {
+    targetCode: string
+    targetType: string
+    groupCodes: string[]
+}): Promise<void> {
+    const index = activeWatchIndex.value
+    if (!index) return
+
+    const request: WatchTargetSaveRequest = {
+        targetCode: payload.targetCode,
+        targetName: index.name,
+        targetType: payload.targetType,
+        marketCode: index.market || '',
+        groupCodes: payload.groupCodes,
+        sortNo: 1,
+        importantFlag: false,
+        watchStatus: 'WATCHING',
+        watchReason: undefined
+    }
+
+    try {
+        await saveOrUpdateWatchTarget(request)
+        ElMessage.success(
+            payload.groupCodes.length > 0
+                ? `已添加指数 ${payload.targetCode} 到自选`
+                : `已删除指数 ${payload.targetCode} 的自选`
+        )
+    } catch (error) {
+        ElMessage.error('添加自选失败')
+    }
 }
 
 function handleCreateAlert(): void {

@@ -74,6 +74,7 @@ async def execute_task_run(
 
     return TaskRunResult(
         run_id=request.run_id,
+        dataset_code=request.execution_context.dataset_code,
         status="RUNNING",
         total_count=0,
         success_count=0,

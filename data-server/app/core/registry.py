@@ -57,6 +57,7 @@ class Registry:
             logger.error("HandlerRegistry: handler not found, handlerName=%s", request.handler_name)
             return TaskRunResult(
                 run_id=request.run_id,
+                dataset_code=request.execution_context.dataset_code,
                 status="FAILED",
                 total_count=0,
                 success_count=0,
@@ -73,6 +74,7 @@ class Registry:
             logger.exception("HandlerRegistry: handler raised exception, runId=%s", request.run_id)
             return TaskRunResult(
                 run_id=request.run_id,
+                dataset_code=request.execution_context.dataset_code,
                 status="FAILED",
                 total_count=0,
                 success_count=0,

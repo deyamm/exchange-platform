@@ -20,6 +20,7 @@ class TaskRunService:
 
             result = TaskRunResult(
                 run_id=req.run_id,
+                dataset_code=req.execution_context.dataset_code,
                 status="FAILED",
                 total_count=0,
                 success_count=0,

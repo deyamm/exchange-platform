@@ -88,6 +88,7 @@ class ExecutionContext(BaseModel):
 
     # task_template: Optional[Any] = Field(default=None, serialization_alias="taskTemplate", description="任务模板快照")
     task_config: Optional[Dict[str, Any]] = Field(default=None, validation_alias="taskConfig", serialization_alias="taskConfig", description="任务配置快照")
+    dataset_code: str = Field(..., validation_alias="datasetCode", serialization_alias="datasetCode", description="本次执行对应的稳定数据集编码")
     params: Dict[str, Any] = Field(default_factory=dict, validation_alias="params", serialization_alias="params", description="执行参数")
     cron_expression: Optional[str] = Field(default=None, validation_alias="cronExpression", serialization_alias="cronExpression", description="调度表达式")
     storage_mapping: StorageMapping = Field(..., validation_alias="storageMapping", serialization_alias="storageMapping", description="存储映射详情")
@@ -134,6 +135,7 @@ class TaskRunResult(BaseModel):
     model_config = ConfigDict(validate_by_name=True, serialize_by_alias=True)
 
     run_id: str = Field(..., validation_alias="runId", serialization_alias="runId", description="执行记录 ID")
+    dataset_code: Optional[str] = Field(default=None, validation_alias="datasetCode", serialization_alias="datasetCode", description="本次执行对应的数据集编码")
     status: str = Field(..., validation_alias="status", serialization_alias="status", description="执行状态，如 SUCCESS/FAILURE/PARTIAL_SUCCESS")
     total_count: int = Field(default=0, validation_alias="totalCount", serialization_alias="totalCount", description="总处理条数")
     success_count: int = Field(default=0, validation_alias="successCount", serialization_alias="successCount", description="成功条数")

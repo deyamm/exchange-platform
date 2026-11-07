@@ -52,6 +52,9 @@ public class ExecutionConfigSnapshot {
     @TableField("data_type_version")
     private int dataTypeVersion;
 
+    @TableField("dataset_code")
+    private String datasetCode;
+
     @TableField("handler_name")
     private String handlerName;
 

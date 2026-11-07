@@ -434,6 +434,9 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
         mapping
             .setStorageMappingCode(request.storageMappingCode())
             .setTaskConfigCode(request.taskConfigCode())
+            .setDatasetCode(request.datasetCode())
+            .setDatasetName(request.datasetName())
+            .setDatasetDesc(request.datasetDesc())
             .setDataSourceCode(request.dataSourceCode())
             .setPhysicalSchemaName(schemaName)
             .setPhysicalTableName(request.physicalTableName())
@@ -500,6 +503,9 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
         mapping
             .setStorageMappingCode(request.storageMappingCode())
             .setTaskConfigCode(request.taskConfigCode())
+            .setDatasetCode(request.datasetCode())
+            .setDatasetName(request.datasetName())
+            .setDatasetDesc(request.datasetDesc())
             .setDataSourceCode(request.dataSourceCode())
             .setPhysicalSchemaName(schemaName)
             .setPhysicalTableName(request.physicalTableName())

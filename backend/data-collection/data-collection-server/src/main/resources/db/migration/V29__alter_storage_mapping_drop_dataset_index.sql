@@ -1,0 +1,1 @@
+DROP INDEX `uk_storage_mapping_dataset_code` ON `basic_info`.`storage_mapping`;

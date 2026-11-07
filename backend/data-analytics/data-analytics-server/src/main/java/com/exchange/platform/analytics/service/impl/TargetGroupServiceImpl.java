@@ -42,7 +42,8 @@ public class TargetGroupServiceImpl extends ServiceImpl<TargetGroupMapper, Targe
         LambdaQueryWrapper<TargetGroup> wrapper = new LambdaQueryWrapper<>();
         wrapper.like(StringUtils.hasText(groupName), TargetGroup::getGroupName, groupName)
             .like(StringUtils.hasText(groupCode), TargetGroup::getGroupCode, groupCode)
-            .eq(status != null, TargetGroup::getStatus, status);
+            .eq(status != null, TargetGroup::getStatus, status)
+            .orderByAsc(TargetGroup::getSortNo);
 
         Page<TargetGroup> page = this.page(new Page<>(safePageNo, safePageSize), wrapper);
         log.info("[Service] getTargetGroupList query executed, total records={}", page.getTotal());

@@ -19,6 +19,10 @@ export function getDatasetDetail(datasetCode: string): Promise<DatasetDetail> | 
     return http.get<DatasetDetail>(`/api/v1/collection/monitor/datasets/${datasetCode}`)
 }
 
+export function updateDatasetMetadata(datasetCode: string, payload: { datasetName?: string; datasetDesc?: string; items: any[] }): Promise<boolean> | any {
+    return http.put<boolean>(`/api/v1/collection/monitor/datasets/${datasetCode}/metadata`, payload)
+}
+
 /**
  * I-30 查询结果概览/明细
  */

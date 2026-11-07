@@ -2,9 +2,7 @@ import logging
 from typing import Any
 import httpx
 
-from app.core.registry import registry
 from app.core.config import settings
-from app.schemas.collection_task.task_template import TaskRunRequest, TaskRunResult
 
 logger = logging.getLogger(__name__)
 

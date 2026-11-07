@@ -249,8 +249,8 @@ const targetQuery = reactive<WatchTargetQueryParams>({
 
 // 统一标的导航能力：搜索选择和表格“查看”操作共用同一套解析与跳转逻辑。
 const { navigateToTarget } = useTargetNavigation({
-    indexRouteName: 'indexDetail',
-    targetRouteName: 'targetDetail'
+    indexRouteName: 'indexDetailByCode',
+    targetRouteName: 'targetDetailByCode'
 });
 
 const groupLoading = ref(false);

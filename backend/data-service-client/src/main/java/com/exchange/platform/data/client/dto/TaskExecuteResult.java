@@ -17,6 +17,7 @@ import java.util.Map;
  */
 public record TaskExecuteResult(
     String runId,
+    String datasetCode,
     String status,
     Long totalCount,
     Long successCount,

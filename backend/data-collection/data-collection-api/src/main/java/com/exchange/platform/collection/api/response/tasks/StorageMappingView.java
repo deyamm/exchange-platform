@@ -19,6 +19,12 @@ public class StorageMappingView {
     /** 关联任务配置编码 */
     private String taskConfigCode;
 
+    private String datasetCode;
+
+    private String datasetName;
+
+    private String datasetDesc;
+
     /** 数据源编码 */
     private String dataSourceCode;
 

@@ -94,6 +94,14 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 				children: [
 					{
+						path: '/collectionMonitor/datasets', name: 'collectionDatasets', component: () => import('../views/collectionMonitor/dataset/DatasetPage.vue'),
+						meta: { title: '数据集管理', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Files' },
+					},
+					{
+						path: '/collectionMonitor/datasets/:datasetCode', name: 'collectionDatasetDetail', component: () => import('../views/collectionMonitor/dataset/DatasetDetailPage.vue'),
+						meta: { title: '数据集详情', isLink: '', isHide: true, isKeepAlive: false, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Files' },
+					},
+					{
 						path: '/collectionConfig/datatopic',
 						name: 'datatopic',
 						component: () => import('../views/collectionconfig/datatopic/DataTopicPage.vue'),
@@ -405,8 +413,9 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 							icon: 'iconfont icon-yingyongfenxiyudisplay',
 						},
 					},
+					// 用于调试
 					{
-						path: '/appDisplay/targetDetail/:targetCode?',
+						path: '/appDisplay/targetDetail',
 						name: 'targetDetail',
 						component: () => import('/@/views/appdisplay/targetdetail/TargetDetailPage.vue'),
 						meta: {
@@ -421,7 +430,22 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						},
 					},
 					{
-						path: '/appDisplay/indexDetail/:fullSymbol?',
+						path: '/appDisplay/targetDetail/:targetCode?',
+						name: 'targetDetailByCode',
+						component: () => import('/@/views/appdisplay/targetdetail/TargetDetailPage.vue'),
+						meta: {
+							title: 'message.router.targetDetail',
+							isLink: '',
+							isHide: true,
+							isKeepAlive: false,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'iconfont icon-yingyongfenxiyudisplay',
+						},
+					},
+					{
+						path: '/appDisplay/indexDetail',
 						name: 'indexDetail',
 						component: () => import('/@/views/appdisplay/indexdetail/IndexDetailPage.vue'),
 						meta: {
@@ -429,6 +453,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 							isLink: '',
 							isHide: false,
 							isKeepAlive: true,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'iconfont icon-yingyongfenxiyudisplay',
+						},
+					},
+					{
+						path: '/appDisplay/indexDetail/:fullSymbol?',
+						name: 'indexDetailByCode',
+						component: () => import('/@/views/appdisplay/indexdetail/IndexDetailPage.vue'),
+						meta: {
+							title: 'message.router.indexDetail',
+							isLink: '',
+							isHide: true,
+							isKeepAlive: false,
 							isAffix: false,
 							isIframe: false,
 							roles: ['admin', 'common'],

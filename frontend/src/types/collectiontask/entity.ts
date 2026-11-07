@@ -73,6 +73,9 @@ export interface StorageColumnMapping {
 export interface StorageMapping {
     storageMappingCode: string
     taskConfigCode?: string
+    datasetCode?: string
+    datasetName?: string
+    datasetDesc?: string
     dataSourceCode?: string
     physicalSchemaName?: string
     physicalTableName?: string

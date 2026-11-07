@@ -47,6 +47,15 @@
 
             <el-empty v-else description="请输入标的编码查询详情" :image-size="120" />
         </div>
+
+        <AddTargetFormDialog
+            v-model="watchDialogVisible"
+            title="添加标的自选"
+            :target-code="activeWatchTarget?.fullSymbol || ''"
+            :target-name="activeWatchTarget?.name"
+            :target-type="activeWatchTarget?.targetType || 'STOCK'"
+            @confirm="handleAddWatchConfirm"
+        />
     </div>
 </template>
 
@@ -55,8 +64,11 @@ import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { queryTargetDetailShell, queryTargetOverviewDetail } from '/@/api/targetdetail/targetDetailApi'
-import type { TargetDetailShell, TargetOverviewDetail } from '/@/types/targetdetail/targetDetailCenter'
+import type { TargetDetailShell, TargetOverviewDetail, TargetProfile } from '/@/types/targetdetail/targetDetailCenter'
 import type { TargetDetailQuery } from '/@/types/targetdetail/constants'
+import AddTargetFormDialog from '/@/components/common/AddTargetFormDialog.vue'
+import { saveOrUpdateWatchTarget } from '/@/api/watchtarget/watchTargetApi'
+import type { WatchTargetSaveRequest } from '/@/types/watchtarget/constants'
 import TargetHeaderCard from './components/TargetHeaderCard.vue'
 import TargetMetricCards from './components/TargetMetricCards.vue'
 import TargetOverviewPanel from './components/TargetOverviewPanel.vue'
@@ -81,6 +93,8 @@ const route = useRoute()
 const shell = ref<TargetDetailShell | null>(null)
 const overview = ref<TargetOverviewDetail | null>(null)
 const detailLoading = ref(false)
+const watchDialogVisible = ref(false)
+const activeWatchTarget = ref<TargetProfile | null>(null)
 function routeTargetCode(): string {
     const routeValue = route.params.targetCode ?? route.query.targetCode ?? route.query.fullSymbol
     const value = Array.isArray(routeValue) ? routeValue[0] : routeValue
@@ -137,7 +151,41 @@ function handleSelectTarget(targetCode: string): void {
 }
 
 function handleWatch(): void {
-    ElMessage.info('这里可以打开关注设置弹窗')
+    if (!shell.value) return
+    activeWatchTarget.value = shell.value.targetProfile
+    watchDialogVisible.value = true
+}
+
+async function handleAddWatchConfirm(payload: {
+    targetCode: string
+    targetType: string
+    groupCodes: string[]
+}): Promise<void> {
+    const target = activeWatchTarget.value
+    if (!target) return
+
+    const request: WatchTargetSaveRequest = {
+        targetCode: payload.targetCode,
+        targetName: target.name,
+        targetType: payload.targetType,
+        marketCode: target.marketCode || '',
+        groupCodes: payload.groupCodes,
+        sortNo: 1,
+        importantFlag: false,
+        watchStatus: 'WATCHING',
+        watchReason: undefined
+    }
+
+    try {
+        await saveOrUpdateWatchTarget(request)
+        ElMessage.success(
+            payload.groupCodes.length > 0
+                ? `已添加标的 ${payload.targetCode} 到自选`
+                : `已删除标的 ${payload.targetCode} 的自选`
+        )
+    } catch (error) {
+        ElMessage.error('添加自选失败')
+    }
 }
 
 function handleCreateAlert(): void {

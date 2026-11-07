@@ -83,7 +83,6 @@ const props = defineProps<{
     title: string
 }>()
 
-
 const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void
     (event: 'confirm', payload: { targetCode: string; targetType: string; groupCodes: string[] }): void
@@ -131,6 +130,7 @@ async function loadGroupPage() {
 
     try {
         const pageResult =  await queryTargetGroupPage(groupQuery.value)
+        // 获取当前标的的分组信息
         const currentTarget: WatchTarget = await getWatchTargetGroups(props.targetCode, props.targetType)
 
         groupData.value = pageResult.records || []
@@ -175,7 +175,6 @@ function handleCancel() {
 
 function handleConfirm() {
     // 这里返回选中的分组列表
-    console.log('确认选择的分组', selectedGroupIds.value)
     emit('confirm', {
         targetCode: props.targetCode,
         targetType: props.targetType,

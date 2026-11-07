@@ -6,14 +6,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.util.StringUtils;
@@ -28,8 +22,6 @@ import com.exchange.platform.collection.entity.datasource.DataSourceConfig;
  *     <li>构建 MySQL JDBC URL 与默认连接参数</li>
  *     <li>打开 JDBC 连接、执行无返回 SQL</li>
  *     <li>查询 information_schema 中的表/字段元数据</li>
- *     <li>SQL 标识符校验与反引号包装</li>
- *     <li>JDBC 时间类型与业务层时间类型的转换</li>
  * </ul>
  *
  * <p>该类只放置无状态的公共逻辑，不持有 Spring Bean，也不承载业务校验。</p>
@@ -38,15 +30,6 @@ public final class JdbcUtils {
 
     /** 默认数据库时区，与现有业务保持一致。 */
     public static final String DEFAULT_TIME_ZONE = "Asia/Shanghai";
-
-    /** 业务表调度相关 SQL 标识符只允许字母、数字、下划线，避免拼接 SQL 时引入注入风险。 */
-    private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("^[A-Za-z0-9_]+$");
-
-    /** 日期格式化器：yyyy-MM-dd。 */
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
-
-    /** 日期时间格式化器：yyyy-MM-ddTHH:mm:ss。 */
-    private static final DateTimeFormatter DATETIME_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private JdbcUtils() {
         // 工具类禁止实例化
@@ -208,116 +191,4 @@ public final class JdbcUtils {
         return columnType.trim().toLowerCase().replaceAll("\\s+", "");
     }
 
-    /**
-     * 校验 SQL 标识符，防止拼接表名、字段名时引入非法字符。
-     *
-     * @param identifier 标识符
-     * @param fieldName  字段中文名，用于异常提示
-     */
-    public static void validateIdentifier(String identifier, String fieldName) {
-        if (!StringUtils.hasText(identifier) || !IDENTIFIER_PATTERN.matcher(identifier).matches()) {
-            throw new IllegalArgumentException(fieldName + "包含非法字符：" + identifier);
-        }
-    }
-
-    /**
-     * 校验并使用反引号包装 SQL 标识符。
-     *
-     * @param identifier 标识符
-     * @return 反引号包装后的标识符
-     */
-    public static String quoteIdentifier(String identifier) {
-        validateIdentifier(identifier, "SQL 标识符");
-        return "`" + identifier + "`";
-    }
-
-    /**
-     * 拼接 schema.table 形式的完整表名。
-     *
-     * @param schemaName schema 名
-     * @param tableName  表名
-     * @return 反引号包装后的完整表名
-     */
-    public static String qualifiedTableName(String schemaName, String tableName) {
-        validateIdentifier(schemaName, "业务表 schema");
-        validateIdentifier(tableName, "业务表名");
-        return quoteIdentifier(schemaName) + "." + quoteIdentifier(tableName);
-    }
-
-    /**
-     * 将 JDBC 查询结果中的时间类型转换为便于 JSON 序列化的字符串。
-     *
-     * @param value JDBC 查询结果值
-     * @return 普通值或格式化后的时间字符串
-     */
-    public static Object normalizeJdbcValue(Object value) {
-        if (value instanceof Timestamp) {
-            return DATETIME_FORMAT.format(((Timestamp) value).toLocalDateTime());
-        }
-        if (value instanceof java.sql.Date) {
-            return DATE_FORMAT.format(((java.sql.Date) value).toLocalDate());
-        }
-        if (value instanceof java.sql.Time) {
-            return value.toString();
-        }
-        return value;
-    }
-
-    /**
-     * 将 JDBC 查询结果转换为 LocalDateTime。
-     *
-     * @param value JDBC 查询结果值
-     * @return 转换后的 LocalDateTime
-     */
-    public static LocalDateTime toLocalDateTime(Object value) {
-        return toLocalDateTime(value, DEFAULT_TIME_ZONE);
-    }
-
-    /**
-     * 将 JDBC 查询结果转换为 LocalDateTime。
-     *
-     * @param value           JDBC 查询结果值
-     * @param defaultTimeZone 遇到 time 类型时使用的默认日期所属时区
-     * @return 转换后的 LocalDateTime
-     */
-    public static LocalDateTime toLocalDateTime(Object value, String defaultTimeZone) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof LocalDateTime) {
-            return (LocalDateTime) value;
-        }
-        if (value instanceof LocalDate) {
-            return ((LocalDate) value).atStartOfDay();
-        }
-        if (value instanceof Timestamp) {
-            return ((Timestamp) value).toLocalDateTime();
-        }
-        if (value instanceof java.sql.Date) {
-            return ((java.sql.Date) value).toLocalDate().atStartOfDay();
-        }
-        if (value instanceof java.sql.Time) {
-            return LocalDate.now(resolveZoneId(defaultTimeZone)).atTime(((java.sql.Time) value).toLocalTime());
-        }
-
-        String text = String.valueOf(value);
-        try {
-            return LocalDateTime.parse(text, DATETIME_FORMAT);
-        } catch (Exception ignored) {
-            return LocalDate.parse(text, DATE_FORMAT).atStartOfDay();
-        }
-    }
-
-    /**
-     * 解析时区字符串，空值时使用默认时区。
-     *
-     * @param timeZone 时区 ID
-     * @return ZoneId
-     */
-    public static ZoneId resolveZoneId(String timeZone) {
-        if (timeZone == null || timeZone.isBlank()) {
-            return ZoneId.of(DEFAULT_TIME_ZONE);
-        }
-        return ZoneId.of(timeZone);
-    }
 }

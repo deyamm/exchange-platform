@@ -13,6 +13,9 @@ export interface TaskQueryForm {
 export interface StorageMappingForm {
     storageMappingCode: string
     taskConfigCode: string
+    datasetCode: string
+    datasetName: string
+    datasetDesc: string
     dataSourceCode: string
     physicalSchemaName: string
     physicalTableName: string

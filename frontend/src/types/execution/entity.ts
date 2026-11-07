@@ -75,7 +75,14 @@ export interface Dataset {
     dataTypeVersionNo?: number
     storageMappingCode?: string
     resultLocation?: string
-    datasetStatus: DatasetStatus
+    datasetStatus: DatasetStatus | number
+    taskConfigCode?: string
+    storageType?: string
+    datasourceCode?: string
+    schemaName?: string
+    tableName?: string
+    recordCount?: number
+    lastSuccessTime?: string
     generatedTime?: string
     description?: string
     createdAt?: string

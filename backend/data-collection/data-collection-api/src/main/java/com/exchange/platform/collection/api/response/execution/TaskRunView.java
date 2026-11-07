@@ -22,6 +22,9 @@ public class TaskRunView {
     /** 任务编码 */
     private String taskCode;
 
+    /** 由执行配置快照提供，列表查询时可能为空 */
+    private String datasetCode;
+
     /** 触发方式 */
     private TriggerType triggerType;
 

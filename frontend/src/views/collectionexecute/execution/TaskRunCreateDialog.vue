@@ -24,7 +24,6 @@
                 <el-radio-group v-model="createForm.triggerType">
                     <el-radio v-if="!isScheduledOnly" label="MANUAL">手动</el-radio>
                     <el-radio label="SCHEDULED">定时</el-radio>
-                    <el-radio label="BIZ_TABLE">业务表调度</el-radio>
                 </el-radio-group>
             </el-form-item>
 
@@ -138,91 +137,6 @@
                 </div>
             </el-form-item>
 
-            <el-divider v-if="createForm.triggerType === 'BIZ_TABLE'" content-position="left">业务表调度</el-divider>
-            <template v-if="createForm.triggerType === 'BIZ_TABLE'">
-                <el-form-item label="数据源">
-                    <el-select
-                        v-model="createForm.bizDataSourceCode"
-                        filterable
-                        clearable
-                        placeholder="请选择数据源"
-                        :loading="dataSourceLoading"
-                        style="width: 100%"
-                        @change="handleDataSourceChange"
-                    >
-                        <el-option
-                            v-for="dataSource in dataSourceOptions"
-                            :key="dataSource.dataSourceCode"
-                            :label="`${dataSource.dataSourceName}（${dataSource.dataSourceCode}）`"
-                            :value="dataSource.dataSourceCode"
-                        />
-                    </el-select>
-                </el-form-item>
-
-                <el-form-item label="数据表">
-                    <el-select
-                        v-model="createForm.bizTableKey"
-                        filterable
-                        clearable
-                        placeholder="请先选择数据源，再选择数据表"
-                        :disabled="!createForm.bizDataSourceCode"
-                        :loading="tableLoading"
-                        style="width: 100%"
-                        @change="handleBizTableChange"
-                    >
-                        <el-option
-                            v-for="table in bizTableOptions"
-                            :key="getBizTableKey(table)"
-                            :label="getBizTableLabel(table)"
-                            :value="getBizTableKey(table)"
-                        />
-                    </el-select>
-                </el-form-item>
-
-                <el-form-item label="依据字段">
-                    <div class="biz-table-field-panel">
-                        <el-alert v-if="!createForm.bizScheduleColumn"
-                            title="请选择一个时间类型字段作为业务表调度依据；参数中可使用 {biz_table:{column_name}} 模板引用该字段。"
-                            type="info"
-                            :closable="false"
-                            show-icon
-                        />
-                        <span v-else>{{ createForm.bizScheduleColumn }}</span>
-                        <el-table
-                            v-loading="tableLoading"
-                            :data="bizTableColumns"
-                            row-key="columnName"
-                            border
-                            height="280px"
-                            empty-text="请选择数据表后查看字段"
-                            @row-click="handleBizColumnRowClick"
-                        >
-                            <el-table-column label="选择" width="80" align="center">
-                                <template #default="{ row }">
-                                    <el-radio
-                                        v-model="createForm.bizScheduleColumn"
-                                        :label="row.columnName"
-                                        :disabled="!isTimeColumn(row)"
-                                    >
-                                        <span />
-                                    </el-radio>
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="columnName" label="字段名称" min-width="180" />
-                            <el-table-column prop="columnType" label="字段类型" min-width="140" />
-                            <el-table-column prop="comment" label="字段注释" min-width="220">
-                                <template #default="{ row }">
-                                    {{ row.comment || '-' }}
-                                </template>
-                            </el-table-column>
-                        </el-table>
-                        <div v-if="createForm.bizScheduleColumn" class="biz-token-preview">
-                            参数模板：<code>{{ bizTableColumnToken }}</code>
-                        </div>
-                    </div>
-                </el-form-item>
-            </template>
-
             <el-divider content-position="left">执行参数</el-divider>
             <template v-if="paramFields.length">
                 <el-form-item
@@ -233,27 +147,13 @@
                     class="center-label"
                 >
                     <el-input-number
-                        v-if="isNumberField(field.fieldType) && createForm.triggerType !== 'BIZ_TABLE'"
+                        v-if="isNumberField(field.fieldType)"
                         v-model="createForm.params[field.fieldCode]"
                         :min="-999999999"
                         :max="999999999"
                         controls-position="right"
                         style="width: 100%"
                     />
-                    <div v-else-if="isNumberField(field.fieldType)" class="param-text-field">
-                        <el-input
-                            v-model="createForm.params[field.fieldCode]"
-                            :placeholder="field.fieldDesc || '请输入数字，或使用业务表字段模板'"
-                        />
-                        <el-button
-                            type="primary"
-                            plain
-                            :disabled="!createForm.bizScheduleColumn"
-                            @click="applyBizTableToken(field)"
-                        >
-                            业务表字段
-                        </el-button>
-                    </div>
                     <div v-else-if="isDateField(field.fieldType) || isDateTimeField(field.fieldType)" class="param-date-field">
                         <el-input
                             v-model="createForm.params[field.fieldCode]"
@@ -272,14 +172,6 @@
                                 <el-button size="small" @click="applyParamToken(field, 'nextDate')">后一天</el-button>
                                 <el-button v-if="isDateTimeField(field.fieldType)" size="small" @click="applyParamToken(field, 'fireTime')">触发时刻</el-button>
                             </template>
-                            <el-button
-                                v-if="createForm.triggerType === 'BIZ_TABLE'"
-                                size="small"
-                                :disabled="!createForm.bizScheduleColumn"
-                                @click="applyBizTableToken(field)"
-                            >
-                                业务表字段
-                            </el-button>
                         </div>
                     </div>
                     <div v-else class="param-text-field">
@@ -294,15 +186,6 @@
                             @click="openTargetGroupDialog(field)"
                         >
                             自选分组列表
-                        </el-button>
-                        <el-button
-                            v-if="createForm.triggerType === 'BIZ_TABLE'"
-                            type="primary"
-                            plain
-                            :disabled="!createForm.bizScheduleColumn"
-                            @click="applyBizTableToken(field)"
-                        >
-                            业务表字段
                         </el-button>
                     </div>
                 </el-form-item>
@@ -365,14 +248,12 @@
 import { computed, reactive, ref, watch, withDefaults } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createTaskRun } from '/@/api/execution/executionApi'
-import { listDataSources, listDataSourceTables } from '/@/api/datasource/dataSourceApi'
 import { queryTaskList, getTaskDetail } from '/@/api/collectiontask/collectionTaskApi'
 import { queryTargetGroupPage, queryWatchTargetPage } from '/@/api/watchtarget/watchTargetApi'
 import type { TaskRunCreateRequest, TriggerType } from '/@/types/execution/constants'
 import type { TaskTemplate, TaskDetail } from '/@/types/collectiontask/entity'
 import type { ParamField } from '/@/types/collectiontask/view'
 import type { TargetGroup as WatchGroup, WatchTarget } from '/@/types/watchtarget/entity'
-import type { DataSource, DataSourceTable, DataSourceTableColumn } from '/@/types/datasource/entity'
 import { WEEKDAY_MAP } from '/@/types/execution/view'
 import { parseParamFields, generateRequestId, resolveTokenValue } from '/@/utils/utils'
 import { buildScheduleContent, getScheduleTextFromCron } from '/@/utils/schedule'
@@ -399,10 +280,6 @@ const taskOptionsLoading = ref(false)
 const syncedTasks = ref<TaskTemplate[]>([])
 const selectedTaskDetail = ref<TaskDetail | null>(null)
 const paramFields = ref<ParamField[]>([])
-const dataSourceLoading = ref(false)
-const tableLoading = ref(false)
-const dataSourceOptions = ref<DataSource[]>([])
-const bizTableOptions = ref<DataSourceTable[]>([])
 
 const targetGroupDialogVisible = ref(false)
 const targetGroupLoading = ref(false)
@@ -427,18 +304,10 @@ const createForm = reactive({
     scheduleWeekDays: ['MON'],
     scheduleMonthDayType: 'DAY' as 'DAY' | 'LAST',
     scheduleMonthDay: 1,
-    bizDataSourceCode: '',
-    bizTableKey: '',
-    bizTableSchema: '',
-    bizTableName: '',
-    bizScheduleColumn: '',
     params: {} as Record<string, any>
 })
 
 const cronExpression = computed(() => getScheduleContent(createForm.scheduleMode, 'cron'))
-const selectedBizTable = computed(() => bizTableOptions.value.find((table) => getBizTableKey(table) === createForm.bizTableKey) || null)
-const bizTableColumns = computed(() => selectedBizTable.value?.columns || [])
-const bizTableColumnToken = computed(() => getBizTableColumnToken())
 
 watch(
     () => props.visible,
@@ -449,16 +318,6 @@ watch(
                 createForm.triggerType = 'SCHEDULED'
             }
             loadSyncedTasks()
-            loadDataSources()
-        }
-    }
-)
-
-watch(
-    () => createForm.triggerType,
-    (triggerType) => {
-        if (triggerType === 'BIZ_TABLE' && !dataSourceOptions.value.length) {
-            loadDataSources()
         }
     }
 )
@@ -484,7 +343,6 @@ function resetCreateForm(): void {
     createForm.scheduleWeekDays = ['MON']
     createForm.scheduleMonthDayType = 'DAY'
     createForm.scheduleMonthDay = 1
-    resetBizTableForm()
     createForm.params = {}
     selectedTaskDetail.value = null
     paramFields.value = []
@@ -495,92 +353,6 @@ function resetCreateForm(): void {
     activeTsCodeField.value = null
     targetGroupPage.pageNo = 1
     targetGroupPage.total = 0
-}
-
-function resetBizTableForm(): void {
-    createForm.bizDataSourceCode = ''
-    createForm.bizTableKey = ''
-    createForm.bizTableSchema = ''
-    createForm.bizTableName = ''
-    createForm.bizScheduleColumn = ''
-    bizTableOptions.value = []
-}
-
-function normalizeList<T>(result: T[] | { records?: T[] } | undefined | null): T[] {
-    if (Array.isArray(result)) return result
-    return result?.records || []
-}
-
-async function loadDataSources(): Promise<void> {
-    dataSourceLoading.value = true
-    try {
-        const result = await listDataSources()
-        dataSourceOptions.value = normalizeList<DataSource>(result)
-    } finally {
-        dataSourceLoading.value = false
-    }
-}
-
-async function handleDataSourceChange(dataSourceCode: string): Promise<void> {
-    createForm.bizTableKey = ''
-    createForm.bizTableSchema = ''
-    createForm.bizTableName = ''
-    createForm.bizScheduleColumn = ''
-    bizTableOptions.value = []
-
-    if (!dataSourceCode) return
-    await loadBizTables(dataSourceCode)
-}
-
-async function loadBizTables(dataSourceCode: string): Promise<void> {
-    tableLoading.value = true
-    try {
-        const result = await listDataSourceTables(dataSourceCode)
-        bizTableOptions.value = normalizeList<DataSourceTable>(result)
-    } finally {
-        tableLoading.value = false
-    }
-}
-
-function getBizTableKey(table: DataSourceTable): string {
-    return `${table.schemaName || ''}::${table.tableName}`
-}
-
-function getBizTableLabel(table: DataSourceTable): string {
-    return table.schemaName ? `${table.schemaName}.${table.tableName}` : table.tableName
-}
-
-function handleBizTableChange(tableKey: string): void {
-    const table = bizTableOptions.value.find((item) => getBizTableKey(item) === tableKey)
-    createForm.bizTableSchema = table?.schemaName || ''
-    createForm.bizTableName = table?.tableName || ''
-    createForm.bizScheduleColumn = ''
-}
-
-function isTimeColumn(column: DataSourceTableColumn): boolean {
-    const lower = (column.columnType || '').toLowerCase()
-    return ['date', 'datetime', 'timestamp', 'time', 'year'].some((key) => lower.includes(key))
-}
-
-function handleBizColumnRowClick(row: DataSourceTableColumn): void {
-    if (!isTimeColumn(row)) {
-        ElMessage.warning('请选择 date / datetime / timestamp / time 等时间类型字段')
-        return
-    }
-    createForm.bizScheduleColumn = row.columnName
-}
-
-function getBizTableColumnToken(columnName = createForm.bizScheduleColumn): string {
-    return columnName ? `{biz_table:{${columnName}}}` : '{biz_table:{column_name}}'
-}
-
-function applyBizTableToken(field: ParamField): void {
-    if (createForm.triggerType !== 'BIZ_TABLE') return
-    if (!createForm.bizScheduleColumn) {
-        ElMessage.warning('请先选择业务表调度依据字段')
-        return
-    }
-    createForm.params[field.fieldCode] = getBizTableColumnToken()
 }
 
 function isNumberField(fieldType?: string): boolean {
@@ -783,22 +555,6 @@ async function handleCreate(): Promise<void> {
         return
     }
 
-    if (createForm.triggerType === 'BIZ_TABLE') {
-        if (!createForm.bizDataSourceCode) {
-            ElMessage.warning('请选择业务表数据源')
-            return
-        }
-        if (!createForm.bizTableName) {
-            ElMessage.warning('请选择业务表')
-            return
-        }
-        const selectedColumn = bizTableColumns.value.find((column) => column.columnName === createForm.bizScheduleColumn)
-        if (!selectedColumn || !isTimeColumn(selectedColumn)) {
-            ElMessage.warning('请选择一个时间类型字段作为业务表调度依据')
-            return
-        }
-    }
-
     for (const field of paramFields.value) {
         if (!field.required) continue
         const value = createForm.params[field.fieldCode]
@@ -819,10 +575,6 @@ async function handleCreate(): Promise<void> {
         triggerType: createForm.triggerType,
         requestId: generateRequestId(),
         cronExpression: createForm.triggerType === 'SCHEDULED' ? cronExpression.value : undefined,
-        bizDataSourceCode: createForm.triggerType === 'BIZ_TABLE' ? createForm.bizDataSourceCode : undefined,
-        bizTableSchema: createForm.triggerType === 'BIZ_TABLE' ? createForm.bizTableSchema : undefined,
-        bizTableName: createForm.triggerType === 'BIZ_TABLE' ? createForm.bizTableName : undefined,
-        bizScheduleColumn: createForm.triggerType === 'BIZ_TABLE' ? createForm.bizScheduleColumn : undefined,
         params,
         saveOrUpdate: 'SAVE'
     }
@@ -994,27 +746,6 @@ function applyParamToken(
 .cron-preview code {
     color: #409eff;
     background: transparent;
-    font-family: Consolas, Monaco, monospace;
-}
-
-.biz-table-field-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-}
-
-.biz-table-field-panel :deep(.el-radio__label) {
-    display: none;
-}
-
-.biz-token-preview {
-    color: #606266;
-    font-size: 13px;
-}
-
-.biz-token-preview code {
-    color: #409eff;
     font-family: Consolas, Monaco, monospace;
 }
 

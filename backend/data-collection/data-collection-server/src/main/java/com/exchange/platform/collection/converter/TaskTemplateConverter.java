@@ -111,6 +111,9 @@ public class TaskTemplateConverter {
         StorageMappingView view = new StorageMappingView();
         view.setStorageMappingCode(mapping.getStorageMappingCode());
         view.setTaskConfigCode(mapping.getTaskConfigCode());
+        view.setDatasetCode(mapping.getDatasetCode());
+        view.setDatasetName(mapping.getDatasetName());
+        view.setDatasetDesc(mapping.getDatasetDesc());
         view.setDataSourceCode(mapping.getDataSourceCode());
         view.setPhysicalSchemaName(mapping.getPhysicalSchemaName());
         view.setPhysicalTableName(mapping.getPhysicalTableName());

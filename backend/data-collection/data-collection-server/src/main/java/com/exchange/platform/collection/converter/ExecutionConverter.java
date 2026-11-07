@@ -56,6 +56,7 @@ public class ExecutionConverter {
         view.setDataTopicCode(snapshot.getDataTopicCode());
         view.setDataTypeCode(snapshot.getDataTypeCode());
         view.setDataTypeVersion(snapshot.getDataTypeVersion());
+        view.setDatasetCode(snapshot.getDatasetCode());
         view.setHandlerName(snapshot.getHandlerName());
         view.setSnapshotContent(snapshot.getSnapshotContent());
         view.setCreatedAt(snapshot.getCreatedAt());
@@ -141,10 +142,6 @@ public class ExecutionConverter {
         view.setTaskCode(scheduler.getTaskCode());
         view.setCronExpression(scheduler.getCronExpression());
         view.setTriggerType(scheduler.getTriggerType());
-        view.setBizDataSourceCode(scheduler.getBizDataSourceCode());
-        view.setBizTableSchema(scheduler.getBizTableSchema());
-        view.setBizTableName(scheduler.getBizTableName());
-        view.setBizScheduleColumn(scheduler.getBizScheduleColumn());
         view.setTimeZone(scheduler.getTimeZone());
         view.setStatus(scheduler.getStatus());
         view.setNextFireTime(scheduler.getNextFireTime());

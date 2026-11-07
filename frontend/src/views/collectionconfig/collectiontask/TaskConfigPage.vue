@@ -76,6 +76,16 @@
                             class="mapping-form">
                             <el-row :gutter="24">
                                 <el-col :span="6">
+                                    <el-form-item label="数据集编码" prop="datasetCode">
+                                        <el-input v-model="mappingForm.datasetCode" placeholder="如 DS_STOCK_DAILY" :disabled="mappingLocked" @input="markNeedSave" />
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="6">
+                                    <el-form-item label="数据集名称">
+                                        <el-input v-model="mappingForm.datasetName" placeholder="首次登记名称" :disabled="mappingLocked" @input="markNeedSave" />
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="6">
                                     <el-form-item label="数据源" prop="dataSourceCode">
                                         <el-select v-model="mappingForm.dataSourceCode" placeholder="请选择数据源" filterable
                                             clearable style="width: 100%" :disabled="mappingLocked"
@@ -127,6 +137,9 @@
                                 <el-input v-model="mappingForm.confirmRemark" type="textarea" :rows="2"
                                     placeholder="确认映射时的备注" style="max-width: 600px;" :disabled="mappingLocked"
                                     @input="markNeedSave" />
+                            </el-form-item>
+                            <el-form-item label="数据集说明">
+                                <el-input v-model="mappingForm.datasetDesc" type="textarea" :rows="2" placeholder="首次登记说明" :disabled="mappingLocked" @input="markNeedSave" />
                             </el-form-item>
                         </el-form>
 
@@ -265,6 +278,9 @@ type FillMappingMode = 'FULL' | 'PHYSICAL_COLUMNS_ONLY'
 const mappingForm = reactive<StorageMappingForm>({
     storageMappingCode: '',
     taskConfigCode: '',
+    datasetCode: '',
+    datasetName: '',
+    datasetDesc: '',
     dataSourceCode: '',
     physicalSchemaName: '',
     physicalTableName: '',
@@ -297,6 +313,7 @@ const selectedSourceFieldCodes = computed(() =>
 )
 
 const mappingRules: FormRules = {
+    datasetCode: [{ required: true, pattern: /^[A-Z0-9_]{1,64}$/, message: '请输入大写字母、数字或下划线组成的数据集编码', trigger: 'blur' }],
     dataSourceCode: [{ required: true, message: '请选择数据源', trigger: 'change' }],
     physicalSchemaName: [{ required: true, message: '请先选择数据源', trigger: 'change' }],
     physicalTableName: [{ required: true, message: '请填写物理表 Name', trigger: 'blur' }]
@@ -376,6 +393,9 @@ function fillMappingForm(
         // 根据configCode自动生成mappingCode
         mappingForm.storageMappingCode = mapping?.storageMappingCode || taskDetail.value?.config?.taskConfigCode + '_mapping' || ''
         mappingForm.taskConfigCode = taskDetail.value?.config?.taskConfigCode || ''
+        mappingForm.datasetCode = mapping?.datasetCode || ''
+        mappingForm.datasetName = mapping?.datasetName || ''
+        mappingForm.datasetDesc = mapping?.datasetDesc || ''
         mappingForm.dataSourceCode = mapping?.dataSourceCode || ''
         mappingForm.physicalSchemaName = mapping?.physicalSchemaName || ''
         mappingForm.physicalTableName = mapping?.physicalTableName || ''
@@ -563,6 +583,9 @@ function buildStorageMappingPayload(saveOrUpdate: 'SAVE' | 'UPDATE'): StorageMap
     return {
         storageMappingCode: mappingForm.storageMappingCode,
         taskConfigCode: mappingForm.taskConfigCode,
+        datasetCode: mappingForm.datasetCode,
+        datasetName: mappingForm.datasetName || undefined,
+        datasetDesc: mappingForm.datasetDesc || undefined,
         dataSourceCode: mappingForm.dataSourceCode,
         physicalSchemaName: mappingForm.physicalSchemaName,
         physicalTableName: mappingForm.physicalTableName,
