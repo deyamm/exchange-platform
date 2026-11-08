@@ -1,9 +1,17 @@
 package com.exchange.platform.collection.service.impl;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -17,69 +25,87 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.exchange.platform.collection.api.enums.DatasetStatus;
+import com.exchange.platform.collection.api.enums.DatasetMetadataDefinition;
+import com.exchange.platform.collection.api.enums.DatasetMetadataMaintainMode;
 import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpdateRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.collection.converter.ExecutionConverter;
 import com.exchange.platform.collection.entity.dataType.DataTypeVersion;
+import com.exchange.platform.collection.entity.datasource.DataSourceConfig;
 import com.exchange.platform.collection.entity.execution.Dataset;
 import com.exchange.platform.collection.entity.execution.DatasetMetadata;
 import com.exchange.platform.collection.entity.execution.ExecutionConfigSnapshot;
 import com.exchange.platform.collection.entity.execution.ResultSummary;
 import com.exchange.platform.collection.entity.execution.TaskRun;
 import com.exchange.platform.collection.entity.tasks.StorageMapping;
+import com.exchange.platform.collection.entity.tasks.StorageColumnMapping;
 import com.exchange.platform.collection.mapper.dataType.DataTypeVersioinMapper;
+import com.exchange.platform.collection.mapper.datasource.DataSourceConfigMapper;
 import com.exchange.platform.collection.mapper.execution.DatasetMapper;
 import com.exchange.platform.collection.mapper.execution.DatasetMetadataMapper;
 import com.exchange.platform.collection.mapper.execution.ResultSummaryMapper;
 import com.exchange.platform.collection.mapper.execution.TaskRunMapper;
+import com.exchange.platform.collection.mapper.tasks.StorageColumnMappingMapper;
+import com.exchange.platform.collection.service.DatasetExecutionService;
 import com.exchange.platform.collection.service.DatasetService;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
 
+import cn.hutool.json.JSONObject;
+
+import com.exchange.platform.collection.utils.JdbcUtils;
+
 /**
  * 数据集管理服务实现。
- * <p>负责数据集执行前校验、成功执行登记、目录查询、详情查询及元数据维护。</p>
+ * <p>
+ * 负责数据集执行前校验、成功执行登记、目录查询、详情查询及元数据维护。
+ * </p>
  */
 @Service
-public class DatasetServiceImpl implements DatasetService {
+public class DatasetServiceImpl implements DatasetService, DatasetExecutionService {
     private static final Logger log = LoggerFactory.getLogger(DatasetServiceImpl.class);
     private static final String STORAGE = "STORAGE";
+    private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z0-9_]{1,64}");
+    private static final DateTimeFormatter ISO_TIME = DateTimeFormatter.ISO_DATE_TIME;
+
     private final DatasetMapper datasetMapper;
     private final DatasetMetadataMapper metadataMapper;
     private final TaskRunMapper taskRunMapper;
     private final ResultSummaryMapper summaryMapper;
     private final DataTypeVersioinMapper dataTypeVersionMapper;
+    private final StorageColumnMappingMapper storageColumnMappingMapper;
+    private final DataSourceConfigMapper dataSourceConfigMapper;
 
+    /** 注入数据集主档、元数据、执行记录及结构查询所需的数据访问组件。 */
     public DatasetServiceImpl(DatasetMapper datasetMapper, DatasetMetadataMapper metadataMapper,
-        TaskRunMapper taskRunMapper, ResultSummaryMapper summaryMapper, DataTypeVersioinMapper dataTypeVersionMapper) {
+            TaskRunMapper taskRunMapper, ResultSummaryMapper summaryMapper,
+            DataTypeVersioinMapper dataTypeVersionMapper,
+            StorageColumnMappingMapper storageColumnMappingMapper, DataSourceConfigMapper dataSourceConfigMapper) {
         this.datasetMapper = datasetMapper;
         this.metadataMapper = metadataMapper;
         this.taskRunMapper = taskRunMapper;
         this.summaryMapper = summaryMapper;
         this.dataTypeVersionMapper = dataTypeVersionMapper;
-        log.info("DatasetService initialized");
+        this.storageColumnMappingMapper = storageColumnMappingMapper;
+        this.dataSourceConfigMapper = dataSourceConfigMapper;
     }
 
     /** 校验执行使用的数据集编码、状态及正式物理表身份。 */
     @Override
     @Transactional(readOnly = true)
     public void validateForExecution(StorageMapping mapping) {
-        log.info("Validating dataset before execution, datasetCode={}, storageMappingCode={}",
-            mapping == null ? null : mapping.getDatasetCode(), mapping == null ? null : mapping.getStorageMappingCode());
         if (mapping == null || !StringUtils.hasText(mapping.getDatasetCode())
-            || !mapping.getDatasetCode().matches("^[A-Z0-9_]{1,64}$")) {
+                || !mapping.getDatasetCode().matches("^[A-Z0-9_]{1,64}$")) {
             throw new BusinessException(40006, "存储映射缺少合法的数据集编码（仅允许大写字母、数字和下划线）");
         }
         Dataset dataset = findByCode(mapping.getDatasetCode());
-        log.debug("Dataset pre-execution validation lookup completed, datasetCode={}, exists={}",
-            mapping.getDatasetCode(), dataset != null);
         if (dataset != null && dataset.getDatasetStatus() != DatasetStatus.ENABLED) {
             throw new BusinessException(40006, "数据集当前状态不允许写入：" + dataset.getDatasetStatus());
         }
         if (dataset != null && StringUtils.hasText(dataset.getStorageMappingCode())
-            && !mapping.getStorageMappingCode().equals(dataset.getStorageMappingCode())) {
+                && !mapping.getStorageMappingCode().equals(dataset.getStorageMappingCode())) {
             String tableName = metadataValue(dataset.getId(), "table_name");
             if (StringUtils.hasText(tableName) && !tableName.equals(mapping.getPhysicalTableName())) {
                 throw new BusinessException(40006, "数据集编码已绑定其他正式物理表，禁止执行");
@@ -87,117 +113,129 @@ public class DatasetServiceImpl implements DatasetService {
         }
     }
 
-    /** 登记一次成功执行对应的数据集主档和存储元数据。 */
+    /** 登记一次成功执行对应的数据集主档和存储元数据，并刷新派生统计信息。 */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
-    public void registerSuccessfulRun(TaskRun run, ExecutionConfigSnapshot snapshot, StorageMapping mapping, ResultSummary summary) {
-        log.info("Registering successful dataset run, runId={}, datasetCode={}, storageMappingCode={}",
-            run == null ? null : run.getRunId(), snapshot == null ? null : snapshot.getDatasetCode(),
-            mapping == null ? null : mapping.getStorageMappingCode());
+    public void registerSuccessfulRun(TaskRun run, ExecutionConfigSnapshot snapshot, StorageMapping mapping,
+            ResultSummary summary) {
         Dataset dataset = findByCode(snapshot.getDatasetCode());
         LocalDateTime now = LocalDateTime.now();
         if (dataset == null) {
-            log.info("Creating dataset master record, datasetCode={}", snapshot.getDatasetCode());
             dataset = new Dataset()
-                .setDatasetCode(snapshot.getDatasetCode())
-                .setDatasetName(StringUtils.hasText(mapping.getDatasetName()) ? mapping.getDatasetName() : snapshot.getDatasetCode())
-                .setDescription(mapping.getDatasetDesc())
-                .setTaskCode(run.getTaskCode())
-                .setTaskConfigCode(run.getTaskConfigCode())
-                .setDataTopicCode(snapshot.getDataTopicCode())
-                .setDataTypeCode(snapshot.getDataTypeCode())
-                .setDataTypeVersionNo(snapshot.getDataTypeVersion())
-                .setStorageMappingCode(mapping.getStorageMappingCode())
-                .setLatestTaskRunId(run.getRunId())
-                .setRunId(run.getRunId())
-                .setSummaryId(summary.getSummaryId())
-                .setResultLocation(summary.getResultLocation())
-                .setGeneratedTime(now)
-                .setLastCollectTime(now)
-                .setLastSuccessTime(now)
-                .setDatasetStatus(DatasetStatus.ENABLED);
+                    .setDatasetCode(snapshot.getDatasetCode())
+                    .setDatasetName(StringUtils.hasText(mapping.getDatasetName()) ? mapping.getDatasetName()
+                            : snapshot.getDatasetCode())
+                    .setDescription(mapping.getDatasetDesc())
+                    .setTaskCode(run.getTaskCode())
+                    .setTaskConfigCode(run.getTaskConfigCode())
+                    .setDataTopicCode(snapshot.getDataTopicCode())
+                    .setDataTypeCode(snapshot.getDataTypeCode())
+                    .setDataTypeVersionNo(snapshot.getDataTypeVersion())
+                    .setStorageMappingCode(mapping.getStorageMappingCode())
+                    .setLatestTaskRunId(run.getRunId())
+                    .setRunId(run.getRunId())
+                    .setSummaryId(summary.getSummaryId())
+                    .setResultLocation(summary.getResultLocation())
+                    .setGeneratedTime(now)
+                    .setLastCollectTime(now)
+                    .setLastSuccessTime(now)
+                    .setDatasetStatus(DatasetStatus.ENABLED);
             datasetMapper.insert(dataset);
         } else {
-            log.info("Updating dataset master record, datasetId={}, datasetCode={}", dataset.getId(), dataset.getDatasetCode());
             dataset.setDataTypeVersionNo(snapshot.getDataTypeVersion())
-                .setTaskConfigCode(run.getTaskConfigCode())
-                .setStorageMappingCode(mapping.getStorageMappingCode())
-                .setLatestTaskRunId(run.getRunId())
-                .setRunId(run.getRunId())
-                .setSummaryId(summary.getSummaryId())
-                .setResultLocation(summary.getResultLocation())
-                .setLastCollectTime(now)
-                .setLastSuccessTime(now);
+                    .setTaskConfigCode(run.getTaskConfigCode())
+                    .setStorageMappingCode(mapping.getStorageMappingCode())
+                    .setLatestTaskRunId(run.getRunId())
+                    .setRunId(run.getRunId())
+                    .setSummaryId(summary.getSummaryId())
+                    .setResultLocation(summary.getResultLocation())
+                    .setLastCollectTime(now)
+                    .setLastSuccessTime(now);
             datasetMapper.updateById(dataset);
         }
         upsertStorageMetadata(dataset.getId(), "storage_type", "存储类型", "MYSQL");
         upsertStorageMetadata(dataset.getId(), "datasource_code", "数据源编码", mapping.getDataSourceCode());
         upsertStorageMetadata(dataset.getId(), "schema_name", "Schema 名称", mapping.getPhysicalSchemaName());
         upsertStorageMetadata(dataset.getId(), "table_name", "物理表名称", mapping.getPhysicalTableName());
-        log.info("Dataset registration completed, datasetId={}, datasetCode={}, runId={}", dataset.getId(), dataset.getDatasetCode(), run.getRunId());
+        refreshConfigDerivedMetadata(dataset, mapping);
+        refreshDatasetStatistics(dataset, mapping);
     }
 
-    /** 按条件分页查询数据集目录。 */
+    /** 按条件分页查询数据集目录，统一处理分页参数并转换为目录视图。 */
     @Override
     @Transactional(readOnly = true)
     public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode,
-        Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize) {
-        log.info("Querying datasets, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, status={}, taskConfigCode={}, pageNo={}, pageSize={}",
-            datasetCode, datasetName, topicCode, dataTypeCode, datasetStatus, taskConfigCode, pageNo, pageSize);
+            Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo,
+            Integer pageSize) {
+        log.info("[Service] query start, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, datasetStatus={}, taskConfigCode={}, startTime={}, endTime={}, pageNo={}, pageSize={}",
+                datasetCode, datasetName, topicCode, dataTypeCode, datasetStatus, taskConfigCode, startTime,
+                endTime, pageNo, pageSize);
         int safePageNo = pageNo == null || pageNo < 1 ? 1 : pageNo;
         int safePageSize = pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 200);
         LambdaQueryWrapper<Dataset> wrapper = new LambdaQueryWrapper<Dataset>()
-            .like(StringUtils.hasText(datasetCode), Dataset::getDatasetCode, datasetCode)
-            .like(StringUtils.hasText(datasetName), Dataset::getDatasetName, datasetName)
-            .eq(StringUtils.hasText(topicCode), Dataset::getDataTopicCode, topicCode)
-            .eq(StringUtils.hasText(dataTypeCode), Dataset::getDataTypeCode, dataTypeCode)
-            .eq(StringUtils.hasText(taskConfigCode), Dataset::getTaskConfigCode, taskConfigCode)
-            .ge(StringUtils.hasText(startTime), Dataset::getLastSuccessTime, startTime)
-            .le(StringUtils.hasText(endTime), Dataset::getLastSuccessTime, endTime)
-            .orderByDesc(Dataset::getLastSuccessTime);
-        if (datasetStatus != null) wrapper.eq(Dataset::getDatasetStatus, datasetStatus);
+                .like(StringUtils.hasText(datasetCode), Dataset::getDatasetCode, datasetCode)
+                .like(StringUtils.hasText(datasetName), Dataset::getDatasetName, datasetName)
+                .eq(StringUtils.hasText(topicCode), Dataset::getDataTopicCode, topicCode)
+                .eq(StringUtils.hasText(dataTypeCode), Dataset::getDataTypeCode, dataTypeCode)
+                .eq(StringUtils.hasText(taskConfigCode), Dataset::getTaskConfigCode, taskConfigCode)
+                .ge(StringUtils.hasText(startTime), Dataset::getLastSuccessTime, startTime)
+                .le(StringUtils.hasText(endTime), Dataset::getLastSuccessTime, endTime)
+                .orderByDesc(Dataset::getLastSuccessTime);
+        if (datasetStatus != null)
+            wrapper.eq(Dataset::getDatasetStatus, datasetStatus);
         Page<Dataset> page = datasetMapper.selectPage(new Page<>(safePageNo, safePageSize), wrapper);
-        log.info("Dataset query completed, pageNo={}, pageSize={}, total={}", safePageNo, safePageSize, page.getTotal());
-        return new PageResult<>(safePageNo, safePageSize, page.getTotal(), page.getRecords().stream().map(this::toView).collect(Collectors.toList()));
+        return new PageResult<>(safePageNo, safePageSize, page.getTotal(),
+                page.getRecords().stream().map(this::toView).collect(Collectors.toList()));
     }
 
-    /** 查询数据集详情及最近成功执行信息。 */
+    /** 查询数据集详情、元数据、字段结构及最近成功执行信息。 */
     @Override
     @Transactional(readOnly = true)
     public DatasetDetailView getDetail(String datasetCode) {
-        log.info("Getting dataset detail, datasetCode={}", datasetCode);
+        log.info("[Service] getDetail start, datasetCode={}", datasetCode);
         Dataset dataset = requireDataset(datasetCode);
         DatasetDetailView detail = new DatasetDetailView();
         detail.setDataset(toView(dataset));
-        detail.setMetadata(getMetadata(datasetCode));
-        detail.setStructure(getStructure(datasetCode));
+        detail.setMetadata(loadMetadata(dataset));
+        detail.setStructure(loadStructure(dataset));
         if (StringUtils.hasText(dataset.getLatestTaskRunId())) {
-            detail.setLatestTaskRun(ExecutionConverter.toRunView(taskRunMapper.selectOne(new LambdaQueryWrapper<TaskRun>().eq(TaskRun::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
-            detail.setLatestResultSummary(ExecutionConverter.toSummaryView(summaryMapper.selectOne(new LambdaQueryWrapper<ResultSummary>().eq(ResultSummary::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
+            detail.setLatestTaskRun(
+                    ExecutionConverter.toRunView(taskRunMapper.selectOne(new LambdaQueryWrapper<TaskRun>()
+                            .eq(TaskRun::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
+            detail.setLatestResultSummary(
+                    ExecutionConverter.toSummaryView(summaryMapper.selectOne(new LambdaQueryWrapper<ResultSummary>()
+                            .eq(ResultSummary::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
         }
-        log.info("Dataset detail loaded, datasetCode={}, latestTaskRunId={}", datasetCode, dataset.getLatestTaskRunId());
         return detail;
     }
 
-    /** 查询数据集扩展元数据。 */
+    /** 查询数据集扩展元数据，并按分组和属性编码排序。 */
     @Override
     @Transactional(readOnly = true)
     public List<DatasetMetadataView> getMetadata(String datasetCode) {
-        log.info("Getting dataset metadata, datasetCode={}", datasetCode);
+        log.info("[Service] getMetadata start, datasetCode={}", datasetCode);
         Dataset dataset = requireDataset(datasetCode);
-        List<DatasetMetadataView> result = metadataMapper.selectList(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, dataset.getId())
-            .orderByAsc(DatasetMetadata::getMetadataGroup).orderByAsc(DatasetMetadata::getMetadataKey)).stream().map(this::toMetadataView).collect(Collectors.toList());
-        log.info("Dataset metadata loaded, datasetCode={}, itemCount={}", datasetCode, result.size());
-        return result;
+        return loadMetadata(dataset);
     }
 
-    /** 更新用户可维护的数据集名称、说明和扩展元数据。 */
+    /** 查询已加载数据集的元数据，供详情查询复用以避免重复主档查询和日志。 */
+    private List<DatasetMetadataView> loadMetadata(Dataset dataset) {
+        return metadataMapper
+                .selectList(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, dataset.getId())
+                        .orderByAsc(DatasetMetadata::getMetadataGroup).orderByAsc(DatasetMetadata::getMetadataKey))
+                .stream().map(this::toMetadataView).collect(Collectors.toList());
+    }
+
+    /** 校验并更新用户可维护的数据集名称、说明和扩展元数据。 */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateMetadata(String datasetCode, DatasetMetadataUpdateRequest request) {
-        log.info("Updating dataset metadata, datasetCode={}, itemCount={}", datasetCode,
-            request == null || request.items() == null ? 0 : request.items().size());
+        log.info("[Service] updateMetadata start, datasetCode={}, itemCount={}", datasetCode,
+                request == null || request.items() == null ? 0 : request.items().size());
         Dataset dataset = requireDataset(datasetCode);
+        if (request == null || request.items() == null) {
+            throw new BusinessException(40006, "元数据请求不能为空");
+        }
         if (StringUtils.hasText(request.datasetName())) {
             dataset.setDatasetName(request.datasetName());
         }
@@ -206,79 +244,286 @@ public class DatasetServiceImpl implements DatasetService {
         }
         datasetMapper.updateById(dataset);
         for (DatasetMetadataUpdateRequest.Item item : request.items()) {
-            if (STORAGE.equalsIgnoreCase(item.metadataGroup())) {
-                throw new BusinessException(40006, "存储定位信息只能由执行成功后的登记流程维护");
-            }
             if (!StringUtils.hasText(item.metadataGroup()) || !StringUtils.hasText(item.metadataKey())) {
                 throw new BusinessException(40006, "元数据分组和编码不能为空");
             }
-            DatasetMetadata current = metadataMapper.selectOne(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, dataset.getId())
-                .eq(DatasetMetadata::getMetadataGroup, item.metadataGroup()).eq(DatasetMetadata::getMetadataKey, item.metadataKey()).last("LIMIT 1"));
-            if (current == null) current = new DatasetMetadata().setDatasetId(dataset.getId()).setMetadataGroup(item.metadataGroup()).setMetadataKey(item.metadataKey());
-            current.setMetadataName(item.metadataName()).setMetadataValue(item.metadataValue()).setValueType(item.valueType()).setRemark(item.remark());
-            if (current.getId() == null) metadataMapper.insert(current); else metadataMapper.updateById(current);
+            DatasetMetadataDefinition definition = DatasetMetadataDefinition.find(item.metadataGroup().toUpperCase(),
+                    item.metadataKey());
+            if (definition == null)
+                throw new BusinessException(40006, "不支持的元数据属性：" + item.metadataGroup() + "." + item.metadataKey());
+            if (definition.getMaintainMode() != DatasetMetadataMaintainMode.MANUAL) {
+                throw new BusinessException(40006, "该元数据属性由系统维护，不能人工修改：" + definition.getKey());
+            }
+            validateManualValue(dataset, definition, item.metadataValue());
+            if (!StringUtils.hasText(item.metadataValue())) {
+                deleteMetadata(dataset.getId(), definition.getGroup(), definition.getKey());
+            } else {
+                upsertMetadata(dataset.getId(), definition.getGroup(), definition.getKey(), definition.getName(),
+                        item.metadataValue(), definition.getValueType(), item.remark());
+            }
         }
-        log.info("Dataset metadata update completed, datasetCode={}", datasetCode);
     }
 
-    /** 查询数据集当前引用的数据类型版本字段结构。 */
+    /** 查询数据集当前引用的数据类型版本字段结构；无结构时返回空列表。 */
     @Override
     @Transactional(readOnly = true)
     public List<?> getStructure(String datasetCode) {
-        log.info("Getting dataset structure, datasetCode={}", datasetCode);
+        log.info("[Service] getStructure start, datasetCode={}", datasetCode);
         Dataset dataset = requireDataset(datasetCode);
+        return loadStructure(dataset);
+    }
+
+    /** 查询已加载数据集当前引用的数据类型版本结构。 */
+    private List<?> loadStructure(Dataset dataset) {
         DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
-            .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode()).eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+                .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
+                .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
         if (version == null || !StringUtils.hasText(version.getFieldSchemaContent())) {
-            log.info("Dataset structure is empty, datasetCode={}", datasetCode);
             return Collections.emptyList();
         }
         List<?> structure = JSON.parseArray(version.getFieldSchemaContent(), Map.class);
-        log.info("Dataset structure loaded, datasetCode={}, fieldCount={}", datasetCode, structure.size());
         return structure;
     }
 
-    /** 按稳定数据集编码查询主档。 */
+    /** 根据稳定数据集编码查询主档，不存在时返回 {@code null}。 */
     private Dataset findByCode(String datasetCode) {
-        log.debug("Finding dataset by code, datasetCode={}", datasetCode);
-        return datasetMapper.selectOne(new LambdaQueryWrapper<Dataset>().eq(Dataset::getDatasetCode, datasetCode).last("LIMIT 1"));
+        return datasetMapper
+                .selectOne(new LambdaQueryWrapper<Dataset>().eq(Dataset::getDatasetCode, datasetCode).last("LIMIT 1"));
     }
 
-    /** 查询并校验数据集主档存在。 */
+    /** 查询数据集主档并在不存在时抛出业务异常。 */
     private Dataset requireDataset(String datasetCode) {
-        log.debug("Requiring dataset, datasetCode={}", datasetCode);
         Dataset result = findByCode(datasetCode);
-        if (result == null) throw new BusinessException(40003, "数据集不存在：" + datasetCode);
+        if (result == null)
+            throw new BusinessException(40003, "数据集不存在：" + datasetCode);
         return result;
     }
 
-    /** 查询指定数据集的存储元数据值。 */
+    /** 读取指定数据集的存储分组元数据值。 */
     private String metadataValue(Long datasetId, String key) {
-        log.debug("Reading dataset storage metadata, datasetId={}, key={}", datasetId, key);
-        DatasetMetadata value = metadataMapper.selectOne(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, datasetId).eq(DatasetMetadata::getMetadataGroup, STORAGE).eq(DatasetMetadata::getMetadataKey, key).last("LIMIT 1"));
+        DatasetMetadata value = metadataMapper.selectOne(new LambdaQueryWrapper<DatasetMetadata>()
+                .eq(DatasetMetadata::getDatasetId, datasetId).eq(DatasetMetadata::getMetadataGroup, STORAGE)
+                .eq(DatasetMetadata::getMetadataKey, key).last("LIMIT 1"));
         return value == null ? null : value.getMetadataValue();
     }
 
-    /** 创建或更新单项存储定位元数据。 */
+    /** 创建或更新单项系统维护的存储定位元数据。 */
     private void upsertStorageMetadata(Long datasetId, String key, String name, String value) {
-        log.debug("Upserting dataset storage metadata, datasetId={}, key={}", datasetId, key);
-        DatasetMetadata item = metadataMapper.selectOne(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, datasetId).eq(DatasetMetadata::getMetadataGroup, STORAGE).eq(DatasetMetadata::getMetadataKey, key).last("LIMIT 1"));
-        if (item == null) { item = new DatasetMetadata().setDatasetId(datasetId).setMetadataGroup(STORAGE).setMetadataKey(key); }
+        DatasetMetadata item = metadataMapper.selectOne(
+            new LambdaQueryWrapper<DatasetMetadata>()
+                .eq(DatasetMetadata::getDatasetId, datasetId)
+                .eq(DatasetMetadata::getMetadataGroup, STORAGE)
+                .eq(DatasetMetadata::getMetadataKey, key)
+                .last("LIMIT 1")
+        );
+        if (item == null) {
+            item = new DatasetMetadata().setDatasetId(datasetId).setMetadataGroup(STORAGE).setMetadataKey(key);
+        }
         item.setMetadataName(name).setMetadataValue(value).setValueType("STRING");
-        if (item.getId() == null) metadataMapper.insert(item); else metadataMapper.updateById(item);
+        if (item.getId() == null)
+            metadataMapper.insert(item);
+        else
+            metadataMapper.updateById(item);
+    }
+
+    /** 创建或更新任意分组的一项元数据。 */
+    private void upsertMetadata(Long datasetId, String group, String key, String name, String value, String valueType,
+            String remark) {
+        DatasetMetadata item = metadataMapper.selectOne(new LambdaQueryWrapper<DatasetMetadata>()
+                .eq(DatasetMetadata::getDatasetId, datasetId)
+                .eq(DatasetMetadata::getMetadataGroup, group).eq(DatasetMetadata::getMetadataKey, key).last("LIMIT 1"));
+        if (item == null)
+            item = new DatasetMetadata().setDatasetId(datasetId).setMetadataGroup(group).setMetadataKey(key);
+        item.setMetadataName(name).setMetadataValue(value).setValueType(valueType).setRemark(remark);
+        if (item.getId() == null)
+            metadataMapper.insert(item);
+        else
+            metadataMapper.updateById(item);
+    }
+
+    /** 删除指定分组和属性编码的元数据。 */
+    private void deleteMetadata(Long datasetId, String group, String key) {
+        metadataMapper.delete(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, datasetId)
+                .eq(DatasetMetadata::getMetadataGroup, group).eq(DatasetMetadata::getMetadataKey, key));
+    }
+
+    /** 按元数据定义校验人工维护值的格式和业务约束。 */
+    private void validateManualValue(Dataset dataset, DatasetMetadataDefinition definition, String value) {
+        if (!StringUtils.hasText(value))
+            return;
+        if ("JSON".equals(definition.getValueType())) {
+            try {
+                JSON.parse(value);
+            } catch (Exception ex) {
+                throw new BusinessException(40006, definition.getName() + "必须是合法 JSON");
+            }
+        }
+        if ("data_granularity".equals(definition.getKey()))
+            validateGranularity(value, true);
+        if ("update_frequency".equals(definition.getKey()))
+            validateGranularity(value, false);
+        if ("data_time_field".equals(definition.getKey()))
+            validateTimeField(dataset, value);
+    }
+
+    /** 校验时间粒度 JSON 的单位、间隔及特殊粒度规则。 */
+    private void validateGranularity(String value, boolean allowSpecial) {
+        Map<?, ?> map;
+        try {
+            map = JSON.parseObject(value, Map.class);
+        } catch (Exception ex) {
+            throw new BusinessException(40006, "时间单位配置必须是 JSON 对象");
+        }
+        String unit = Objects.toString(map.get("unit"), "").toUpperCase();
+        List<String> temporal = List.of("SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR");
+        List<String> special = List.of("TICK", "EVENT", "SNAPSHOT", "STATIC");
+        if (!temporal.contains(unit) && !(allowSpecial && special.contains(unit)))
+            throw new BusinessException(40006, "不支持的时间单位：" + unit);
+        if (temporal.contains(unit)) {
+            Object interval = map.get("interval");
+            if (!(interval instanceof Number) || ((Number) interval).intValue() < 1)
+                throw new BusinessException(40006, "interval 必须是大于等于 1 的整数");
+        } else if (map.containsKey("interval"))
+            throw new BusinessException(40006, "特殊粒度不应包含 interval");
+    }
+
+    /** 校验数据时间字段存在且属于日期时间类型。 */
+    private void validateTimeField(Dataset dataset, String fieldCode) {
+        DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
+                .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
+                .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+        if (version == null || !StringUtils.hasText(version.getFieldSchemaContent()))
+            throw new BusinessException(40006, "当前数据类型版本不存在字段结构");
+        List<JSONObject> fields = JSON.parseArray(version.getFieldSchemaContent(), JSONObject.class);
+        JSONObject field = fields.stream().filter(f -> fieldCode.equals(Objects.toString(f.get("fieldCode"), ""))).findFirst()
+                .orElse(null);
+        if (field == null)
+            throw new BusinessException(40006, "数据时间字段不存在：" + fieldCode);
+        String type = Objects.toString(field.get("fieldType"), "").toUpperCase();
+        if (!(type.contains("DATE") || type.contains("TIME") || type.contains("TIMESTAMP")))
+            throw new BusinessException(40006, "字段不是时间类型：" + fieldCode);
+    }
+
+    /** 根据存储列映射刷新业务主键及存储定位等派生元数据。 */
+    private void refreshConfigDerivedMetadata(Dataset dataset, StorageMapping mapping) {
+        List<StorageColumnMapping> columns = storageColumnMappingMapper
+                .selectList(new LambdaQueryWrapper<StorageColumnMapping>()
+                        .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode()));
+        columns.sort(Comparator.comparing(StorageColumnMapping::getId, Comparator.nullsLast(Long::compareTo)));
+        List<String> businessKeys = columns.stream().filter(c -> Boolean.TRUE.equals(c.getUniqueKey()))
+                .map(StorageColumnMapping::getDataTypeFieldCode).filter(StringUtils::hasText)
+                .collect(Collectors.toList());
+        List<String> storageKeys = columns.stream().filter(c -> Boolean.TRUE.equals(c.getUniqueKey()))
+                .map(StorageColumnMapping::getPhysicalColumnName).filter(StringUtils::hasText)
+                .collect(Collectors.toList());
+        upsertMetadata(dataset.getId(), "BUSINESS", "business_key", "业务主键", JSON.toJSONString(businessKeys), "JSON",
+                null);
+        upsertMetadata(dataset.getId(), STORAGE, "storage_type", "存储类型", "MYSQL", "STRING", null);
+        upsertMetadata(dataset.getId(), STORAGE, "datasource_code", "数据源编码", mapping.getDataSourceCode(), "STRING",
+                null);
+        upsertMetadata(dataset.getId(), STORAGE, "schema_name", "Schema", mapping.getPhysicalSchemaName(), "STRING",
+                null);
+        upsertMetadata(dataset.getId(), STORAGE, "table_name", "物理表", mapping.getPhysicalTableName(), "STRING", null);
+        upsertMetadata(dataset.getId(), STORAGE, "storage_unique_key", "物理唯一键", JSON.toJSONString(storageKeys), "JSON",
+                null);
+    }
+
+    /** 从实际物理表读取记录数和时间覆盖范围并写回统计元数据。 */
+    private void refreshDatasetStatistics(Dataset dataset, StorageMapping mapping) {
+        try {
+            if (!IDENTIFIER.matcher(mapping.getPhysicalSchemaName() == null ? "" : mapping.getPhysicalSchemaName())
+                    .matches()
+                    || !IDENTIFIER.matcher(mapping.getPhysicalTableName() == null ? "" : mapping.getPhysicalTableName())
+                            .matches())
+                throw new IllegalArgumentException("invalid physical identifier");
+            DataSourceConfig source = dataSourceConfigMapper.selectOne(new LambdaQueryWrapper<DataSourceConfig>()
+                    .eq(DataSourceConfig::getDataSourceCode, mapping.getDataSourceCode()).last("LIMIT 1"));
+            if (source == null)
+                throw new IllegalArgumentException("data source not found");
+            String timeField = metadataValue(dataset.getId(), "data_time_field");
+            String physicalTimeColumn = null;
+            if (StringUtils.hasText(timeField)) {
+                StorageColumnMapping column = storageColumnMappingMapper
+                        .selectOne(new LambdaQueryWrapper<StorageColumnMapping>()
+                                .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode())
+                                .eq(StorageColumnMapping::getDataTypeFieldCode, timeField).last("LIMIT 1"));
+                if (column == null || !IDENTIFIER
+                        .matcher(column.getPhysicalColumnName() == null ? "" : column.getPhysicalColumnName())
+                        .matches())
+                    throw new IllegalArgumentException("time field mapping not found");
+                physicalTimeColumn = column.getPhysicalColumnName();
+            }
+            String table = quote(mapping.getPhysicalSchemaName()) + "." + quote(mapping.getPhysicalTableName());
+            String sql = physicalTimeColumn == null ? "SELECT COUNT(*) FROM " + table
+                    : "SELECT COUNT(*), MIN(" + quote(physicalTimeColumn) + "), MAX(" + quote(physicalTimeColumn)
+                            + ") FROM " + table;
+            try (Connection connection = JdbcUtils.openConnection(source);
+                    PreparedStatement statement = connection.prepareStatement(sql);
+                    ResultSet rs = statement.executeQuery()) {
+                if (!rs.next())
+                    return;
+                long count = rs.getLong(1);
+                dataset.setRecordCount(count);
+                datasetMapper.updateById(dataset);
+                upsertMetadata(dataset.getId(), "STATISTICS", "record_count", "数据总条数", String.valueOf(count), "NUMBER",
+                        null);
+                if (physicalTimeColumn != null) {
+                    upsertMetadata(dataset.getId(), "STATISTICS", "time_coverage_field", "时间覆盖统计字段", timeField,
+                            "STRING", null);
+                    upsertMetadata(dataset.getId(), "STATISTICS", "time_coverage_start", "数据起始时间",
+                            rs.getObject(2) == null ? null : String.valueOf(rs.getObject(2)), "STRING", null);
+                    upsertMetadata(dataset.getId(), "STATISTICS", "time_coverage_end", "数据结束时间",
+                            rs.getObject(3) == null ? null : String.valueOf(rs.getObject(3)), "STRING", null);
+                }
+                upsertMetadata(dataset.getId(), "STATISTICS", "statistics_updated_at", "统计更新时间",
+                        LocalDateTime.now(ZoneId.of(JdbcUtils.DEFAULT_TIME_ZONE)).format(ISO_TIME), "STRING", null);
+            }
+        } catch (Exception ex) {
+        }
+    }
+
+    /** 校验物理标识符并添加数据库标识符引用符。 */
+    private String quote(String identifier) {
+        if (!IDENTIFIER.matcher(identifier).matches())
+            throw new IllegalArgumentException("invalid identifier");
+        return "`" + identifier + "`";
     }
 
     /** 将元数据实体转换为接口视图。 */
     private DatasetMetadataView toMetadataView(DatasetMetadata entity) {
-        log.debug("Converting dataset metadata entity, metadataId={}", entity == null ? null : entity.getId());
-        DatasetMetadataView view = new DatasetMetadataView(); view.setMetadataGroup(entity.getMetadataGroup()); view.setMetadataKey(entity.getMetadataKey()); view.setMetadataName(entity.getMetadataName()); view.setMetadataValue(entity.getMetadataValue()); view.setValueType(entity.getValueType()); view.setRemark(entity.getRemark()); return view;
+        DatasetMetadataView view = new DatasetMetadataView();
+        view.setMetadataGroup(entity.getMetadataGroup());
+        view.setMetadataKey(entity.getMetadataKey());
+        view.setMetadataName(entity.getMetadataName());
+        view.setMetadataValue(entity.getMetadataValue());
+        view.setValueType(entity.getValueType());
+        view.setRemark(entity.getRemark());
+        return view;
     }
 
     /** 将数据集实体转换为目录视图，并补充存储定位元数据。 */
     private DatasetView toView(Dataset entity) {
-        log.debug("Converting dataset entity, datasetId={}, datasetCode={}", entity == null ? null : entity.getId(), entity == null ? null : entity.getDatasetCode());
-        DatasetView view = new DatasetView(); view.setDatasetCode(entity.getDatasetCode()); view.setDatasetName(entity.getDatasetName()); view.setDescription(entity.getDescription()); view.setTaskConfigCode(entity.getTaskConfigCode()); view.setTaskCode(entity.getTaskCode()); view.setDataTopicCode(entity.getDataTopicCode()); view.setDataTypeCode(entity.getDataTypeCode()); view.setDataTypeVersionNo(entity.getDataTypeVersionNo()); view.setStorageMappingCode(entity.getStorageMappingCode()); view.setDatasetStatus(entity.getDatasetStatus()); view.setRecordCount(entity.getRecordCount()); view.setLastSuccessTime(entity.getLastSuccessTime());
-        List<DatasetMetadata> metadata = metadataMapper.selectList(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, entity.getId()).eq(DatasetMetadata::getMetadataGroup, STORAGE));
-        Map<String, String> values = metadata.stream().collect(Collectors.toMap(DatasetMetadata::getMetadataKey, DatasetMetadata::getMetadataValue, (a, b) -> a)); view.setStorageType(values.get("storage_type")); view.setDatasourceCode(values.get("datasource_code")); view.setSchemaName(values.get("schema_name")); view.setTableName(values.get("table_name")); return view;
+        DatasetView view = new DatasetView();
+        view.setDatasetCode(entity.getDatasetCode());
+        view.setDatasetName(entity.getDatasetName());
+        view.setDescription(entity.getDescription());
+        view.setTaskConfigCode(entity.getTaskConfigCode());
+        view.setTaskCode(entity.getTaskCode());
+        view.setDataTopicCode(entity.getDataTopicCode());
+        view.setDataTypeCode(entity.getDataTypeCode());
+        view.setDataTypeVersionNo(entity.getDataTypeVersionNo());
+        view.setStorageMappingCode(entity.getStorageMappingCode());
+        view.setDatasetStatus(entity.getDatasetStatus());
+        view.setRecordCount(entity.getRecordCount());
+        view.setLastSuccessTime(entity.getLastSuccessTime());
+        List<DatasetMetadata> metadata = metadataMapper.selectList(new LambdaQueryWrapper<DatasetMetadata>()
+                .eq(DatasetMetadata::getDatasetId, entity.getId()).eq(DatasetMetadata::getMetadataGroup, STORAGE));
+        Map<String, String> values = metadata.stream().collect(
+                Collectors.toMap(DatasetMetadata::getMetadataKey, DatasetMetadata::getMetadataValue, (a, b) -> a));
+        view.setStorageType(values.get("storage_type"));
+        view.setDatasourceCode(values.get("datasource_code"));
+        view.setSchemaName(values.get("schema_name"));
+        view.setTableName(values.get("table_name"));
+        return view;
     }
 }

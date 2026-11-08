@@ -57,7 +57,7 @@ import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
 import com.exchange.platform.collection.mapper.execution.ExecutionConfigSnapshotMapper;
 import com.exchange.platform.collection.mapper.execution.ExecutionSchedulerMapper;
 import com.exchange.platform.collection.mapper.execution.ResultSummaryMapper;
-import com.exchange.platform.collection.service.DatasetService;
+import com.exchange.platform.collection.service.DatasetExecutionService;
 import com.exchange.platform.collection.utils.JdbcUtils;
 
 
@@ -77,9 +77,9 @@ public class ExecutionServiceImpl extends ServiceImpl<TaskRunMapper, TaskRun> im
     private final RunLogMapper runLogMapper;
     private final ProblemRecordMapper problemRecordMapper;
     private final ExceptionRecordMapper exceptionRecordMapper;
-    private final DatasetService datasetService;
+    private final DatasetExecutionService datasetService;
 
-    public ExecutionServiceImpl(TaskConfigMapper taskConfigMapper, ExecutionConfigSnapshotMapper snapshotMapper, StorageMappingMapper storageMappingMapper, StorageColumnMappingMapper storageColumnMapper, TaskTemplateVersionMapper taskTemplateVersionMapper, ResultSummaryMapper resultSummaryMapper, DataServiceClient dataServiceClient, ExecutionSchedulerMapper schedulerMapper, RunLogMapper runLogMapper, ProblemRecordMapper problemRecordMapper, ExceptionRecordMapper exceptionRecordMapper, DatasetService datasetService) {
+    public ExecutionServiceImpl(TaskConfigMapper taskConfigMapper, ExecutionConfigSnapshotMapper snapshotMapper, StorageMappingMapper storageMappingMapper, StorageColumnMappingMapper storageColumnMapper, TaskTemplateVersionMapper taskTemplateVersionMapper, ResultSummaryMapper resultSummaryMapper, DataServiceClient dataServiceClient, ExecutionSchedulerMapper schedulerMapper, RunLogMapper runLogMapper, ProblemRecordMapper problemRecordMapper, ExceptionRecordMapper exceptionRecordMapper, DatasetExecutionService datasetService) {
         this.taskConfigMapper = taskConfigMapper;
         this.snapshotMapper = snapshotMapper;
         this.storageMappingMapper = storageMappingMapper;
