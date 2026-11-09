@@ -7,6 +7,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ def register_stock_daily_moneyflow_data_task():
             小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万 """,
             handler_name='stock_daily_moneyflow_data_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='资金流向',
             params_schema=[
                 OutputField(

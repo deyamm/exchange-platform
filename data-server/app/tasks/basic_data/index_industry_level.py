@@ -2,12 +2,12 @@ import logging
 from typing import Any, cast
 
 import numpy as np
-import pandas as pd
 
 from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def register_index_industry_level_task():
             task_desc='采集申万行业分类数据，包括指数代码、行业名称、行业级别、行业代码、是否发布指数、父级代码、分类来源等信息。当前支持的参数market为SW=申万行业分类；采集时固定调用Tushare申万行业分类接口index_classify，src参数固定为SW2021，并将接口返回结果中的src字段统一处理为SW。',
             handler_name='index_industry_level_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='行业分类',
             params_schema=[
                 OutputField(

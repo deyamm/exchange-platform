@@ -5,6 +5,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def register_stock_adjust_factor_data_task():
             2）这样，除权日复权因子发生变化，前一天的复权因子就为除权前的因子，除权日之后的复权因子则代表着最新的复权因子，这样在计算复权价格价格时，就可以根据交易日期和股票代码，找到对应的范围内的复权因子进行计算""",
             handler_name='stock_adjust_factor_data_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='复权因子',
             params_schema=[
                 OutputField(

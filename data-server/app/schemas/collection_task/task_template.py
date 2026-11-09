@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.common.enum import AssetType
+
 
 class OutputField(BaseModel):
     """
@@ -37,7 +39,7 @@ class TaskTemplateInfo(BaseModel):
     task_desc: Optional[str] = Field(default=None, validation_alias="taskDesc", serialization_alias="taskDesc", description="任务说明")
     handler_name: str = Field(..., validation_alias="handlerName", serialization_alias="handlerName", description="任务处理入口名称（Python 函数/类名）")
     data_source: Optional[str] = Field(default=None, validation_alias="dataSource", serialization_alias="dataSource", description="数据源标识")
-    asset_type: Optional[str] = Field(default=None, validation_alias="assetType", serialization_alias="assetType", description="资产类型")
+    asset_type: Optional[AssetType] = Field(default=None, validation_alias="assetType", serialization_alias="assetType", description="资产类型")
     biz_type: Optional[str] = Field(default=None, validation_alias="bizType", serialization_alias="bizType", description="业务分类")
     params_schema: List[OutputField] = Field(default_factory=list, validation_alias="paramsSchema", serialization_alias="paramsSchema", description="执行参数结构（JSON Schema）")
     output_fields: List[OutputField] = Field(default_factory=list, validation_alias="outputFields", serialization_alias="outputFields", description="接口可返回字段列表")

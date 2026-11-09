@@ -8,6 +8,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def register_stock_basic_data_task():
             task_desc='采集所有股票的基本信息。',
             handler_name='stock_basic_data_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='基本数据',
             params_schema=[],
             output_fields = [

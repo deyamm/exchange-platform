@@ -7,6 +7,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def register_index_daily_indicator_data_task():
             注：不是每个指数都有，应该是大盘指数才有每日指标数据，采集前请确认指数代码是否正确且有每日指标数据""",
             handler_name='index_daily_indicator_data_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='每日指标',
             params_schema=[
                 OutputField(

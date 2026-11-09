@@ -8,6 +8,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ def register_index_daily_indicator_init_task():
             task_desc='初始化采集指定指数列表的历史每日指标数据。任务从参数ts_codes读取指数代码列表，支持列表或逗号分隔字符串，再逐个指数采集全部历史每日指标数据，每个指数的数据作为一批进行后续处理和入库，相邻两次接口调用之间暂停5秒。注：不是每个指数都有，应该是大盘指数才有每日指标数据，采集前请确认指数代码是否正确且有每日指标数据',
             handler_name='index_daily_indicator_init_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='每日指标',
             params_schema=[
                 OutputField(

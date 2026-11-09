@@ -8,6 +8,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def register_stock_daily_indicator_init_task():
             task_desc='初始化采集所有股票的历史每日指标数据。任务先从股票基本数据接口获取股票列表，再逐个股票采集全部历史每日指标数据，每只股票的数据作为一批进行后续处理和入库，相邻两次接口调用之间暂停5秒。',
             handler_name='stock_daily_indicator_init_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='每日指标',
             params_schema=[],
             output_fields=[

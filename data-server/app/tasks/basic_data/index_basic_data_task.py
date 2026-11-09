@@ -10,6 +10,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def register_index_basic_data_task():
             task_desc='采集指数基本数据，包括指数代码、简称、全称、市场、发布方等信息，该接口只能返回MSCI、中证、上交所、深交所、中金、申万及其他指数，同花顺、东财等版块、概念等指数需要其他接口。由于接口一次最多返回8000条数据，因此需要按市场来分批采集，市场包括MSCI=MSCI指数，CSI=中证指数，SSE=上交所指数，SZSE=深交所指数，CICC=中金指数，SW=申万指数，OTH=其他指数',
             handler_name='index_basic_data_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='基本数据',
             params_schema=[],
             output_fields = [

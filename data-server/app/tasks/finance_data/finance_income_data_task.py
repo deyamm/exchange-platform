@@ -10,6 +10,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ def register_finance_income_data_task():
             task_desc='采集在指定交易日期发布财报的所有股票的利润表数据。任务需要传入trade_date参数，调用Tushare的disclosure_date和income接口获取在指定交易日期发布的财务指标数据。注：财报的发布一般是在发布日期的上一个交易日发布完毕，所以在发布日期的任一时刻采集就可以获取完整的财务数据，trade_date正常设置为触发日期就可以。',
             handler_name='finance_income_data_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='利润表',
             params_schema=[
                 OutputField(

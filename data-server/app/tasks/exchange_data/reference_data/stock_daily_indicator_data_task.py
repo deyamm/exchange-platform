@@ -7,6 +7,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def register_stock_daily_indicator_data_task():
             2）传入股票代码、开始日期和结束日期，获取指定股票在该日期范围内的每日指标数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定股票的所有历史每日指标数据（单次最多6000条）""",
             handler_name='stock_daily_indicator_data_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='每日指标',
             params_schema=[
                 OutputField(

@@ -8,6 +8,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def register_index_daily_price_init_task():
             task_desc='批量初始化采集指定指数列表的历史日线行情数据。从参数ts_codes读取需要初始化的指数代码列表，多个指数代码用英文逗号分隔，逐个指数代码读取历史日线行情数据，每个指数作为一个批次进入后续标准化、清洗、字段映射和入库流程，相邻两次接口调用之间暂停5秒。',
             handler_name='index_daily_price_init_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='日线价格',
             params_schema=[
                 OutputField(

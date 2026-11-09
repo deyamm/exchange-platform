@@ -12,6 +12,7 @@ from app.tasks.pipeline import BaseCollectTask, TaskRuntime
 from app.core.providers import ts_provider
 from app.core.db import get_engine_by_schema
 from app.core.config import settings
+from app.core.common.enum import AssetType
 
 from app.utils.datetime_utils import get_first_day_of_month, get_last_day_of_month
 from app.utils.db_utils import quote_identifier
@@ -129,7 +130,7 @@ def register_index_constituent_data_task():
             注：来源接口只能返回单个指数的成分股，该任务会自动循环调用接口获取多个指数的成分股数据，每次采集时会清空原有库中数据，仅保存最新的成分股数据""",
             handler_name='index_constituent_data_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='基本数据',
             params_schema=[
                 OutputField(

@@ -1,7 +1,5 @@
 import logging
-from pathlib import Path
-import re
-from typing import Any, AsyncIterator, List, cast
+from typing import Any, cast
 import numpy as np
 import pandas as pd
 
@@ -9,6 +7,7 @@ from app.schemas.collection_task.task_template import ExecutionContext, OutputFi
 from app.tasks.pipeline import BaseCollectTask
 from app.core.registry import registry
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +93,7 @@ def register_index_daily_price_task():
             从参数ts_codes读取需要初始化的指数代码列表，多个指数代码用英文逗号分隔，在实际采集过程中对每个指数代码单独采集数据，并将采集结果合并后返回。""",
             handler_name='index_daily_price_handler',
             data_source='TUSHARE',
-            asset_type='指数',
+            asset_type=AssetType.INDEX,
             biz_type='日线价格',
             params_schema=[
                 OutputField(

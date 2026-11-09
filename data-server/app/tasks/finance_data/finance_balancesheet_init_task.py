@@ -10,6 +10,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ def register_finance_balancesheet_init_task():
             task_desc='初始化采集所有股票的历史资产负债表数据。任务先从股票基本数据接口获取股票列表，再逐个股票仅传入ts_code参数采集全部历史资产负债表数据，每只股票的数据作为一批进行后续处理和入库，相邻两次接口调用之间暂停1秒。',
             handler_name='finance_balancesheet_init_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='资产负债表',
             params_schema=[],
             output_fields=[

@@ -2,6 +2,22 @@ from enum import Enum
 import logging
 
 
+class AssetType(str, Enum):
+    """
+    资产类型
+    STOCK: 股票
+    INDEX: 指数
+    FUTURE: 期货
+    FUND: 基金
+    BOND: 债券
+    """
+    STOCK = "STOCK"
+    INDEX = "INDEX"
+    FUTURE = "FUTURE"
+    FUND = "FUND"
+    BOND = "BOND"
+
+
 class PriceAdjustType(str, Enum):
     """
     股价的复权方法

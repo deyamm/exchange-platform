@@ -6,6 +6,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
+from app.core.common.enum import AssetType
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def register_stock_daily_price_by_code_task():
             task_desc='根据指定股票代码和时间范围采集日线价格数据。',
             handler_name='stock_daily_price_by_code_handler',
             data_source='TUSHARE',
-            asset_type='股票',
+            asset_type=AssetType.STOCK,
             biz_type='日线价格',
             params_schema=[
                 OutputField(
