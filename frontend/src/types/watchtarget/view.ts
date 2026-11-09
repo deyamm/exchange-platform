@@ -23,16 +23,16 @@ export const WATCH_STATUS_TAG_TYPE: Record<WatchStatus, '' | 'success' | 'info' 
 
 export const ASSET_TYPE_OPTIONS = [
     { label: '股票', value: 'STOCK' },
-    { label: '基金', value: 'FUND' },
     { label: '指数', value: 'INDEX' },
+    { label: '期货', value: 'FUTURE' },
+    { label: '基金', value: 'FUND' },
     { label: '债券', value: 'BOND' },
-    { label: '其他', value: 'OTHER' },
 ] as const;
 
 export const ASSET_TYPE_TEXT: Record<AssetType, string> = {
     STOCK: '股票',
-    FUND: '基金',
     INDEX: '指数',
+    FUTURE: '期货',
+    FUND: '基金',
     BOND: '债券',
-    OTHER: '其他'
 };

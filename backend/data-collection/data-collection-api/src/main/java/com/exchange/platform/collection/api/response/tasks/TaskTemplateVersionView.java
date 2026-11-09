@@ -2,6 +2,8 @@ package com.exchange.platform.collection.api.response.tasks;
 
 import java.time.LocalDateTime;
 
+import com.exchange.platform.common.core.enums.AssetType;
+
 import lombok.Data;
 
 /**
@@ -30,7 +32,10 @@ public class TaskTemplateVersionView {
     private String dataSource;
 
     /** 资产类型 */
-    private String assetType;
+    /** 标准资产类型编码；序列化结果为 STOCK、INDEX 等。 */
+    private AssetType assetType;
+    /** 资产类型中文展示名，避免前端重复维护 Java 侧展示规则。 */
+    private String assetTypeName;
 
     /** 业务分类 */
     private String bizType;

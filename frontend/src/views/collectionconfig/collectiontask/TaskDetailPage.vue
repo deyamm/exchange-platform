@@ -49,7 +49,7 @@
                     <el-descriptions :column="3" border>
                         <el-descriptions-item label="处理入口">{{ detail.currentVersion.handlerName }}</el-descriptions-item>
                         <el-descriptions-item label="数据源">{{ detail.currentVersion.dataSource }}</el-descriptions-item>
-                        <el-descriptions-item label="资产类型">{{ detail.currentVersion.assetType }}</el-descriptions-item>
+                        <el-descriptions-item label="资产类型">{{ detail.currentVersion.assetTypeName }}</el-descriptions-item>
                         <el-descriptions-item label="业务分类">{{ detail.currentVersion.bizType }}</el-descriptions-item>
                         <el-descriptions-item label="同步时间">{{ detail.currentVersion.syncTime }}</el-descriptions-item>
                         <el-descriptions-item label="字段哈希" :span="3">
@@ -165,6 +165,7 @@ async function loadDetail(): Promise<void> {
     loading.value = true
     try {
         detail.value = await getTaskDetail(taskCode)
+        console.log('task detail:', detail.value)
     } finally {
         loading.value = false
     }

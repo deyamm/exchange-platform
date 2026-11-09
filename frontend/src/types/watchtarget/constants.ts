@@ -2,13 +2,14 @@ import { CommonStatus } from "../appscene/constants";
 
 export type WatchStatus = 'WATCHING' | 'FOCUS' | 'PAUSED' | 'CLOSED';
 
-export type AssetType = 'STOCK' | 'FUND' | 'INDEX' | 'BOND' | 'OTHER';
+/** 与数据集、应用指标共用的跨服务标的类型协议。 */
+export type AssetType = 'STOCK' | 'INDEX' | 'FUTURE' | 'FUND' | 'BOND';
 
 export interface WatchTargetQueryParams {
     keyword?: string;
     targetCode?: string;
     targetName?: string;
-    targetType?: string;
+    targetType?: AssetType | '';
     marketCode?: string;
     groupCode?: string;
     watchStatus?: WatchStatus | '';
@@ -26,7 +27,7 @@ export interface TargetGroupQueryParams {
 export interface WatchTargetSaveRequest {
     targetCode: string;
     targetName: string;
-    targetType: string;
+    targetType: AssetType;
     marketCode: string;
     groupCodes?: string[];
     sortNo: number;

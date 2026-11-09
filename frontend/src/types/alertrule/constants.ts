@@ -1,4 +1,5 @@
 import { CommonStatus } from '/@/types/appscene/constants';
+import type { AssetType } from '/@/types/asset';
 
 export type RuleType = 'PRICE' | 'METRIC' | 'ANNOUNCEMENT';
 
@@ -17,6 +18,8 @@ export interface AlertRuleSaveRequest {
     ruleName: string;
     ruleType: RuleType;
     targetCode?: string;
+    /** 与 targetCode 一起构成具体提醒标的的唯一业务身份。 */
+    targetType?: AssetType | '';
     groupCode?: string;
     metricCode?: string;
     condition?: unknown;

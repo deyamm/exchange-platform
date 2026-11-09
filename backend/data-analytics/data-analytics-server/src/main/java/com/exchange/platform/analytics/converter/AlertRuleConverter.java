@@ -3,6 +3,7 @@ package com.exchange.platform.analytics.converter;
 import com.alibaba.fastjson.JSON;
 import com.exchange.platform.analytics.api.response.AlertRuleView;
 import com.exchange.platform.analytics.entity.AlertRule;
+import com.exchange.platform.common.core.enums.AssetType;
 
 
 public class AlertRuleConverter {
@@ -19,6 +20,7 @@ public class AlertRuleConverter {
         view.setRuleName(entity.getRuleName());
         view.setRuleType(entity.getRuleType());
         view.setTargetCode(entity.getTargetCode());
+        view.setTargetType(AssetType.fromCode(entity.getTargetType()));
         view.setGroupCode(entity.getGroupCode());
         view.setMetricCode(entity.getMetricCode());
         view.setCondition(JSON.parse(entity.getConditionJson()));

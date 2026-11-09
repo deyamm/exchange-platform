@@ -13,6 +13,7 @@ import com.exchange.platform.collection.entity.tasks.StorageMapping;
 import com.exchange.platform.collection.entity.tasks.TaskConfig;
 import com.exchange.platform.collection.entity.tasks.TaskTemplate;
 import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
+import com.exchange.platform.common.core.enums.AssetType;
 
 
 
@@ -61,7 +62,8 @@ public class TaskTemplateConverter {
         versionView.setTaskDesc(version.getTaskDesc());
         versionView.setHandlerName(version.getHandlerName());
         versionView.setDataSource(version.getDataSource());
-        versionView.setAssetType(version.getAssetType());
+        versionView.setAssetType(AssetType.fromCode(version.getAssetType()));
+        versionView.setAssetTypeName(version.getAssetType() == null ? null : AssetType.fromCode(version.getAssetType()).getDisplayName());
         versionView.setBizType(version.getBizType());
         versionView.setParamsSchemaJson(version.getParamsSchemaJson());
         versionView.setOutputFieldsJson(version.getOutputFieldsJson());

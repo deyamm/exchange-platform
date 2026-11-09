@@ -10,19 +10,23 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpdateRequest;
+import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.collection.service.DatasetService;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
+import com.exchange.platform.common.core.enums.AssetType;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,14 +54,15 @@ public class DatasetController {
     public ApiResponse<PageResult<DatasetView>> query(
         @RequestParam(required = false) String datasetCode, @RequestParam(required = false) String datasetName,
         @RequestParam(required = false) String dataTopicCode, @RequestParam(required = false) String dataTypeCode,
+        @RequestParam(required = false) AssetType assetType,
         @RequestParam(required = false) Integer datasetStatus, @RequestParam(required = false) String taskConfigCode,
         @RequestParam(required = false) String startTime, @RequestParam(required = false) String endTime,
         @RequestParam(defaultValue = "1") Integer pageNo, @RequestParam(defaultValue = "20") Integer pageSize,
         HttpServletRequest request) {
         String requestId = RequestIdHolder.getRequestId(request);
-        log.info("[{}] [Controller] query datasets, datasetCode={}, dataTypeCode={}, datasetStatus={}, pageNo={}, pageSize={}",
-            requestId, datasetCode, dataTypeCode, datasetStatus, pageNo, pageSize);
-        return ApiResponse.success(datasetService.query(datasetCode, datasetName, dataTopicCode, dataTypeCode, datasetStatus, taskConfigCode, startTime, endTime, pageNo, pageSize), requestId);
+        log.info("[{}] [Controller] query datasets, datasetCode={}, dataTypeCode={}, assetType={}, datasetStatus={}, pageNo={}, pageSize={}",
+            requestId, datasetCode, dataTypeCode, assetType, datasetStatus, pageNo, pageSize);
+        return ApiResponse.success(datasetService.query(datasetCode, datasetName, dataTopicCode, dataTypeCode, assetType, datasetStatus, taskConfigCode, startTime, endTime, pageNo, pageSize), requestId);
     }
 
     /** 查询数据集详情。 */
@@ -96,6 +101,19 @@ public class DatasetController {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info("[{}] [Controller] get dataset structure, datasetCode={}", requestId, datasetCode);
         return ApiResponse.success(datasetService.getStructure(datasetCode), requestId);
+    }
+
+    /**
+     * 批量读取应用指标绑定所需的 Dataset 主档与当前版本字段快照。
+     * 这是只读元数据接口，特意不返回物理表、列或 StorageMapping 信息。
+     */
+    @Operation(summary = "批量查询指标绑定元数据", description = "返回数据集状态及当前数据类型版本的标准字段")
+    @PostMapping("/metric-bindings/query")
+    public ApiResponse<List<DatasetMetricBindingView>> metricBindings(
+            @Valid @RequestBody DatasetMetricBindingQueryRequest body, HttpServletRequest request) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] query metric bindings, datasetCount={}", requestId, body.datasetCodes().size());
+        return ApiResponse.success(datasetService.getMetricBindings(body), requestId);
     }
 
     /** 查询数据集来源任务、最近成功执行及结果摘要。 */

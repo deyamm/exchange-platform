@@ -1,9 +1,9 @@
 package com.exchange.platform.analytics.converter;
 
 
-import com.alibaba.fastjson.JSON;
 import com.exchange.platform.analytics.api.response.AppMetricView;
 import com.exchange.platform.analytics.entity.AppMetric;
+import com.exchange.platform.common.core.enums.AssetType;
 
 public class MetricConverter {
 
@@ -19,13 +19,13 @@ public class MetricConverter {
         view.setMetricCode(entity.getMetricCode());
         view.setMetricName(entity.getMetricName());
         view.setMetricCategory(entity.getMetricCategory());
+        view.setTargetType(AssetType.fromCode(entity.getTargetType()));
+        view.setTargetTypeName(entity.getTargetType() == null ? null : entity.getTargetType());
         view.setUnit(entity.getUnit());
-        view.setDisplayFormat(entity.getDisplayFormat());
-        view.setDataSourceCode(entity.getDataSourceCode());
-        view.setCalcPeriod(entity.getCalcPeriod());
-        view.setSceneCodes(JSON.parseArray(entity.getSceneCodesJson(), String.class));
+        view.setDatasetCode(entity.getDatasetCode());
+        view.setFieldCode(entity.getFieldCode());
         view.setStatus(entity.getStatus());
-        view.setCaliberDesc(entity.getCaliberDesc());
+        view.setDescription(entity.getDescription());
         view.setCreatedAt(entity.getCreatedAt());
         view.setUpdatedAt(entity.getUpdatedAt());
         return view;

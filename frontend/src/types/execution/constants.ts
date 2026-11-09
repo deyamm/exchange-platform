@@ -1,3 +1,5 @@
+import type { AssetType } from '/@/types/asset'
+
 /**
  * M-05/M-06 采集执行控制 - 常量与类型定义
  * 与后端枚举值保持一致
@@ -34,6 +36,15 @@ export interface TaskRunQueryParams {
     triggerType?: TriggerType | ''
     startTime?: string
     endTime?: string
+    pageNo?: number
+    pageSize?: number
+}
+
+/** 数据集目录查询参数；assetType 为 Dataset 的正式核心属性筛选条件。 */
+export interface DatasetQueryParams {
+    datasetCode?: string
+    datasetName?: string
+    assetType?: AssetType | ''
     pageNo?: number
     pageSize?: number
 }

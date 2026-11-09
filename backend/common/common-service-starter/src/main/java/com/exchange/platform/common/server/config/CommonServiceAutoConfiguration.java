@@ -4,6 +4,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
@@ -30,6 +31,13 @@ public class CommonServiceAutoConfiguration {
     @ConditionalOnMissingBean(GlobalExceptionHandler.class)
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    @Bean
+    @ConditionalOnClass(RestTemplate.class)
+    @ConditionalOnMissingBean(RestTemplate.class)
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 
 }

@@ -26,6 +26,10 @@ public class Dataset {
     @TableField("dataset_name")
     private String datasetName;
 
+    /** 数据集正式标的类型，由本次实际执行使用的任务模板版本派生。 */
+    @TableField("asset_type")
+    private String assetType;
+
     @TableField("description")
     private String description;
 

@@ -1,4 +1,5 @@
 import type { RunStatus, TriggerType, DatasetStatus, ScheduleStatus } from './constants'
+import type { AssetType } from '/@/types/asset'
 
 /** 执行记录（列表视图） */
 export interface TaskRun {
@@ -67,6 +68,10 @@ export interface ResultSummary {
 export interface Dataset {
     datasetCode: string
     datasetName?: string
+    /** Dataset 的权威标的类型，来自实际执行快照锁定的任务模板版本。 */
+    assetType?: AssetType
+    /** 由后端统一转换的中文展示名，缺失时前端可按 assetType 回退展示。 */
+    assetTypeName?: string
     runId?: string
     summaryId?: string
     taskCode?: string

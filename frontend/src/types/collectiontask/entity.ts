@@ -28,6 +28,7 @@ export interface TaskTemplateVersion {
     handlerName?: string
     dataSource?: string
     assetType?: string
+    assetTypeName?: string
     bizType?: string
     paramsSchemaJson?: string
     outputFieldsJson?: string

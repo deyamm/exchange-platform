@@ -36,6 +36,10 @@ public class AlertRule {
     @TableField("target_code")
     private String targetCode;
 
+    /** 标的身份的一部分；与 targetCode 联合消除跨类型编码歧义。 */
+    @TableField("target_type")
+    private String targetType;
+
     @TableField("group_code")
     private String groupCode;
 

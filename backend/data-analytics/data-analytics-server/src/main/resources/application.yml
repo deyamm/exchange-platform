@@ -67,3 +67,7 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+
+# A-03 仅调用数据采集服务的只读 Dataset 元数据接口，未接入 Python 取数或跨 Dataset 组合。
+collection-metadata:
+  base-url: http://localhost:8082

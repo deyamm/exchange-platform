@@ -29,7 +29,6 @@ import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.data.client.DataServiceClient;
 
 
-
 @Service
 public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, WatchTarget> implements WatchTargetService {
 
@@ -118,7 +117,7 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
         List<WatchTarget> existingList = this.list(
             new LambdaQueryWrapper<WatchTarget>()
                 .eq(WatchTarget::getTargetCode, targetCode)
-                .eq(StringUtils.hasText(request.targetType()), WatchTarget::getTargetType, request.targetType())
+                .eq(request.targetType() != null, WatchTarget::getTargetType, request.targetType().name())
         );
 
         Map<String, WatchTarget> existingMap = existingList.stream()
@@ -133,7 +132,8 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
                 entity.setGroupCode(groupCode);
             }
             entity.setTargetName(request.targetName());
-            entity.setTargetType(request.targetType());
+            // Entity 仍沿用历史 VARCHAR 字段，但所有新写入必须来自统一枚举编码。
+            entity.setTargetType(request.targetType().name());
             entity.setMarketCode(request.marketCode());
             entity.setSortNo(request.sortNo());
             entity.setImportantFlag(request.importantFlag());
@@ -152,7 +152,7 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
             this.removeByIds(existingMap.values().stream().map(WatchTarget::getId).collect(Collectors.toList()));
         }
 
-        return getWatchTargetView(targetCode, request.targetType());
+        return getWatchTargetView(targetCode, request.targetType().name());
     }
 
     /**

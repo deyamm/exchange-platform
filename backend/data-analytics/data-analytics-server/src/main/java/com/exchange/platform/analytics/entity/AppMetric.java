@@ -32,26 +32,26 @@ public class AppMetric {
     @TableField("metric_category")
     private String metricCategory;
 
+    /** 指标适用的标的类型，由用户创建时选择，后续禁止变更。 */
+    @TableField("target_type")
+    private String targetType;
+
     @TableField("unit")
     private String unit;
 
-    @TableField("display_format")
-    private String displayFormat;
+    /** 新版来源绑定：旧 data_source_code 保留在表中仅用于历史记录回溯。 */
+    @TableField("dataset_code")
+    private String datasetCode;
 
-    @TableField("data_source_code")
-    private String dataSourceCode;
-
-    @TableField("calc_period")
-    private String calcPeriod;
-
-    @TableField("scene_codes_json")
-    private String sceneCodesJson;
+    /** 新版来源绑定的标准字段编码。 */
+    @TableField("field_code")
+    private String fieldCode;
 
     @TableField("status")
     private CommonStatus status;
 
-    @TableField("caliber_desc")
-    private String caliberDesc;
+    @TableField("description")
+    private String description;
 
     @TableField(value = "created_at", fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

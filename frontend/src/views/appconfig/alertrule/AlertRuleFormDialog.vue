@@ -9,6 +9,12 @@
                         v-for="item in RULE_TYPE_OPTIONS" :key="item.value" :label="item.label"
                         :value="item.value" /></el-select></el-form-item>
             <el-form-item label="标的编码"><el-input v-model="form.targetCode" /></el-form-item>
+            <el-form-item label="标的类型">
+                <el-select v-model="form.targetType" clearable placeholder="填写标的编码时必选" style="width:180px">
+                    <el-option v-for="item in ASSET_TYPE_OPTIONS" :key="item.value" :label="item.label"
+                        :value="item.value" />
+                </el-select>
+            </el-form-item>
             <el-form-item label="分组编码"><el-input v-model="form.groupCode" /></el-form-item>
             <el-form-item label="指标编码"><el-input v-model="form.metricCode" /></el-form-item>
             <el-form-item label="触发条件JSON"><el-input v-model="conditionText" type="textarea" :rows="4"
@@ -39,6 +45,7 @@ import { saveOrUpdateAlertRule } from '/@/api/alertrule/alertRuleApi';
 import { createDefaultAlertRule, type AlertRule } from '/@/types/alertrule/entity';
 import { RULE_TYPE_OPTIONS } from '/@/types/alertrule/view';
 import { COMMON_STATUS_OPTIONS } from '/@/types/appscene/view';
+import { ASSET_TYPE_OPTIONS } from '/@/types/asset';
 
 const props = withDefaults(
     defineProps<{ 

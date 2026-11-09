@@ -7,6 +7,7 @@ import javax.validation.constraints.Size;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.RuleType;
+import com.exchange.platform.common.core.enums.AssetType;
 
 
 public record AlertRuleSaveRequest(
@@ -14,6 +15,8 @@ public record AlertRuleSaveRequest(
     @NotBlank(message = "规则名称不能为空") @Size(max = 128, message = "规则名称长度不能超过128个字符") String ruleName,
     RuleType ruleType,
     String targetCode,
+    /** 具体标的提醒使用 targetType + targetCode 作为标的身份。 */
+    AssetType targetType,
     String groupCode,
     String metricCode,
     Object condition,

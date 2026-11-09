@@ -28,9 +28,12 @@ import com.exchange.platform.collection.api.enums.DatasetStatus;
 import com.exchange.platform.collection.api.enums.DatasetMetadataDefinition;
 import com.exchange.platform.collection.api.enums.DatasetMetadataMaintainMode;
 import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpdateRequest;
+import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
+import com.exchange.platform.collection.api.response.dataType.DataTypeFieldView;
 import com.exchange.platform.collection.converter.ExecutionConverter;
 import com.exchange.platform.collection.entity.dataType.DataTypeVersion;
 import com.exchange.platform.collection.entity.datasource.DataSourceConfig;
@@ -48,10 +51,13 @@ import com.exchange.platform.collection.mapper.execution.DatasetMetadataMapper;
 import com.exchange.platform.collection.mapper.execution.ResultSummaryMapper;
 import com.exchange.platform.collection.mapper.execution.TaskRunMapper;
 import com.exchange.platform.collection.mapper.tasks.StorageColumnMappingMapper;
+import com.exchange.platform.collection.mapper.tasks.TaskTemplateVersionMapper;
 import com.exchange.platform.collection.service.DatasetExecutionService;
 import com.exchange.platform.collection.service.DatasetService;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
+import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
 
 import cn.hutool.json.JSONObject;
 
@@ -77,12 +83,14 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     private final DataTypeVersioinMapper dataTypeVersionMapper;
     private final StorageColumnMappingMapper storageColumnMappingMapper;
     private final DataSourceConfigMapper dataSourceConfigMapper;
+    private final TaskTemplateVersionMapper taskTemplateVersionMapper;
 
     /** 注入数据集主档、元数据、执行记录及结构查询所需的数据访问组件。 */
     public DatasetServiceImpl(DatasetMapper datasetMapper, DatasetMetadataMapper metadataMapper,
             TaskRunMapper taskRunMapper, ResultSummaryMapper summaryMapper,
             DataTypeVersioinMapper dataTypeVersionMapper,
-            StorageColumnMappingMapper storageColumnMappingMapper, DataSourceConfigMapper dataSourceConfigMapper) {
+            StorageColumnMappingMapper storageColumnMappingMapper, DataSourceConfigMapper dataSourceConfigMapper,
+            TaskTemplateVersionMapper taskTemplateVersionMapper) {
         this.datasetMapper = datasetMapper;
         this.metadataMapper = metadataMapper;
         this.taskRunMapper = taskRunMapper;
@@ -90,6 +98,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         this.dataTypeVersionMapper = dataTypeVersionMapper;
         this.storageColumnMappingMapper = storageColumnMappingMapper;
         this.dataSourceConfigMapper = dataSourceConfigMapper;
+        this.taskTemplateVersionMapper = taskTemplateVersionMapper;
     }
 
     /** 校验执行使用的数据集编码、状态及正式物理表身份。 */
@@ -119,12 +128,14 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     public void registerSuccessfulRun(TaskRun run, ExecutionConfigSnapshot snapshot, StorageMapping mapping,
             ResultSummary summary) {
         Dataset dataset = findByCode(snapshot.getDatasetCode());
+        AssetType executedAssetType = requireExecutedAssetType(snapshot);
         LocalDateTime now = LocalDateTime.now();
         if (dataset == null) {
             dataset = new Dataset()
                     .setDatasetCode(snapshot.getDatasetCode())
                     .setDatasetName(StringUtils.hasText(mapping.getDatasetName()) ? mapping.getDatasetName()
                             : snapshot.getDatasetCode())
+                    .setAssetType(executedAssetType.getValue())
                     .setDescription(mapping.getDatasetDesc())
                     .setTaskCode(run.getTaskCode())
                     .setTaskConfigCode(run.getTaskConfigCode())
@@ -142,6 +153,15 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                     .setDatasetStatus(DatasetStatus.ENABLED);
             datasetMapper.insert(dataset);
         } else {
+            // Dataset 身份一旦建立不能被后续任务版本静默改写；物理写入已成功，
+            // 因此仅拒绝登记更新并记录异常，不回写 TaskRun 为失败。
+            if (dataset.getAssetType() != null && dataset.getAssetType() != executedAssetType.getValue()) {
+                throw new BusinessException(40006, "数据集标的类型与本次执行模板版本不一致：dataset="
+                        + dataset.getAssetType() + ", execution=" + executedAssetType.getValue());
+            }
+            if (dataset.getAssetType() == null) {
+                dataset.setAssetType(executedAssetType.getValue());
+            }
             dataset.setDataTypeVersionNo(snapshot.getDataTypeVersion())
                     .setTaskConfigCode(run.getTaskConfigCode())
                     .setStorageMappingCode(mapping.getStorageMappingCode())
@@ -164,11 +184,11 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     /** 按条件分页查询数据集目录，统一处理分页参数并转换为目录视图。 */
     @Override
     @Transactional(readOnly = true)
-    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode,
+    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, AssetType assetType,
             Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo,
             Integer pageSize) {
-        log.info("[Service] query start, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, datasetStatus={}, taskConfigCode={}, startTime={}, endTime={}, pageNo={}, pageSize={}",
-                datasetCode, datasetName, topicCode, dataTypeCode, datasetStatus, taskConfigCode, startTime,
+        log.info("[Service] query start, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, assetType={}, datasetStatus={}, taskConfigCode={}, startTime={}, endTime={}, pageNo={}, pageSize={}",
+                datasetCode, datasetName, topicCode, dataTypeCode, assetType, datasetStatus, taskConfigCode, startTime,
                 endTime, pageNo, pageSize);
         int safePageNo = pageNo == null || pageNo < 1 ? 1 : pageNo;
         int safePageSize = pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 200);
@@ -177,6 +197,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                 .like(StringUtils.hasText(datasetName), Dataset::getDatasetName, datasetName)
                 .eq(StringUtils.hasText(topicCode), Dataset::getDataTopicCode, topicCode)
                 .eq(StringUtils.hasText(dataTypeCode), Dataset::getDataTypeCode, dataTypeCode)
+                .eq(assetType != null, Dataset::getAssetType, assetType.getValue())
                 .eq(StringUtils.hasText(taskConfigCode), Dataset::getTaskConfigCode, taskConfigCode)
                 .ge(StringUtils.hasText(startTime), Dataset::getLastSuccessTime, startTime)
                 .le(StringUtils.hasText(endTime), Dataset::getLastSuccessTime, endTime)
@@ -273,6 +294,36 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         return loadStructure(dataset);
     }
 
+    /**
+     * 为应用指标等消费者批量读取数据集元数据，避免消费者对分页记录逐行发起 HTTP 请求。
+     * 字段定义严格读取 Dataset 固定的当前版本快照，而不是仍可能变动的 DataType 草稿字段。
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<DatasetMetricBindingView> getMetricBindings(DatasetMetricBindingQueryRequest request) {
+        List<String> datasetCodes = request.datasetCodes().stream().filter(StringUtils::hasText).distinct().toList();
+        if (datasetCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Dataset> datasets = datasetMapper.selectList(new LambdaQueryWrapper<Dataset>()
+                .in(Dataset::getDatasetCode, datasetCodes));
+        return datasets.stream().map(dataset -> {
+            DatasetMetricBindingView view = new DatasetMetricBindingView();
+            view.setDatasetCode(dataset.getDatasetCode());
+            view.setDatasetName(dataset.getDatasetName());
+            view.setAssetType(AssetType.fromCode(dataset.getAssetType()));
+            view.setDatasetStatus(dataset.getDatasetStatus());
+            view.setDataTypeVersionNo(dataset.getDataTypeVersionNo());
+            DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
+                    .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
+                    .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+            view.setFields(version == null || !StringUtils.hasText(version.getFieldSchemaContent())
+                    ? Collections.emptyList()
+                    : JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class));
+            return view;
+        }).collect(Collectors.toList());
+    }
+
     /** 查询已加载数据集当前引用的数据类型版本结构。 */
     private List<?> loadStructure(Dataset dataset) {
         DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
@@ -297,6 +348,17 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         if (result == null)
             throw new BusinessException(40003, "数据集不存在：" + datasetCode);
         return result;
+    }
+
+    /** 从执行快照固定的任务版本读取类型，禁止倒查任务模板当前最新版本。 */
+    private AssetType requireExecutedAssetType(ExecutionConfigSnapshot snapshot) {
+        TaskTemplateVersion version = taskTemplateVersionMapper.selectOne(new LambdaQueryWrapper<TaskTemplateVersion>()
+                .eq(TaskTemplateVersion::getTaskCode, snapshot.getTaskCode())
+                .eq(TaskTemplateVersion::getVersionNo, snapshot.getTaskTemplateVersion()).last("LIMIT 1"));
+        if (version == null || version.getAssetType() == null) {
+            throw new BusinessException(40006, "执行使用的任务模板版本缺少有效资产类型");
+        }
+        return AssetType.fromCode(version.getAssetType());
     }
 
     /** 读取指定数据集的存储分组元数据值。 */
@@ -506,6 +568,8 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         DatasetView view = new DatasetView();
         view.setDatasetCode(entity.getDatasetCode());
         view.setDatasetName(entity.getDatasetName());
+        view.setAssetType(AssetType.fromCode(entity.getAssetType()));
+        view.setAssetTypeName(entity.getAssetType() == null ? null : AssetType.fromCode(entity.getAssetType()).getDisplayName());
         view.setDescription(entity.getDescription());
         view.setTaskConfigCode(entity.getTaskConfigCode());
         view.setTaskCode(entity.getTaskCode());

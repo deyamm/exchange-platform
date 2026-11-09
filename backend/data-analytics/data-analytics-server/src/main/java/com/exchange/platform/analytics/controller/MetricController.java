@@ -1,6 +1,7 @@
 package com.exchange.platform.analytics.controller;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,11 +16,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.request.AppMetricSaveRequest;
+import com.exchange.platform.analytics.api.request.AppMetricStatusUpdateRequest;
 import com.exchange.platform.analytics.api.response.AppMetricView;
 import com.exchange.platform.analytics.service.AppMetricService;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
+import com.exchange.platform.common.core.enums.AssetType;
 
 import io.swagger.v3.oas.annotations.Operation;
 
@@ -38,10 +41,9 @@ public class MetricController {
     @Operation(summary = "获取指标列表", description = "获取指标列表，支持分页和多条件过滤")
     @GetMapping
     public ApiResponse<PageResult<AppMetricView>> getMetricList(
-        @RequestParam(required = false) String metricName,
-        @RequestParam(required = false) String metricCode,
+        @RequestParam(required = false) String keyword,
         @RequestParam(required = false) String metricCategory,
-        @RequestParam(required = false) String dataSourceCode,
+        @RequestParam(required = false) AssetType targetType,
         @RequestParam(required = false) CommonStatus status,
         @RequestParam(defaultValue = "1") Integer pageNo,
         @RequestParam(defaultValue = "20") Integer pageSize,
@@ -49,15 +51,15 @@ public class MetricController {
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
 
-        log.info("[{}] [Controller] getMetricList: metricName={}, metricCode={}, metricCategory={}, dataSourceCode={}, status={}, pageNo={}, pageSize={}", requestId, metricName, metricCode, metricCategory, dataSourceCode, status, pageNo, pageSize);
+        log.info("[{}] [Controller] getMetricList: keyword={}, metricCategory={}, targetType={}, status={}, pageNo={}, pageSize={}", requestId, keyword, metricCategory, targetType, status, pageNo, pageSize);
 
-        return ApiResponse.success(metricService.getMetricList(metricName, metricCode, metricCategory, dataSourceCode, status, pageNo, pageSize), requestId);
+        return ApiResponse.success(metricService.getMetricList(keyword, metricCategory, targetType, status, pageNo, pageSize), requestId);
     }
 
     @Operation(summary = "保存或更新指标", description = "根据请求体中的metricCode创建或更新指标")
     @PostMapping
     public ApiResponse<AppMetricView> saveOrUpdateMetric(
-        @RequestBody AppMetricSaveRequest body,
+        @Valid @RequestBody AppMetricSaveRequest body,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
@@ -65,6 +67,17 @@ public class MetricController {
         log.info("[{}] [Controller] saveOrUpdateMetric: body={}", requestId, body);
 
         return ApiResponse.success(metricService.saveOrUpdateMetric(body), requestId);
+    }
+
+    /** 独立状态接口确保普通编辑请求无法绕开停用时的引用保护。 */
+    @Operation(summary = "更新指标状态", description = "启用或停用指定指标；停用前会检查现有业务引用")
+    @PostMapping("/{metricCode}/status")
+    public ApiResponse<Void> updateMetricStatus(@PathVariable String metricCode,
+            @Valid @RequestBody AppMetricStatusUpdateRequest body, HttpServletRequest request) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] updateMetricStatus: metricCode={}, status={}", requestId, metricCode, body.status());
+        metricService.updateMetricStatus(metricCode, body.status());
+        return ApiResponse.success(null, requestId);
     }
 
     @Operation(summary = "删除指标", description = "根据metricCode删除指标")

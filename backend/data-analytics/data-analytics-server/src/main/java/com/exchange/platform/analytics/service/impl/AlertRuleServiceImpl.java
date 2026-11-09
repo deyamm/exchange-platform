@@ -19,8 +19,13 @@ import com.exchange.platform.analytics.api.request.AlertRuleSaveRequest;
 import com.exchange.platform.analytics.api.response.AlertRuleView;
 import com.exchange.platform.analytics.converter.AlertRuleConverter;
 import com.exchange.platform.analytics.entity.AlertRule;
+import com.exchange.platform.analytics.entity.AppMetric;
+import com.exchange.platform.analytics.entity.WatchTarget;
 import com.exchange.platform.analytics.mapper.AlertRuleMapper;
+import com.exchange.platform.analytics.mapper.MetricMapper;
+import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.AlertRuleService;
+import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
 
 
@@ -28,6 +33,14 @@ import com.exchange.platform.common.core.page.PageResult;
 public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule> implements AlertRuleService {
 
     private static final Logger log = LoggerFactory.getLogger(AlertRuleServiceImpl.class);
+
+    private final MetricMapper metricMapper;
+    private final WatchTargetMapper watchTargetMapper;
+
+    public AlertRuleServiceImpl(MetricMapper metricMapper, WatchTargetMapper watchTargetMapper) {
+        this.metricMapper = metricMapper;
+        this.watchTargetMapper = watchTargetMapper;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -58,6 +71,9 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
     public AlertRuleView saveOrUpdateAlertRule(AlertRuleSaveRequest request) {
         log.info("[Service] saveOrUpdateAlertRule request={}", request);
 
+        AppMetric metric = lockAndValidateReferencedMetric(request.metricCode());
+        validateTargetAndMetricCompatibility(request.targetCode(), request.targetType(), metric);
+
         AlertRule entity = this.getOne(
             new LambdaQueryWrapper<AlertRule>()
                 .eq(AlertRule::getRuleCode, request.ruleCode())
@@ -71,6 +87,7 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
         entity.setRuleName(request.ruleName())
             .setRuleType(request.ruleType())
             .setTargetCode(request.targetCode())
+            .setTargetType(request.targetType().getValue())
             .setGroupCode(request.groupCode())
             .setMetricCode(request.metricCode())
             .setConditionJson(JSON.toJSONString(request.condition()))
@@ -82,6 +99,44 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
 
         this.saveOrUpdate(entity);
         return AlertRuleConverter.toAlertRuleView(entity);
+    }
+
+    /**
+     * 提醒规则是当前工程中唯一真实落库的指标使用方。它与指标停用/删除锁定同一主档行，
+     * 使“检查无引用后新增引用”的并发窗口被串行化。
+     */
+    private AppMetric lockAndValidateReferencedMetric(String metricCode) {
+        if (!StringUtils.hasText(metricCode)) {
+            return null;
+        }
+        AppMetric metric = metricMapper.selectByMetricCodeForUpdate(metricCode);
+        if (metric == null || metric.getStatus() != CommonStatus.ENABLED) {
+            throw new BusinessException(40001, "提醒规则引用的指标不存在或未启用：" + metricCode);
+        }
+        return metric;
+    }
+
+    /**
+     * 具体标的提醒必须以 targetType + targetCode 定位 WatchTarget，并与被引用指标的
+     * targetType 一致。没有具体标的的全局规则不适用这项校验，因而允许两字段均为空。
+     */
+    private void validateTargetAndMetricCompatibility(String targetCode,
+            com.exchange.platform.common.core.enums.AssetType targetType, AppMetric metric) {
+        if (!StringUtils.hasText(targetCode)) {
+            return;
+        }
+        if (targetType == null) {
+            throw new BusinessException(40001, "具体标的提醒必须选择标的类型");
+        }
+        long targetCount = watchTargetMapper.selectCount(new LambdaQueryWrapper<WatchTarget>()
+                .eq(WatchTarget::getTargetCode, targetCode)
+                .eq(WatchTarget::getTargetType, targetType.name()));
+        if (targetCount == 0) {
+            throw new BusinessException(40001, "提醒规则指定的标的不存在或标的类型不匹配：" + targetCode);
+        }
+        if (metric != null && metric.getTargetType() != targetType.getValue()) {
+            throw new BusinessException(40001, "提醒标的类型与应用指标标的类型不一致");
+        }
     }
 
     @Override

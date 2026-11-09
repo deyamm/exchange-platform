@@ -13,6 +13,9 @@
                     <el-descriptions-item label="名称">
                         {{ displayValue(detail.dataset.datasetName) }}
                     </el-descriptions-item>
+                    <el-descriptions-item label="标的类型">
+                        {{ detail.dataset.assetTypeName || ASSET_TYPE_TEXT[detail.dataset.assetType as AssetType] || displayValue(detail.dataset.assetType) }}
+                    </el-descriptions-item>
                     <el-descriptions-item label="状态">
                         {{ displayValue(detail.dataset.datasetStatus) }}
                     </el-descriptions-item>
@@ -157,6 +160,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ASSET_TYPE_TEXT, type AssetType } from '/@/types/asset'
 
 import {
     getDatasetDetail,

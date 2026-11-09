@@ -8,6 +8,12 @@
                 <el-form-item label="名称">
                     <el-input v-model="query.datasetName" clearable />
                 </el-form-item>
+                <el-form-item label="标的类型">
+                    <el-select v-model="query.assetType" clearable placeholder="全部" style="width: 130px">
+                        <el-option v-for="item in ASSET_TYPE_OPTIONS" :key="item.value" :label="item.label"
+                            :value="item.value" />
+                    </el-select>
+                </el-form-item>
                 <el-form-item>
                     <el-button type="primary" @click="search">查询</el-button>
                 </el-form-item>
@@ -16,6 +22,11 @@
             <el-table v-loading="loading" :data="records" border>
                 <el-table-column prop="datasetCode" label="数据集编码" min-width="180" />
                 <el-table-column prop="datasetName" label="名称" min-width="160" />
+                <el-table-column label="标的类型" min-width="100">
+                    <template #default="{ row }">
+                        {{ row.assetTypeName || ASSET_TYPE_TEXT[row.assetType as AssetType] || row.assetType || '—' }}
+                    </template>
+                </el-table-column>
                 <el-table-column prop="dataTopicCode" label="数据主题" />
                 <el-table-column prop="dataTypeCode" label="数据类型" />
                 <el-table-column prop="tableName" label="物理表" />
@@ -39,14 +50,18 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { queryDatasets } from '/@/api/monitor/queryApi'
+import { ASSET_TYPE_OPTIONS, ASSET_TYPE_TEXT, type AssetType } from '/@/types/asset'
+import type { Dataset } from '/@/types/execution/entity'
+import type { DatasetQueryParams } from '/@/types/execution/constants'
 
 const loading = ref(false),
-    records = ref<any[]>([]),
+    records = ref<Dataset[]>([]),
     total = ref(0)
 
-const query = reactive({
+const query = reactive<DatasetQueryParams>({
     datasetCode: '',
     datasetName: '',
+    assetType: '',
     pageNo: 1,
     pageSize: 20
 })

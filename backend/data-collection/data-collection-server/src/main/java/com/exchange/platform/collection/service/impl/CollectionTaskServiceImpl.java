@@ -38,6 +38,7 @@ import com.exchange.platform.collection.entity.tasks.TaskConfig;
 import com.exchange.platform.collection.entity.tasks.TaskTemplate;
 import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
 import com.exchange.platform.common.core.exception.BusinessException;
+import com.exchange.platform.common.core.enums.AssetType;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.data.client.DataServiceClient;
 import com.exchange.platform.data.client.dto.TaskTemplateSync;
@@ -702,6 +703,18 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
      */
     private void doUpsertTaskTemplate(TaskTemplateSync syncData) {
 
+        // Python 枚举经 JSON 传递为标准编码。这里集中严格解析，拒绝中文或未知旧值，
+        // 防止不受控字符串进入 task_template_version.asset_type。
+        AssetType assetType;
+        try {
+            assetType = AssetType.fromCode(syncData.assetType());
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(40001, ex.getMessage());
+        }
+        if (assetType == null) {
+            throw new BusinessException(40001, "任务模板资产类型不能为空：" + syncData.taskCode());
+        }
+
         // 将输出字段列表转换成JSON字符串存储
         String outputFieldsJson = JSON.toJSONString(syncData.outputFields());
         // 判断幂等
@@ -727,7 +740,7 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
                 || !Objects.equals(latestVersion.getTaskDesc(), syncData.taskDesc())
                 || !Objects.equals(latestVersion.getHandlerName(), syncData.handlerName())
                 || !Objects.equals(latestVersion.getDataSource(), syncData.dataSource())
-                || !Objects.equals(latestVersion.getAssetType(), syncData.assetType())
+                || !Objects.equals(latestVersion.getAssetType(), assetType)
                 || !Objects.equals(latestVersion.getBizType(), syncData.bizType())
                 || !Objects.equals(latestVersion.getParamsSchemaJson(), paramsSchemaJson)
                 || !Objects.equals(latestVersion.getRuleCategoryCodes(), ruleCategoryCodes);
@@ -744,7 +757,7 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
                     .setTaskDesc(syncData.taskDesc())
                     .setHandlerName(syncData.handlerName())
                     .setDataSource(syncData.dataSource())
-                    .setAssetType(syncData.assetType())
+                    .setAssetType(assetType.getValue())
                     .setBizType(syncData.bizType())
                     .setParamsSchemaJson(paramsSchemaJson)
                     .setRuleCategoryCodes(ruleCategoryCodes)
@@ -777,7 +790,7 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
             .setTaskDesc(syncData.taskDesc())
             .setHandlerName(syncData.handlerName())
             .setDataSource(syncData.dataSource())
-            .setAssetType(syncData.assetType())
+            .setAssetType(assetType.getValue())
             .setBizType(syncData.bizType())
             .setParamsSchemaJson(paramsJson)
             .setOutputFieldsJson(outputFieldsJson)

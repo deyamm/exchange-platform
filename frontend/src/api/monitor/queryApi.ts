@@ -1,14 +1,14 @@
 import http from '/@/utils/http'
 import type { PageResult } from '/@/types/common'
 import type { Dataset, DatasetDetail, ResultSummary } from '/@/types/execution/entity'
-import type { TaskRunQueryParams } from '/@/types/execution/constants'
+import type { DatasetQueryParams, TaskRunQueryParams } from '/@/types/execution/constants'
 import type { RunLog, ExceptionRecord, ProblemRecord, Trace } from '/@/types/monitor/entity'
 import type { RunLogQueryParams, ExceptionQueryParams, ProblemQueryParams } from '/@/types/monitor/constants'
 
 /**
  * I-28 查询数据集列表（分页）
  */
-export function queryDatasets(params: TaskRunQueryParams): Promise<PageResult<Dataset>> | any {
+export function queryDatasets(params: DatasetQueryParams): Promise<PageResult<Dataset>> | any {
     return http.get<PageResult<Dataset>>('/api/v1/collection/monitor/datasets', { params })
 }
 
