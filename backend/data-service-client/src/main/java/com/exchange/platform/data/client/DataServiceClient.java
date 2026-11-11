@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import com.exchange.platform.data.client.dto.TaskExecuteResult;
 import com.exchange.platform.data.client.dto.TaskRunExecuteRequest;
 import com.exchange.platform.data.client.dto.TaskTemplateSync;
+import com.exchange.platform.data.client.dto.DatasetMetricValueQuery;
+import com.exchange.platform.data.client.dto.MetricValue;
 
 /**
  * data-service-client 最小 OpenFeign 客户端。
@@ -24,6 +26,14 @@ import com.exchange.platform.data.client.dto.TaskTemplateSync;
     path = "/api/v1"
 )
 public interface DataServiceClient {
+
+    /**
+     * POST /api/v1/data-analytics/metric-values/query
+     *
+     * 每次调用只读取一个 Dataset；分析服务负责将不同 Dataset 分组，避免跨 Dataset JOIN。
+     */
+    @PostMapping("/data-analytics/metric-values/query")
+    List<MetricValue> queryDatasetMetricValues(@RequestBody DatasetMetricValueQuery query);
 
     /**
      * GET /api/v1/collection-task/task-templates/current?taskCode=xxx

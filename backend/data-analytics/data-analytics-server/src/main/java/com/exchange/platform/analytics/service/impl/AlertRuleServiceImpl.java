@@ -1,6 +1,9 @@
 package com.exchange.platform.analytics.service.impl;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.math.BigDecimal;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -20,10 +23,8 @@ import com.exchange.platform.analytics.api.response.AlertRuleView;
 import com.exchange.platform.analytics.converter.AlertRuleConverter;
 import com.exchange.platform.analytics.entity.AlertRule;
 import com.exchange.platform.analytics.entity.AppMetric;
-import com.exchange.platform.analytics.entity.WatchTarget;
 import com.exchange.platform.analytics.mapper.AlertRuleMapper;
 import com.exchange.platform.analytics.mapper.MetricMapper;
-import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.AlertRuleService;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
@@ -35,11 +36,9 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
     private static final Logger log = LoggerFactory.getLogger(AlertRuleServiceImpl.class);
 
     private final MetricMapper metricMapper;
-    private final WatchTargetMapper watchTargetMapper;
 
-    public AlertRuleServiceImpl(MetricMapper metricMapper, WatchTargetMapper watchTargetMapper) {
+    public AlertRuleServiceImpl(MetricMapper metricMapper) {
         this.metricMapper = metricMapper;
-        this.watchTargetMapper = watchTargetMapper;
     }
 
     @Override
@@ -71,7 +70,14 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
     public AlertRuleView saveOrUpdateAlertRule(AlertRuleSaveRequest request) {
         log.info("[Service] saveOrUpdateAlertRule request={}", request);
 
-        AppMetric metric = lockAndValidateReferencedMetric(request.metricCode());
+        if (request == null || request.ruleType() == null) {
+            throw new BusinessException(40001, "规则类型不能为空");
+        }
+        if (request.ruleType() == RuleType.METRIC) {
+            validateMetricRule(request);
+        }
+
+        AppMetric metric = lockAndValidateReferencedMetric(request.ruleType() == RuleType.METRIC ? request.metricCode() : null);
         validateTargetAndMetricCompatibility(request.targetCode(), request.targetType(), metric);
 
         AlertRule entity = this.getOne(
@@ -87,10 +93,10 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
         entity.setRuleName(request.ruleName())
             .setRuleType(request.ruleType())
             .setTargetCode(request.targetCode())
-            .setTargetType(request.targetType().getValue())
+            .setTargetType(request.targetType() == null ? null : request.targetType().getValue())
             .setGroupCode(request.groupCode())
             .setMetricCode(request.metricCode())
-            .setConditionJson(JSON.toJSONString(request.condition()))
+            .setConditionJson(JSON.toJSONString(normalizeCondition(request)))
             .setNoticeChannelsJson(JSON.toJSONString(request.noticeChannels()))
             .setEffectiveStartTime(request.effectiveStartTime())
             .setEffectiveEndTime(request.effectiveEndTime())
@@ -99,6 +105,38 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
 
         this.saveOrUpdate(entity);
         return AlertRuleConverter.toAlertRuleView(entity);
+    }
+
+    private void validateMetricRule(AlertRuleSaveRequest request) {
+        if (!StringUtils.hasText(request.targetCode()) || request.targetType() == null) {
+            throw new BusinessException(40001, "指标提醒必须选择一个标的");
+        }
+        if (!StringUtils.hasText(request.metricCode())) {
+            throw new BusinessException(40001, "指标提醒必须选择一个指标");
+        }
+        Map<String, Object> condition = normalizeCondition(request);
+        String operator = String.valueOf(condition.getOrDefault("operator", ""));
+        if (!Set.of("GT", "GTE", "LT", "LTE", "EQ", "NE").contains(operator)) {
+            throw new BusinessException(40001, "指标提醒操作符不合法");
+        }
+        Object threshold = condition.get("threshold");
+        if (threshold == null) {
+            throw new BusinessException(40001, "指标提醒阈值不能为空");
+        }
+        try {
+            new BigDecimal(String.valueOf(threshold));
+        } catch (NumberFormatException ex) {
+            throw new BusinessException(40001, "指标提醒阈值必须为数字");
+        }
+    }
+
+    private Map<String, Object> normalizeCondition(AlertRuleSaveRequest request) {
+        Map<String, Object> condition = request.condition() instanceof Map
+                ? new java.util.HashMap<>((Map<String, Object>) request.condition())
+                : new java.util.HashMap<>();
+        if (StringUtils.hasText(request.operator())) condition.put("operator", request.operator());
+        if (request.threshold() != null) condition.put("threshold", request.threshold());
+        return condition;
     }
 
     /**
@@ -128,15 +166,23 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
         if (targetType == null) {
             throw new BusinessException(40001, "具体标的提醒必须选择标的类型");
         }
-        long targetCount = watchTargetMapper.selectCount(new LambdaQueryWrapper<WatchTarget>()
-                .eq(WatchTarget::getTargetCode, targetCode)
-                .eq(WatchTarget::getTargetType, targetType.name()));
-        if (targetCount == 0) {
-            throw new BusinessException(40001, "提醒规则指定的标的不存在或标的类型不匹配：" + targetCode);
-        }
-        if (metric != null && metric.getTargetType() != targetType.getValue()) {
+        // 标的可能尚未加入自选；targetCode 的主数据校验由搜索/详情域负责，规则层只校验类型边界。
+        if (metric != null && !targetType.getValue().equals(metric.getTargetType())) {
             throw new BusinessException(40001, "提醒标的类型与应用指标标的类型不一致");
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AlertRuleView updateAlertRuleStatus(String ruleCode, CommonStatus status) {
+        if (status != CommonStatus.ENABLED && status != CommonStatus.DISABLED) {
+            throw new BusinessException(40001, "提醒规则状态只允许设置为启用或停用");
+        }
+        AlertRule entity = this.getOne(new LambdaQueryWrapper<AlertRule>().eq(AlertRule::getRuleCode, ruleCode));
+        if (entity == null) throw new BusinessException(40401, "提醒规则不存在：" + ruleCode);
+        entity.setStatus(status);
+        this.updateById(entity);
+        return AlertRuleConverter.toAlertRuleView(entity);
     }
 
     @Override

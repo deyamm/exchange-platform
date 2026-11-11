@@ -6,6 +6,7 @@ import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpd
 import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricReadBindingView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.common.core.page.PageResult;
@@ -30,4 +31,6 @@ public interface DatasetService {
     List<?> getStructure(String datasetCode);
     /** 批量返回指标配置所需的 Dataset 状态和当前版本标准字段。 */
     List<DatasetMetricBindingView> getMetricBindings(DatasetMetricBindingQueryRequest request);
+    /** 为分析服务批量提供经校验的 Dataset 物理读取绑定。 */
+    List<DatasetMetricReadBindingView> getMetricReadBindings(DatasetMetricBindingQueryRequest request);
 }

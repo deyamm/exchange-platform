@@ -91,7 +91,7 @@
                         {{ selectedType.dataTypeName }}（{{ selectedType.dataTypeCode }}）
                     </div>
                     <div class="detail-actions">
-                        <el-button v-if="contentMode === 'field'" type="success" :disabled="!selectedType.dataTypeCode" @click="handlePublish">发布版本</el-button>
+                        <el-button v-if="contentMode === 'field'" type="success" :disabled="!selectedType.dataTypeCode || !fieldDirty" @click="handlePublish">发布版本</el-button>
                         <el-button v-if="contentMode === 'field'" type="primary" plain @click="goToVersionPanel">查看历史版本</el-button>
                         <el-button v-if="contentMode === 'version'" type="primary" plain @click="goToFieldPanel">维护字段结构</el-button>
                         <el-button @click="backToList">返回列表</el-button>
@@ -101,7 +101,9 @@
 
                 <DataTypeFieldPanel
                     v-if="selectedType.dataTypeCode && contentMode === 'field'"
+                    ref="fieldPanelRef"
                     :data-type-code="selectedType.dataTypeCode"
+                    @dirty-change="handleFieldDirtyChange"
                 />
 
                 <div v-if="selectedType.dataTypeCode && contentMode === 'version'" class="version-panel">
@@ -215,6 +217,10 @@ const dialogMode = ref<'create' | 'edit'>('create')
 
 const contentMode = ref<'list' | 'field' | 'version'>('list')
 
+const fieldDirty = ref(false)
+
+const fieldPanelRef = ref<InstanceType<typeof DataTypeFieldPanel> | null>(null)
+
 onMounted(() => {
     loadTree()
     loadTable()
@@ -252,6 +258,7 @@ function handleTreeNodeClick(row: DataType): void {
     queryForm.parentCode = row.dataTypeCode
     pagination.pageNo = 1
     contentMode.value = 'list'
+    fieldDirty.value = false
     selectDataType(row)
     loadTable()
 }
@@ -315,11 +322,17 @@ function openEditDialog(row: DataType): void {
 }
 
 async function openFieldPanel(row: DataType): Promise<void> {
+    fieldDirty.value = false
     await selectDataType(row)
     contentMode.value = 'field'
 }
 
+function handleFieldDirtyChange(dirty: boolean): void {
+    fieldDirty.value = dirty
+}
+
 function goToFieldPanel(): void {
+    fieldDirty.value = false
     contentMode.value = 'field'
 }
 
@@ -328,6 +341,7 @@ function goToVersionPanel(): void {
 }
 
 function backToList(): void {
+    fieldDirty.value = false
     contentMode.value = 'list'
 }
 
@@ -370,12 +384,14 @@ async function handlePublish(): Promise<void> {
     })
     await publishDataTypeVersion(selectedType.value.dataTypeCode, { version: versions.value.length + 1, versionName: `版本V${versions.value.length + 1}`, changeSummary: value })
     ElMessage.success('版本发布成功')
+    fieldPanelRef.value?.markClean()
     versions.value = await queryDataTypeVersions(selectedType.value.dataTypeCode)
     await loadTable()
 }
 
 async function handleSaveSuccess(): Promise<void> {
     typeDialogVisible.value = false
+    fieldDirty.value = false
     contentMode.value = 'list'
     await loadTree()
     await loadTable()

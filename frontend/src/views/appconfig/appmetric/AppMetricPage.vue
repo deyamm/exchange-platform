@@ -179,7 +179,7 @@
           <el-table-column
             prop="updatedAt"
             label="更新时间"
-            width="165"
+            width="180"
             align="center"
           />
           <el-table-column

@@ -1,16 +1,31 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 import logging
 
 from app.service.analytics.market_service import MarketService
 from app.service.analytics.stock_service import StockService
 from app.service.analytics.index_service import IndexService
 from app.api.deps import get_market_service, get_stock_service, get_index_service
+from app.schemas.analytics.metric_value import DatasetMetricValueQuery, MetricValue
+from app.service.analytics.metric_value_service import MetricValueService
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.post(
+    "/metric-values/query",
+    response_model=list[MetricValue],
+    summary="按 Dataset 批量查询统一指标值",
+    description="仅供 Spring 分析服务调用；每次只查询一个物理 Dataset，并返回截至时间内每个标的的最新值。",
+)
+async def query_metric_values(query: DatasetMetricValueQuery):
+    try:
+        return await MetricValueService().query_dataset_values(query)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 # /api/v1/data-analytics/market-overview
 @router.get(

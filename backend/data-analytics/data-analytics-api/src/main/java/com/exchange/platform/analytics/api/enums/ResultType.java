@@ -12,7 +12,9 @@ public enum ResultType implements IEnum<Integer> {
     FINANCIAL_SUMMARY(2, "财务摘要"),
     RANKING(3, "指标排行"),
     COMPARISON(4, "标的对比"),
-    ALERT(5, "提醒结果");
+    ALERT(5, "提醒结果"),
+    /** 条件筛选结果快照，保存后回看时绝不使用当前最新指标重新计算。 */
+    FILTERING(6, "条件筛选");
 
     private final Integer code;
     private final String desc;

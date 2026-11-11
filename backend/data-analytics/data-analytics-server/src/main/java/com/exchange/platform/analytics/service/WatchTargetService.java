@@ -25,7 +25,7 @@ public interface WatchTargetService extends IService<WatchTarget> {
      * 根据输入内容检索股票。
      * 纯数字输入按股票代码检索，否则按股票简称检索。
      */
-    List<WatchTargetView> search(String keyword, Integer limit);
+    List<WatchTargetView> search(String keyword, Integer limit, String targetType);
 
     public WatchTargetView saveOrUpdateWatchTarget(WatchTargetSaveRequest request);
 

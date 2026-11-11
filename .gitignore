@@ -156,3 +156,8 @@ secrets/
 credentials/
 **/secrets/
 **/credentials/
+
+# =========================
+# docs
+# =========================
+docs/

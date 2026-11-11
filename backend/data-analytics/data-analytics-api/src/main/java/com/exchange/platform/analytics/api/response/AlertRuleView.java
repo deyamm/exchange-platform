@@ -1,6 +1,7 @@
 package com.exchange.platform.analytics.api.response;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.RuleType;
@@ -21,6 +22,8 @@ public class AlertRuleView {
     private AssetType targetType;
     private String groupCode;
     private String metricCode;
+    private String operator;
+    private BigDecimal threshold;
     private Object condition;
     private Object noticeChannels;
     private LocalDateTime effectiveStartTime;

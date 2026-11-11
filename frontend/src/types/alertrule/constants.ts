@@ -22,6 +22,8 @@ export interface AlertRuleSaveRequest {
     targetType?: AssetType | '';
     groupCode?: string;
     metricCode?: string;
+    operator?: 'GT' | 'GTE' | 'LT' | 'LTE' | 'EQ' | 'NE';
+    threshold?: number;
     condition?: unknown;
     compareOperator?: string;
     thresholdValue?: number;

@@ -65,12 +65,13 @@ public class WatchTargetController {
     public ApiResponse<List<WatchTargetView>> searchStocks(
         @RequestParam("keyword") String keyword,
         @RequestParam(value = "limit", defaultValue = "10") Integer limit,
+        @RequestParam(value = "targetType", required = false) String targetType,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info("[{}] [Controller] searchStocks: keyword={}, limit={}", requestId, keyword, limit);
         return ApiResponse.success(
-            watchTargetService.search(keyword, limit),
+            watchTargetService.search(keyword, limit, targetType),
             requestId
         );
     }

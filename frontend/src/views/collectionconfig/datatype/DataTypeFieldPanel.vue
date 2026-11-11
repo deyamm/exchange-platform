@@ -107,14 +107,19 @@ import { DataTypeField, createDefaultDataTypeField } from '/@/types/datatype/ent
 import { FIELD_TYPE_OPTIONS } from '/@/types/datatype/view'
 import { queryTaskList, getTemplateVersionDetail } from '/@/api/collectiontask/collectionTaskApi'
 import { parseParamFields } from '/@/utils/utils'
-import { ParamField, SYNC_STATUS_TAG_TYPE, SYNC_STATUS_TEXT } from "/@/types/collectiontask/view";
+import { SYNC_STATUS_TAG_TYPE, SYNC_STATUS_TEXT } from "/@/types/collectiontask/view";
 import { TaskTemplate, TaskTemplateVersion } from '/@/types/collectiontask/entity'
 import { SyncStatus } from '/@/types/collectiontask/constants'
 
 
 const props = defineProps<{ dataTypeCode: string }>()
+const emit = defineEmits<{
+    (e: 'dirty-change', dirty: boolean): void
+}>()
+
 const fields = ref<DataTypeField[]>([])
 const saving = ref(false)
+const initialFieldSnapshot = ref('')
 
 const collectionTaskDialogVisible = ref(false)
 const collectionTaskLoading = ref(false)
@@ -126,16 +131,83 @@ const pagination = reactive({
     total: 0
 })
 
-watch(() => props.dataTypeCode, () => loadFields(), { immediate: true })
+watch(() => props.dataTypeCode, () => loadFields(true), { immediate: true })
 
-/** 加载当前数据类型字段结构。 */
-async function loadFields(): Promise<void> {
-    if (!props.dataTypeCode) {
-        fields.value = []
+watch(
+    fields,
+    () => {
+        updateDirtyState()
+    },
+    { deep: true }
+)
+
+/**
+ * 生成用于判断字段结构是否变化的稳定快照。
+ * 只比较真正影响字段结构的业务属性，忽略后端生成的 ID、时间等非结构字段。
+ */
+function createFieldSnapshot(fieldList: DataTypeField[]): string {
+    return JSON.stringify(
+        fieldList.map((field, index) => ({
+            fieldCode: String(field.fieldCode ?? ''),
+            fieldName: String(field.fieldName ?? ''),
+            fieldType: String(field.fieldType ?? ''),
+            defaultValue: String(field.defaultValue ?? ''),
+            required: Boolean(field.required),
+            uniqueKey: Boolean(field.uniqueKey),
+            description: String(field.description ?? ''),
+            sortNo: index + 1
+        }))
+    )
+}
+
+/** 根据当前字段与初始字段快照计算是否存在变更。 */
+function updateDirtyState(): void {
+    if (!props.dataTypeCode || !initialFieldSnapshot.value) {
+        emit('dirty-change', false)
         return
     }
+
+    emit(
+        'dirty-change',
+        createFieldSnapshot(fields.value) !== initialFieldSnapshot.value
+    )
+}
+
+/**
+ * 将当前字段结构标记为新的基准状态。
+ * 发布版本成功后由父组件调用。
+ */
+function markClean(): void {
+    initialFieldSnapshot.value = createFieldSnapshot(fields.value)
+    emit('dirty-change', false)
+}
+
+defineExpose({
+    markClean
+})
+
+/**
+ * 加载当前数据类型字段结构。
+ * resetBaseline=true 时将加载结果作为新的初始基准；
+ * 普通字段保存不会重置该基准，因此保存后仍可继续发布版本。
+ */
+async function loadFields(resetBaseline = false): Promise<void> {
+    if (!props.dataTypeCode) {
+        fields.value = []
+        initialFieldSnapshot.value = ''
+        emit('dirty-change', false)
+        return
+    }
+
     fields.value = await queryDataTypeFields(props.dataTypeCode)
     refreshSortNo()
+
+    if (resetBaseline) {
+        initialFieldSnapshot.value = createFieldSnapshot(fields.value)
+        emit('dirty-change', false)
+    } else {
+        updateDirtyState()
+    }
 }
 
 function handleAddField(index?: number): void {
@@ -234,6 +306,7 @@ async function handleSave(): Promise<void> {
     try {
         fields.value = await saveDataTypeFields(props.dataTypeCode, fields.value)
         refreshSortNo()
+        updateDirtyState()
         ElMessage.success('字段保存成功')
     } finally {
         saving.value = false

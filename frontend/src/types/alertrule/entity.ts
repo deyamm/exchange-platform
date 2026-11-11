@@ -10,6 +10,8 @@ export interface AlertRule {
     targetType?: AssetType | '';
     groupCode?: string;
     metricCode?: string;
+    operator?: 'GT' | 'GTE' | 'LT' | 'LTE' | 'EQ' | 'NE';
+    threshold?: number;
     condition?: unknown;
     noticeChannels?: string[];
     effectiveStartTime?: string;
@@ -24,12 +26,14 @@ export function createDefaultAlertRule(): AlertRule {
     return { 
         ruleCode: '', 
         ruleName: '', 
-        ruleType: 'PRICE', 
+        ruleType: 'METRIC',
         targetCode: '', 
         targetType: '',
         groupCode: '', 
         metricCode: '', 
-        condition: {}, 
+        condition: {},
+        operator: 'GTE',
+        threshold: undefined,
         noticeChannels: ['IN_APP'], 
         status: 'ENABLED', 
         description: '' 

@@ -32,7 +32,7 @@ public class AppMetric {
     @TableField("metric_category")
     private String metricCategory;
 
-    /** 指标适用的标的类型，由用户创建时选择，后续禁止变更。 */
+    /** 指标适用的标的类型，由用户创建时选择，后续禁止变更。 AssetType类型的枚举值。 */
     @TableField("target_type")
     private String targetType;
 

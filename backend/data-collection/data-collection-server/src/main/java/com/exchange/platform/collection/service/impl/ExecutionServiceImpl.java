@@ -319,7 +319,6 @@ public class ExecutionServiceImpl extends ServiceImpl<TaskRunMapper, TaskRun> im
         // 保存log，返回结果的多条Log保存为一个record，日志内容以JSON格式保存，方便后续查询和分析
         // 日志级别根据执行状态设置，如果状态为FAILED则设置为ERROR，否则设置为INFO
         // traiceId暂不支持，先设置为null，后续如果需要支持分布式追踪可以改为接收并保存traceId
-        // TODO 日志内容如果过大，可能需要考虑单条日志记录过大导致的数据库性能问题，可以考虑后续增加日志内容长度限制或者将日志内容存储到专门的日志系统中（如Elasticsearch）并在数据库中保存索引和链接
         RunLog runLog = new RunLog()
             .setLogId(IdGenerator.generate("LOG"))
             .setRunId(callbackRequest.runId())

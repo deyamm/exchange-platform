@@ -31,6 +31,8 @@ import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpd
 import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricFieldBindingView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricReadBindingView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.collection.api.response.dataType.DataTypeFieldView;
@@ -51,6 +53,7 @@ import com.exchange.platform.collection.mapper.execution.DatasetMetadataMapper;
 import com.exchange.platform.collection.mapper.execution.ResultSummaryMapper;
 import com.exchange.platform.collection.mapper.execution.TaskRunMapper;
 import com.exchange.platform.collection.mapper.tasks.StorageColumnMappingMapper;
+import com.exchange.platform.collection.mapper.tasks.StorageMappingMapper;
 import com.exchange.platform.collection.mapper.tasks.TaskTemplateVersionMapper;
 import com.exchange.platform.collection.service.DatasetExecutionService;
 import com.exchange.platform.collection.service.DatasetService;
@@ -82,6 +85,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     private final ResultSummaryMapper summaryMapper;
     private final DataTypeVersioinMapper dataTypeVersionMapper;
     private final StorageColumnMappingMapper storageColumnMappingMapper;
+    private final StorageMappingMapper storageMappingMapper;
     private final DataSourceConfigMapper dataSourceConfigMapper;
     private final TaskTemplateVersionMapper taskTemplateVersionMapper;
 
@@ -89,7 +93,8 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     public DatasetServiceImpl(DatasetMapper datasetMapper, DatasetMetadataMapper metadataMapper,
             TaskRunMapper taskRunMapper, ResultSummaryMapper summaryMapper,
             DataTypeVersioinMapper dataTypeVersionMapper,
-            StorageColumnMappingMapper storageColumnMappingMapper, DataSourceConfigMapper dataSourceConfigMapper,
+            StorageColumnMappingMapper storageColumnMappingMapper, StorageMappingMapper storageMappingMapper,
+            DataSourceConfigMapper dataSourceConfigMapper,
             TaskTemplateVersionMapper taskTemplateVersionMapper) {
         this.datasetMapper = datasetMapper;
         this.metadataMapper = metadataMapper;
@@ -97,11 +102,12 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         this.summaryMapper = summaryMapper;
         this.dataTypeVersionMapper = dataTypeVersionMapper;
         this.storageColumnMappingMapper = storageColumnMappingMapper;
+        this.storageMappingMapper = storageMappingMapper;
         this.dataSourceConfigMapper = dataSourceConfigMapper;
         this.taskTemplateVersionMapper = taskTemplateVersionMapper;
     }
 
-    /** 校验执行使用的数据集编码、状态及正式物理表身份。 */
+    /** 用于任务执行前对数据集进行校验，包括数据集编码、数据集状态（应为ENABLED）、执行快照中的物理表应与数据集绑定的物理表一致。 */
     @Override
     @Transactional(readOnly = true)
     public void validateForExecution(StorageMapping mapping) {
@@ -122,7 +128,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         }
     }
 
-    /** 登记一次成功执行对应的数据集主档和存储元数据，并刷新派生统计信息。 */
+    /** 执行成功后，初始化数据集信息或在已有数据集信息的基础上更新。 */
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void registerSuccessfulRun(TaskRun run, ExecutionConfigSnapshot snapshot, StorageMapping mapping,
@@ -153,9 +159,8 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                     .setDatasetStatus(DatasetStatus.ENABLED);
             datasetMapper.insert(dataset);
         } else {
-            // Dataset 身份一旦建立不能被后续任务版本静默改写；物理写入已成功，
-            // 因此仅拒绝登记更新并记录异常，不回写 TaskRun 为失败。
-            if (dataset.getAssetType() != null && dataset.getAssetType() != executedAssetType.getValue()) {
+            // Dataset 身份一旦建立不能被后续任务版本静默改写，因此仅拒绝登记更新并记录异常。
+            if (dataset.getAssetType() != null && !dataset.getAssetType().equals(executedAssetType.getValue())) {
                 throw new BusinessException(40006, "数据集标的类型与本次执行模板版本不一致：dataset="
                         + dataset.getAssetType() + ", execution=" + executedAssetType.getValue());
             }
@@ -173,10 +178,6 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                     .setLastSuccessTime(now);
             datasetMapper.updateById(dataset);
         }
-        upsertStorageMetadata(dataset.getId(), "storage_type", "存储类型", "MYSQL");
-        upsertStorageMetadata(dataset.getId(), "datasource_code", "数据源编码", mapping.getDataSourceCode());
-        upsertStorageMetadata(dataset.getId(), "schema_name", "Schema 名称", mapping.getPhysicalSchemaName());
-        upsertStorageMetadata(dataset.getId(), "table_name", "物理表名称", mapping.getPhysicalTableName());
         refreshConfigDerivedMetadata(dataset, mapping);
         refreshDatasetStatistics(dataset, mapping);
     }
@@ -184,9 +185,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     /** 按条件分页查询数据集目录，统一处理分页参数并转换为目录视图。 */
     @Override
     @Transactional(readOnly = true)
-    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, AssetType assetType,
-            Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo,
-            Integer pageSize) {
+    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, AssetType assetType, Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize) {
         log.info("[Service] query start, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, assetType={}, datasetStatus={}, taskConfigCode={}, startTime={}, endTime={}, pageNo={}, pageSize={}",
                 datasetCode, datasetName, topicCode, dataTypeCode, assetType, datasetStatus, taskConfigCode, startTime,
                 endTime, pageNo, pageSize);
@@ -197,13 +196,14 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                 .like(StringUtils.hasText(datasetName), Dataset::getDatasetName, datasetName)
                 .eq(StringUtils.hasText(topicCode), Dataset::getDataTopicCode, topicCode)
                 .eq(StringUtils.hasText(dataTypeCode), Dataset::getDataTypeCode, dataTypeCode)
-                .eq(assetType != null, Dataset::getAssetType, assetType.getValue())
                 .eq(StringUtils.hasText(taskConfigCode), Dataset::getTaskConfigCode, taskConfigCode)
                 .ge(StringUtils.hasText(startTime), Dataset::getLastSuccessTime, startTime)
                 .le(StringUtils.hasText(endTime), Dataset::getLastSuccessTime, endTime)
                 .orderByDesc(Dataset::getLastSuccessTime);
         if (datasetStatus != null)
             wrapper.eq(Dataset::getDatasetStatus, datasetStatus);
+        if (assetType != null)
+            wrapper.eq(Dataset::getAssetType, assetType.getValue());
         Page<Dataset> page = datasetMapper.selectPage(new Page<>(safePageNo, safePageSize), wrapper);
         return new PageResult<>(safePageNo, safePageSize, page.getTotal(),
                 page.getRecords().stream().map(this::toView).collect(Collectors.toList()));
@@ -221,11 +221,23 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         detail.setStructure(loadStructure(dataset));
         if (StringUtils.hasText(dataset.getLatestTaskRunId())) {
             detail.setLatestTaskRun(
-                    ExecutionConverter.toRunView(taskRunMapper.selectOne(new LambdaQueryWrapper<TaskRun>()
-                            .eq(TaskRun::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
+                ExecutionConverter.toRunView(
+                    taskRunMapper.selectOne(
+                        new LambdaQueryWrapper<TaskRun>()
+                            .eq(TaskRun::getRunId, dataset.getLatestTaskRunId())
+                            .last("LIMIT 1")
+                    )
+                )
+            );
             detail.setLatestResultSummary(
-                    ExecutionConverter.toSummaryView(summaryMapper.selectOne(new LambdaQueryWrapper<ResultSummary>()
-                            .eq(ResultSummary::getRunId, dataset.getLatestTaskRunId()).last("LIMIT 1"))));
+                ExecutionConverter.toSummaryView(
+                    summaryMapper.selectOne(
+                        new LambdaQueryWrapper<ResultSummary>()
+                            .eq(ResultSummary::getRunId, dataset.getLatestTaskRunId())
+                            .last("LIMIT 1")
+                    )
+                )
+            );
         }
         return detail;
     }
@@ -242,9 +254,12 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     /** 查询已加载数据集的元数据，供详情查询复用以避免重复主档查询和日志。 */
     private List<DatasetMetadataView> loadMetadata(Dataset dataset) {
         return metadataMapper
-                .selectList(new LambdaQueryWrapper<DatasetMetadata>().eq(DatasetMetadata::getDatasetId, dataset.getId())
-                        .orderByAsc(DatasetMetadata::getMetadataGroup).orderByAsc(DatasetMetadata::getMetadataKey))
-                .stream().map(this::toMetadataView).collect(Collectors.toList());
+            .selectList(
+                new LambdaQueryWrapper<DatasetMetadata>()
+                    .eq(DatasetMetadata::getDatasetId, dataset.getId())
+                    .orderByAsc(DatasetMetadata::getMetadataGroup)
+                    .orderByAsc(DatasetMetadata::getMetadataKey)
+            ).stream().map(this::toMetadataView).collect(Collectors.toList());
     }
 
     /** 校验并更新用户可维护的数据集名称、说明和扩展元数据。 */
@@ -263,6 +278,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         if (request.datasetDesc() != null) {
             dataset.setDescription(request.datasetDesc());
         }
+        // 更新数据集主档
         datasetMapper.updateById(dataset);
         for (DatasetMetadataUpdateRequest.Item item : request.items()) {
             if (!StringUtils.hasText(item.metadataGroup()) || !StringUtils.hasText(item.metadataKey())) {
@@ -305,8 +321,10 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         if (datasetCodes.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Dataset> datasets = datasetMapper.selectList(new LambdaQueryWrapper<Dataset>()
-                .in(Dataset::getDatasetCode, datasetCodes));
+        List<Dataset> datasets = datasetMapper.selectList(
+            new LambdaQueryWrapper<Dataset>()
+                .in(Dataset::getDatasetCode, datasetCodes)
+        );
         return datasets.stream().map(dataset -> {
             DatasetMetricBindingView view = new DatasetMetricBindingView();
             view.setDatasetCode(dataset.getDatasetCode());
@@ -314,14 +332,99 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
             view.setAssetType(AssetType.fromCode(dataset.getAssetType()));
             view.setDatasetStatus(dataset.getDatasetStatus());
             view.setDataTypeVersionNo(dataset.getDataTypeVersionNo());
-            DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
+            DataTypeVersion version = dataTypeVersionMapper.selectOne(
+                new LambdaQueryWrapper<DataTypeVersion>()
                     .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
-                    .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+                    .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1")
+            );
             view.setFields(version == null || !StringUtils.hasText(version.getFieldSchemaContent())
                     ? Collections.emptyList()
                     : JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class));
             return view;
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * 返回统一指标读取的最小物理绑定。目标代码和数据时间均来自已经确认的 Dataset 结构，
+     * 不使用调用方传入的列名，从而保持 metricCode -> Dataset 的服务端边界。
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<DatasetMetricReadBindingView> getMetricReadBindings(DatasetMetricBindingQueryRequest request) {
+        List<String> datasetCodes = request.datasetCodes().stream().filter(StringUtils::hasText).distinct().toList();
+        if (datasetCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Dataset> datasets = datasetMapper.selectList(
+            new LambdaQueryWrapper<Dataset>()
+                .in(Dataset::getDatasetCode, datasetCodes)
+        );
+        return datasets.stream().map(this::toMetricReadBinding).collect(Collectors.toList());
+    }
+
+    /**
+     * 
+     * @param dataset
+     * @return
+     */
+    private DatasetMetricReadBindingView toMetricReadBinding(Dataset dataset) {
+        if (dataset.getDatasetStatus() != DatasetStatus.ENABLED) {
+            throw new BusinessException(40006, "数据集未启用，不能读取指标值：" + dataset.getDatasetCode());
+        }
+        if (!StringUtils.hasText(dataset.getStorageMappingCode())) {
+            throw new BusinessException(40006, "数据集缺少存储映射：" + dataset.getDatasetCode());
+        }
+        // storage mapping
+        StorageMapping mapping = storageMappingMapper.selectOne(new LambdaQueryWrapper<StorageMapping>()
+                .eq(StorageMapping::getStorageMappingCode, dataset.getStorageMappingCode()).last("LIMIT 1"));
+        if (mapping == null || !StringUtils.hasText(mapping.getPhysicalSchemaName())
+                || !StringUtils.hasText(mapping.getPhysicalTableName())) {
+            throw new BusinessException(40006, "数据集物理存储定位无效：" + dataset.getDatasetCode());
+        }
+        // dataset 对应的 storage column mapping
+        List<StorageColumnMapping> columns = storageColumnMappingMapper.selectList(
+                new LambdaQueryWrapper<StorageColumnMapping>()
+                        .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode()));
+        DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
+                .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
+                .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+        if (version == null || !StringUtils.hasText(version.getFieldSchemaContent())) {
+            throw new BusinessException(40006, "数据集当前字段结构无效：" + dataset.getDatasetCode());
+        }
+        // 解析当前字段结构
+        List<DataTypeFieldView> currentFields = JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class);
+        List<String> currentFieldCodes = currentFields
+            .stream()
+            .map(DataTypeFieldView::getFieldCode)
+            .filter(StringUtils::hasText)
+            .collect(Collectors.toList());
+        Map<String, String> physicalColumns = columns
+            .stream()
+            .filter(column -> StringUtils.hasText(column.getDataTypeFieldCode()) && StringUtils.hasText(column.getPhysicalColumnName()))
+            .filter(column -> currentFieldCodes.contains(column.getDataTypeFieldCode()))
+            .collect(Collectors.toMap(StorageColumnMapping::getDataTypeFieldCode,
+                    StorageColumnMapping::getPhysicalColumnName, (left, right) -> left));
+        String targetCodeColumn = physicalColumns.get("full_symbole");
+        String dataTimeField = metadataValue(dataset.getId(), "data_time_field");
+        String dataTimeColumn = physicalColumns.get(dataTimeField);
+        if (!StringUtils.hasText(targetCodeColumn) || !StringUtils.hasText(dataTimeColumn)) {
+            throw new BusinessException(40006, "数据集缺少标的代码或数据时间字段映射：" + dataset.getDatasetCode());
+        }
+        DatasetMetricReadBindingView view = new DatasetMetricReadBindingView();
+        view.setDatasetCode(dataset.getDatasetCode());
+        view.setAssetType(AssetType.fromCode(dataset.getAssetType()));
+        view.setDatasetStatus(dataset.getDatasetStatus());
+        view.setPhysicalSchemaName(mapping.getPhysicalSchemaName());
+        view.setPhysicalTableName(mapping.getPhysicalTableName());
+        view.setTargetCodeColumn(targetCodeColumn);
+        view.setDataTimeColumn(dataTimeColumn);
+        view.setFields(physicalColumns.entrySet().stream().map(entry -> {
+            DatasetMetricFieldBindingView field = new DatasetMetricFieldBindingView();
+            field.setFieldCode(entry.getKey());
+            field.setPhysicalColumnName(entry.getValue());
+            return field;
+        }).collect(Collectors.toList()));
+        return view;
     }
 
     /** 查询已加载数据集当前引用的数据类型版本结构。 */
@@ -350,11 +453,14 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         return result;
     }
 
-    /** 从执行快照固定的任务版本读取类型，禁止倒查任务模板当前最新版本。 */
+    /** 从执行快照固定的任务版本读取标的类型。 */
     private AssetType requireExecutedAssetType(ExecutionConfigSnapshot snapshot) {
-        TaskTemplateVersion version = taskTemplateVersionMapper.selectOne(new LambdaQueryWrapper<TaskTemplateVersion>()
+        TaskTemplateVersion version = taskTemplateVersionMapper.selectOne(
+            new LambdaQueryWrapper<TaskTemplateVersion>()
                 .eq(TaskTemplateVersion::getTaskCode, snapshot.getTaskCode())
-                .eq(TaskTemplateVersion::getVersionNo, snapshot.getTaskTemplateVersion()).last("LIMIT 1"));
+                .eq(TaskTemplateVersion::getVersionNo, snapshot.getTaskTemplateVersion())
+                .last("LIMIT 1")
+            );
         if (version == null || version.getAssetType() == null) {
             throw new BusinessException(40006, "执行使用的任务模板版本缺少有效资产类型");
         }
@@ -367,25 +473,6 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                 .eq(DatasetMetadata::getDatasetId, datasetId).eq(DatasetMetadata::getMetadataGroup, STORAGE)
                 .eq(DatasetMetadata::getMetadataKey, key).last("LIMIT 1"));
         return value == null ? null : value.getMetadataValue();
-    }
-
-    /** 创建或更新单项系统维护的存储定位元数据。 */
-    private void upsertStorageMetadata(Long datasetId, String key, String name, String value) {
-        DatasetMetadata item = metadataMapper.selectOne(
-            new LambdaQueryWrapper<DatasetMetadata>()
-                .eq(DatasetMetadata::getDatasetId, datasetId)
-                .eq(DatasetMetadata::getMetadataGroup, STORAGE)
-                .eq(DatasetMetadata::getMetadataKey, key)
-                .last("LIMIT 1")
-        );
-        if (item == null) {
-            item = new DatasetMetadata().setDatasetId(datasetId).setMetadataGroup(STORAGE).setMetadataKey(key);
-        }
-        item.setMetadataName(name).setMetadataValue(value).setValueType("STRING");
-        if (item.getId() == null)
-            metadataMapper.insert(item);
-        else
-            metadataMapper.updateById(item);
     }
 
     /** 创建或更新任意分组的一项元数据。 */
@@ -468,47 +555,50 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
 
     /** 根据存储列映射刷新业务主键及存储定位等派生元数据。 */
     private void refreshConfigDerivedMetadata(Dataset dataset, StorageMapping mapping) {
-        List<StorageColumnMapping> columns = storageColumnMappingMapper
-                .selectList(new LambdaQueryWrapper<StorageColumnMapping>()
-                        .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode()));
+        List<StorageColumnMapping> columns = storageColumnMappingMapper.selectList(
+            new LambdaQueryWrapper<StorageColumnMapping>()
+                .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode())
+            );
         columns.sort(Comparator.comparing(StorageColumnMapping::getId, Comparator.nullsLast(Long::compareTo)));
+        // 数据类型字段作为业务主键
         List<String> businessKeys = columns.stream().filter(c -> Boolean.TRUE.equals(c.getUniqueKey()))
-                .map(StorageColumnMapping::getDataTypeFieldCode).filter(StringUtils::hasText)
+                .map(StorageColumnMapping::getDataTypeFieldCode)
+                .filter(StringUtils::hasText)
                 .collect(Collectors.toList());
+        // 物理列作为存储唯一键
         List<String> storageKeys = columns.stream().filter(c -> Boolean.TRUE.equals(c.getUniqueKey()))
-                .map(StorageColumnMapping::getPhysicalColumnName).filter(StringUtils::hasText)
+                .map(StorageColumnMapping::getPhysicalColumnName)
+                .filter(StringUtils::hasText)
                 .collect(Collectors.toList());
-        upsertMetadata(dataset.getId(), "BUSINESS", "business_key", "业务主键", JSON.toJSONString(businessKeys), "JSON",
-                null);
+        upsertMetadata(dataset.getId(), "BUSINESS", "business_key", "业务主键", JSON.toJSONString(businessKeys), "JSON",null);
         upsertMetadata(dataset.getId(), STORAGE, "storage_type", "存储类型", "MYSQL", "STRING", null);
-        upsertMetadata(dataset.getId(), STORAGE, "datasource_code", "数据源编码", mapping.getDataSourceCode(), "STRING",
-                null);
-        upsertMetadata(dataset.getId(), STORAGE, "schema_name", "Schema", mapping.getPhysicalSchemaName(), "STRING",
-                null);
+        upsertMetadata(dataset.getId(), STORAGE, "datasource_code", "数据源编码", mapping.getDataSourceCode(), "STRING",null);
+        upsertMetadata(dataset.getId(), STORAGE, "schema_name", "Schema", mapping.getPhysicalSchemaName(), "STRING",null);
         upsertMetadata(dataset.getId(), STORAGE, "table_name", "物理表", mapping.getPhysicalTableName(), "STRING", null);
-        upsertMetadata(dataset.getId(), STORAGE, "storage_unique_key", "物理唯一键", JSON.toJSONString(storageKeys), "JSON",
-                null);
+        upsertMetadata(dataset.getId(), STORAGE, "storage_unique_key", "物理唯一键", JSON.toJSONString(storageKeys), "JSON",null);
     }
 
-    /** 从实际物理表读取记录数和时间覆盖范围并写回统计元数据。 */
+    /** 从实际物理表读取记录数和时间覆盖范围并写回元数据。 */
     private void refreshDatasetStatistics(Dataset dataset, StorageMapping mapping) {
         try {
-            if (!IDENTIFIER.matcher(mapping.getPhysicalSchemaName() == null ? "" : mapping.getPhysicalSchemaName())
-                    .matches()
-                    || !IDENTIFIER.matcher(mapping.getPhysicalTableName() == null ? "" : mapping.getPhysicalTableName())
-                            .matches())
+            if (!IDENTIFIER.matcher(mapping.getPhysicalSchemaName() == null ? "" : mapping.getPhysicalSchemaName()).matches() || !IDENTIFIER.matcher(mapping.getPhysicalTableName() == null ? "" : mapping.getPhysicalTableName()).matches())
                 throw new IllegalArgumentException("invalid physical identifier");
-            DataSourceConfig source = dataSourceConfigMapper.selectOne(new LambdaQueryWrapper<DataSourceConfig>()
-                    .eq(DataSourceConfig::getDataSourceCode, mapping.getDataSourceCode()).last("LIMIT 1"));
+            DataSourceConfig source = dataSourceConfigMapper.selectOne(
+                new LambdaQueryWrapper<DataSourceConfig>()
+                    .eq(DataSourceConfig::getDataSourceCode, mapping.getDataSourceCode())
+                    .last("LIMIT 1")
+                );
             if (source == null)
                 throw new IllegalArgumentException("data source not found");
             String timeField = metadataValue(dataset.getId(), "data_time_field");
             String physicalTimeColumn = null;
             if (StringUtils.hasText(timeField)) {
-                StorageColumnMapping column = storageColumnMappingMapper
-                        .selectOne(new LambdaQueryWrapper<StorageColumnMapping>()
-                                .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode())
-                                .eq(StorageColumnMapping::getDataTypeFieldCode, timeField).last("LIMIT 1"));
+                StorageColumnMapping column = storageColumnMappingMapper.selectOne(
+                    new LambdaQueryWrapper<StorageColumnMapping>()
+                    .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode())
+                    .eq(StorageColumnMapping::getDataTypeFieldCode, timeField)
+                    .last("LIMIT 1")
+                );
                 if (column == null || !IDENTIFIER
                         .matcher(column.getPhysicalColumnName() == null ? "" : column.getPhysicalColumnName())
                         .matches())
@@ -540,8 +630,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
                 upsertMetadata(dataset.getId(), "STATISTICS", "statistics_updated_at", "统计更新时间",
                         LocalDateTime.now(ZoneId.of(JdbcUtils.DEFAULT_TIME_ZONE)).format(ISO_TIME), "STRING", null);
             }
-        } catch (Exception ex) {
-        }
+        } catch (Exception ex) {}
     }
 
     /** 校验物理标识符并添加数据库标识符引用符。 */

@@ -48,6 +48,14 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 		},
 		children: [
 			{
+				path: '/app/ranking', name: 'ranking', component: () => import('../views/appconfig/ranking/index.vue'),
+				meta: { title: '指标排行', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-DataAnalysis' },
+			},
+			{
+				path: '/app/ranking-compare', name: 'rankingCompare', component: () => import('../views/appconfig/ranking/compare.vue'),
+				meta: { title: '标的对比', isLink: '', isHide: true, isKeepAlive: false, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-DataAnalysis' },
+			},
+			{
 				path: '/home',
 				name: 'home',
 				component: () => import('/@/views/home/index.vue'),
@@ -275,6 +283,51 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					icon: 'iconfont icon-yingyongpeizhi',
 				},
 				children: [
+					{
+						path: '/appConfig/filtering',
+						name: 'pagesFiltering',
+						component: () => import('../views/appconfig/filtering/index.vue'),
+						meta: {
+							title: 'message.router.pagesFiltering',
+							isLink: '',
+							isHide: false,
+							isKeepAlive: true,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'ele-Sell',
+						},
+					},
+					{
+						path: '/appConfig/alertRule',
+						name: 'appAlertRule',
+						component: () => import('../views/appconfig/alertrule/AlertRulePage.vue'),
+						meta: {
+							title: 'message.router.appAlertRule',
+							isLink: '',
+							isHide: false,
+							isKeepAlive: true,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'ele-Sell',
+						},
+					},
+					{
+						path: '/appConfig/ranking',
+						name: 'appRanking',
+						component: () => import('../views/appconfig/ranking/index.vue'),
+						meta: {
+							title: 'message.router.appRanking',
+							isLink: '',
+							isHide: false,
+							isKeepAlive: true,
+							isAffix: false,
+							isIframe: false,
+							roles: ['admin', 'common'],
+							icon: 'ele-Sell',
+						},
+					},
 					{
 						path: '/appConfig/appScene',
 						name: 'appScene',
@@ -851,59 +904,6 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					icon: 'iconfont icon-fuzhiyemian',
 				},
 				children: [
-					{
-						path: '/pages/filtering',
-						name: 'pagesFiltering',
-						component: () => import('/@/views/pages/filtering/index.vue'),
-						meta: {
-							title: 'message.router.pagesFiltering',
-							isLink: '',
-							isHide: false,
-							isKeepAlive: true,
-							isAffix: false,
-							isIframe: false,
-							roles: ['admin', 'common'],
-							icon: 'ele-Sell',
-						},
-						/**
-						 * 注意此处详情写法：
-						 * 1、嵌套进父级里时，面包屑显示为：首页/页面/过滤筛选组件/过滤筛选组件详情
-						 * 2、不嵌套进父级时，面包屑显示为：首页/页面/过滤筛选组件/过滤筛选组件详情
-						 * 3、想要父级不高亮，面包屑显示为：首页/页面/过滤筛选组件详情，设置路径为：/pages/filteringDetails
-						 */
-						children: [
-							{
-								path: '/pages/filtering/details',
-								name: 'pagesFilteringDetails',
-								component: () => import('/@/views/pages/filtering/details.vue'),
-								meta: {
-									title: 'message.router.pagesFilteringDetails',
-									isLink: '',
-									isHide: true,
-									isKeepAlive: false,
-									isAffix: false,
-									isIframe: false,
-									roles: ['admin', 'common'],
-									icon: 'ele-Sunny',
-								},
-							},
-						],
-					},
-					{
-						path: '/pages/filtering/details1',
-						name: 'pagesFilteringDetails1',
-						component: () => import('/@/views/pages/filtering/details1.vue'),
-						meta: {
-							title: 'message.router.pagesFilteringDetails1',
-							isLink: '',
-							isHide: true,
-							isKeepAlive: false,
-							isAffix: false,
-							isIframe: false,
-							roles: ['admin', 'common'],
-							icon: 'ele-Sunny',
-						},
-					},
 					{
 						path: '/pages/iocnfont',
 						name: 'pagesIocnfont',

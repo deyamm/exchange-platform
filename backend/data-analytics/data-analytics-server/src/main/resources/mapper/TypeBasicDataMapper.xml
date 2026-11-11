@@ -47,14 +47,13 @@
         完全匹配优先。
     -->
     <select id="searchByCode" resultType="com.exchange.platform.analytics.entity.WatchTarget">
-        <include refid="watchTargetSelectColumns"/>
+        <choose><when test="targetType == null or targetType == 'STOCK'"><include refid="watchTargetSelectColumns"/></when><otherwise>
+            SELECT full_symbol AS targetCode, name AS targetName, 'INDEX' AS targetType, market AS marketCode, 0 AS sortNo, FALSE AS importantFlag, 3 AS watchStatus, NULL AS watchReason FROM index_basic_data
+        </otherwise></choose>
             WHERE 
-                list_status = 'L' AND symbol LIKE CONCAT(#{keyword}, '%') 
+                <choose><when test="targetType == null or targetType == 'STOCK'">list_status = 'L' AND symbol LIKE CONCAT(#{keyword}, '%')</when><otherwise>full_symbol LIKE CONCAT('%', #{keyword}, '%')</otherwise></choose>
             ORDER BY 
-                CASE 
-                    WHEN symbol = #{keyword} THEN 0 ELSE 1 
-                END, 
-                symbol ASC 
+                <choose><when test="targetType == null or targetType == 'STOCK'">CASE WHEN symbol = #{keyword} THEN 0 ELSE 1 END, symbol ASC</when><otherwise>CASE WHEN full_symbol = #{keyword} THEN 0 ELSE 1 END, full_symbol ASC</otherwise></choose>
             LIMIT #{limit}
     </select>
     <!-- 
@@ -62,17 +61,89 @@
         完全匹配 > 前缀匹配 > 包含匹配。
     -->
     <select id="searchByName" resultType="com.exchange.platform.analytics.entity.WatchTarget">
-        <include refid="watchTargetSelectColumns"/>
+        <choose><when test="targetType == null or targetType == 'STOCK'"><include refid="watchTargetSelectColumns"/></when><otherwise>
+            SELECT full_symbol AS targetCode, name AS targetName, 'INDEX' AS targetType, market AS marketCode, 0 AS sortNo, FALSE AS importantFlag, 3 AS watchStatus, NULL AS watchReason FROM index_basic_data
+        </otherwise></choose>
             WHERE 
-                list_status = 'L' AND name LIKE CONCAT('%', #{keyword}, '%') 
+                <choose><when test="targetType == null or targetType == 'STOCK'">list_status = 'L' AND name LIKE CONCAT('%', #{keyword}, '%')</when><otherwise>name LIKE CONCAT('%', #{keyword}, '%')</otherwise></choose>
             ORDER BY 
                 CASE 
                     WHEN name = #{keyword} THEN 0 
                     WHEN name LIKE CONCAT(#{keyword}, '%') THEN 1 ELSE 2 
                 END, 
                 CHAR_LENGTH(name) ASC, 
-                symbol ASC 
+                <choose><when test="targetType == null or targetType == 'STOCK'">symbol ASC</when><otherwise>full_symbol ASC</otherwise></choose>
             LIMIT #{limit}
+    </select>
+
+    <!--
+        股票范围只读基础资料。当前基础库尚未提供独立的申万一级映射表时，industry 是唯一
+        已落库、可追溯的行业主数据来源；这里不硬编码任何示例板块。
+    -->
+    <select id="selectActiveStockTargets" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        SELECT full_symbol AS targetCode, name AS targetName
+        FROM stock_basic_data
+        WHERE list_status = 'L'
+        <if test="boardCodes != null and boardCodes.size() > 0">
+            AND industry IN
+            <foreach collection="boardCodes" item="boardCode" open="(" separator="," close=")">
+                #{boardCode}
+            </foreach>
+        </if>
+        ORDER BY full_symbol
+    </select>
+
+    <select id="selectIndexTargets" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        SELECT full_symbol AS targetCode, name AS targetName
+        FROM index_basic_data
+        WHERE 1 = 1
+        <if test="filterType == 'INDEX_TYPE' and filterValues != null and filterValues.size() > 0">
+            AND category IN
+            <foreach collection="filterValues" item="filterValue" open="(" separator="," close=")">
+                #{filterValue}
+            </foreach>
+        </if>
+        <if test="filterType == 'MARKET' and filterValues != null and filterValues.size() > 0">
+            AND market IN
+            <foreach collection="filterValues" item="filterValue" open="(" separator="," close=")">
+                #{filterValue}
+            </foreach>
+        </if>
+        ORDER BY full_symbol
+    </select>
+
+    <select id="selectStockBoardOptions" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        SELECT DISTINCT industry AS targetCode, industry AS targetName
+        FROM stock_basic_data
+        WHERE list_status = 'L' AND industry IS NOT NULL AND industry &lt;&gt; ''
+        ORDER BY industry
+    </select>
+
+    <select id="selectIndexTypeOptions" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        SELECT DISTINCT category AS targetCode, category AS targetName
+        FROM index_basic_data
+        WHERE category IS NOT NULL AND category &lt;&gt; ''
+        ORDER BY category
+    </select>
+
+    <select id="selectIndexMarketOptions" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        SELECT DISTINCT market AS targetCode, market AS targetName
+        FROM index_basic_data
+        WHERE market IS NOT NULL AND market &lt;&gt; ''
+        ORDER BY market
+    </select>
+
+    <select id="selectTargetsByCodes" resultType="com.exchange.platform.analytics.service.support.TargetScopeTarget">
+        <choose>
+            <when test="targetType == 'STOCK'">
+                SELECT full_symbol AS targetCode, name AS targetName FROM stock_basic_data WHERE full_symbol IN
+            </when>
+            <otherwise>
+                SELECT full_symbol AS targetCode, name AS targetName FROM index_basic_data WHERE full_symbol IN
+            </otherwise>
+        </choose>
+        <foreach collection="targetCodes" item="targetCode" open="(" separator="," close=")">#{targetCode}</foreach>
+        ORDER BY full_symbol
     </select>
     
 </mapper>

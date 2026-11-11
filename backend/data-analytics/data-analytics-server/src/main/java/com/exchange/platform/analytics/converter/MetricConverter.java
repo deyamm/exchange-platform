@@ -20,7 +20,7 @@ public class MetricConverter {
         view.setMetricName(entity.getMetricName());
         view.setMetricCategory(entity.getMetricCategory());
         view.setTargetType(AssetType.fromCode(entity.getTargetType()));
-        view.setTargetTypeName(entity.getTargetType() == null ? null : entity.getTargetType());
+        view.setTargetTypeName(entity.getTargetType() == null ? null : AssetType.fromCode(entity.getTargetType()).getDisplayName());
         view.setUnit(entity.getUnit());
         view.setDatasetCode(entity.getDatasetCode());
         view.setFieldCode(entity.getFieldCode());

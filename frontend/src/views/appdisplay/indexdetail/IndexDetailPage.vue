@@ -40,6 +40,7 @@
                     <span> · 生成时间：{{ formatDateTime(detail.meta.generatedAt) }}</span>
                     <span v-if="detail.meta.partialData"> · 部分数据</span>
                 </div>
+                <RecentAlertMessages target-type="INDEX" :target-code="detail.profile.fullSymbol" />
             </template>
 
             <el-empty v-else description="请输入指数代码查询详情" :image-size="120" />
@@ -53,6 +54,8 @@
             target-type="INDEX"
             @confirm="handleAddWatchConfirm"
         />
+        <AlertRuleEditorDialog v-model:open="alertDialogVisible" target-type="INDEX"
+            :target-code="detail?.profile.fullSymbol" :target-name="detail?.profile.name" @success="handleSearch" />
     </div>
 </template>
 
@@ -64,6 +67,8 @@ import { queryIndexDetail } from '/@/api/indexdetail/indexDetailApi'
 import type { IndexDetail } from '/@/types/indexdetail/indexDetailCenter'
 import type { IndexProfile } from '/@/types/marketoverview/view'
 import AddTargetFormDialog from '/@/components/common/AddTargetFormDialog.vue'
+import AlertRuleEditorDialog from '/@/components/common/AlertRuleEditorDialog.vue'
+import RecentAlertMessages from '/@/components/common/RecentAlertMessages.vue'
 import { saveOrUpdateWatchTarget } from '/@/api/watchtarget/watchTargetApi'
 import type { WatchTargetSaveRequest } from '/@/types/watchtarget/constants'
 import IndexHeaderCard from './components/IndexHeaderCard.vue'
@@ -83,6 +88,7 @@ const route = useRoute()
 const detail = ref<IndexDetail | null>(null)
 const detailLoading = ref(false)
 const watchDialogVisible = ref(false)
+const alertDialogVisible = ref(false)
 const activeWatchIndex = ref<IndexProfile | null>(null)
 
 /** 首屏返回的行情日期即后端解析后的实际交易日，供各 Tab 复用。 */
@@ -163,7 +169,7 @@ async function handleAddWatchConfirm(payload: {
 }
 
 function handleCreateAlert(): void {
-    ElMessage.info('这里可以接入指数提醒功能')
+    alertDialogVisible.value = true
 }
 </script>
 

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import javax.validation.Valid;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.RuleType;
@@ -60,7 +61,7 @@ public class AlertRuleController {
     @Operation(summary = "保存或更新预警规则", description = "根据请求体中的ruleCode创建或更新预警规则")
     @PostMapping
     public ApiResponse<AlertRuleView> saveOrUpdateAlertRule(
-        @RequestBody AlertRuleSaveRequest body,
+        @Valid @RequestBody AlertRuleSaveRequest body,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
@@ -68,6 +69,14 @@ public class AlertRuleController {
         log.info("[{}] [Controller] saveOrUpdateAlertRule: body={}", requestId, body);
 
         return ApiResponse.success(alertRuleService.saveOrUpdateAlertRule(body), requestId);
+    }
+
+    @Operation(summary = "启用或停用预警规则")
+    @PostMapping("/{ruleCode}/status")
+    public ApiResponse<AlertRuleView> updateAlertRuleStatus(@PathVariable String ruleCode,
+        @RequestBody java.util.Map<String, CommonStatus> body, HttpServletRequest request) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        return ApiResponse.success(alertRuleService.updateAlertRuleStatus(ruleCode, body.get("status")), requestId);
     }
 
     @Operation(summary = "删除预警规则", description = "根据ruleCode删除预警规则")

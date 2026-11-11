@@ -91,10 +91,14 @@ class IndexMarket(str, Enum):
     SW = ('SW', 6, '申万指数')
     # MSCI
     MSCI = ('MSCI', 7, 'MSCI指数')
-    # 东方财富指数
-    EM = ('EM', 8, '东方财富指数')
-    # 同花顺指数
-    THS = ('THS', 9, '同花顺指数')
+    # 东方财富行业指数
+    EM = ('EM_INDUSTRY', 8, '东方财富行业指数')
+    # 东方财富概念指数
+    EM_CONCEPT = ('EM_CONCEPT', 9, '东方财富概念指数')
+    # 同花顺行业指数
+    THS = ('THS_INDUSTRY', 10, '同花顺行业指数')
+    # 同花顺概念指数
+    THS_CONCEPT = ('THS_CONCEPT', 11, '同花顺概念指数')
     # 其他指数
     OTH = ('OTH', 99, '其他指数')
 

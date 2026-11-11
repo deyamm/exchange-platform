@@ -80,6 +80,63 @@ public class CollectionDatasetMetadataClient {
         }
     }
 
+    /**
+     * 统一指标取数专用的受控读取绑定。该方法只由后端服务调用；页面仍只能传 metricCode。
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, DatasetMetricReadBinding> getMetricReadBindings(Collection<String> sourceCodes) {
+        List<String> datasetCodes = sourceCodes.stream().filter(StringUtils::hasText).distinct().toList();
+        if (datasetCodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        try {
+            Map<String, Object> response = restTemplate.postForObject(
+                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-read-bindings/query",
+                    Collections.singletonMap("datasetCodes", datasetCodes), Map.class);
+            if (response == null || !Integer.valueOf(0).equals(asInteger(response.get("code")))) {
+                throw new BusinessException(40001, "读取数据集指标取数绑定失败");
+            }
+            Object data = response.get("data");
+            if (!(data instanceof List<?>)) {
+                return Collections.emptyMap();
+            }
+            Map<String, DatasetMetricReadBinding> result = new LinkedHashMap<>();
+            for (Object item : (List<?>) data) {
+                if (!(item instanceof Map<?, ?>)) {
+                    continue;
+                }
+                Map<String, Object> binding = (Map<String, Object>) item;
+                String datasetCode = asString(binding.get("datasetCode"));
+                if (!StringUtils.hasText(datasetCode)) {
+                    continue;
+                }
+                Map<String, String> fieldColumns = new LinkedHashMap<>();
+                Object rawFields = binding.get("fields");
+                if (rawFields instanceof List<?>) {
+                    for (Object rawField : (List<?>) rawFields) {
+                        if (rawField instanceof Map<?, ?>) {
+                            Map<String, Object> field = (Map<String, Object>) rawField;
+                            String fieldCode = asString(field.get("fieldCode"));
+                            String physicalColumnName = asString(field.get("physicalColumnName"));
+                            if (StringUtils.hasText(fieldCode) && StringUtils.hasText(physicalColumnName)) {
+                                fieldColumns.put(fieldCode, physicalColumnName);
+                            }
+                        }
+                    }
+                }
+                result.put(datasetCode, new DatasetMetricReadBinding(datasetCode, asString(binding.get("assetType")),
+                        asString(binding.get("datasetStatus")), asString(binding.get("physicalSchemaName")),
+                        asString(binding.get("physicalTableName")), asString(binding.get("targetCodeColumn")),
+                        asString(binding.get("dataTimeColumn")), fieldColumns));
+            }
+            return result;
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BusinessException(40001, "读取数据集指标取数绑定失败，请确认数据采集服务可用");
+        }
+    }
+
     private Integer asInteger(Object value) {
         if (value instanceof Number) {
             return ((Number) value).intValue();
@@ -98,6 +155,11 @@ public class CollectionDatasetMetadataClient {
     /** Dataset 当前可用于指标绑定的必要元数据。 */
     public record DatasetBinding(String datasetCode, String datasetName, String assetType, String datasetStatus,
             List<FieldDefinition> fields) {}
+
+    /** 仅在分析服务到 Python 数据服务的受控链路中使用的读取定位。 */
+    public record DatasetMetricReadBinding(String datasetCode, String assetType, String datasetStatus,
+            String physicalSchemaName, String physicalTableName, String targetCodeColumn, String dataTimeColumn,
+            Map<String, String> fieldColumns) {}
 
     /** 当前 DataTypeVersion 快照中的标准字段定义。 */
     public record FieldDefinition(String fieldCode, String fieldName, String fieldType) {}

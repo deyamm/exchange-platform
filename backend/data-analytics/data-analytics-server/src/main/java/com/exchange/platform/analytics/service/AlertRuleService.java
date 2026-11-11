@@ -15,5 +15,7 @@ public interface AlertRuleService extends IService<AlertRule> {
 
     AlertRuleView saveOrUpdateAlertRule(AlertRuleSaveRequest request);
 
+    AlertRuleView updateAlertRuleStatus(String ruleCode, CommonStatus status);
+
     void deleteAlertRule(String ruleCode);
 }

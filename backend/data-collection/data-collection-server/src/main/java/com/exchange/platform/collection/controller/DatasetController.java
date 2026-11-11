@@ -20,6 +20,7 @@ import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpd
 import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
+import com.exchange.platform.collection.api.response.execution.DatasetMetricReadBindingView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.collection.service.DatasetService;
@@ -114,6 +115,18 @@ public class DatasetController {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info("[{}] [Controller] query metric bindings, datasetCount={}", requestId, body.datasetCodes().size());
         return ApiResponse.success(datasetService.getMetricBindings(body), requestId);
+    }
+
+    /**
+     * 分析服务的受控读取绑定接口。此接口包含物理表定位信息，普通前端不得调用或展示。
+     */
+    @Operation(summary = "批量查询指标读取绑定", description = "仅供分析服务按 Dataset 批量读取指标值")
+    @PostMapping("/metric-read-bindings/query")
+    public ApiResponse<List<DatasetMetricReadBindingView>> metricReadBindings(
+            @Valid @RequestBody DatasetMetricBindingQueryRequest body, HttpServletRequest request) {
+        String requestId = RequestIdHolder.getRequestId(request);
+        log.info("[{}] [Controller] query metric read bindings, datasetCount={}", requestId, body.datasetCodes().size());
+        return ApiResponse.success(datasetService.getMetricReadBindings(body), requestId);
     }
 
     /** 查询数据集来源任务、最近成功执行及结果摘要。 */

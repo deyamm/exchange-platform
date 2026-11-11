@@ -43,6 +43,7 @@
                     <span> · 生成时间：{{ formatDateTime(shell.meta.generatedAt) }}</span>
                     <span v-if="shell.meta.partialData"> · 部分数据</span>
                 </div>
+                <RecentAlertMessages target-type="STOCK" :target-code="shell.targetProfile.fullSymbol" />
             </template>
 
             <el-empty v-else description="请输入标的编码查询详情" :image-size="120" />
@@ -56,6 +57,8 @@
             :target-type="activeWatchTarget?.targetType || 'STOCK'"
             @confirm="handleAddWatchConfirm"
         />
+        <AlertRuleEditorDialog v-model:open="alertDialogVisible" target-type="STOCK"
+            :target-code="shell?.targetProfile.fullSymbol" :target-name="shell?.targetProfile.name" @success="handleSearch" />
     </div>
 </template>
 
@@ -67,6 +70,8 @@ import { queryTargetDetailShell, queryTargetOverviewDetail } from '/@/api/target
 import type { TargetDetailShell, TargetOverviewDetail, TargetProfile } from '/@/types/targetdetail/targetDetailCenter'
 import type { TargetDetailQuery } from '/@/types/targetdetail/constants'
 import AddTargetFormDialog from '/@/components/common/AddTargetFormDialog.vue'
+import AlertRuleEditorDialog from '/@/components/common/AlertRuleEditorDialog.vue'
+import RecentAlertMessages from '/@/components/common/RecentAlertMessages.vue'
 import { saveOrUpdateWatchTarget } from '/@/api/watchtarget/watchTargetApi'
 import type { WatchTargetSaveRequest } from '/@/types/watchtarget/constants'
 import TargetHeaderCard from './components/TargetHeaderCard.vue'
@@ -94,6 +99,7 @@ const shell = ref<TargetDetailShell | null>(null)
 const overview = ref<TargetOverviewDetail | null>(null)
 const detailLoading = ref(false)
 const watchDialogVisible = ref(false)
+const alertDialogVisible = ref(false)
 const activeWatchTarget = ref<TargetProfile | null>(null)
 function routeTargetCode(): string {
     const routeValue = route.params.targetCode ?? route.query.targetCode ?? route.query.fullSymbol
@@ -189,7 +195,7 @@ async function handleAddWatchConfirm(payload: {
 }
 
 function handleCreateAlert(): void {
-    ElMessage.info('这里可以打开提醒规则弹窗')
+    alertDialogVisible.value = true
 }
 </script>
 

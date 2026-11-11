@@ -81,7 +81,7 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     }
 
     @Override
-    public List<WatchTargetView> search(String keyword, Integer limit) {
+    public List<WatchTargetView> search(String keyword, Integer limit, String targetType) {
         if (!StringUtils.hasText(keyword)) {
             return Collections.emptyList();
         }
@@ -90,10 +90,10 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
         int normalizedLimit = (limit == null || limit <= 0) ? 10 : limit;
 
         if (STOCK_CODE_PATTERN.matcher(normalizedKeyword).matches()) {
-            return buildWatchTargetViews(typeBasicDataMapper.searchByCode(normalizedKeyword, normalizedLimit));
+            return buildWatchTargetViews(typeBasicDataMapper.searchByCode(normalizedKeyword, normalizedLimit, targetType));
         }
 
-        return buildWatchTargetViews(typeBasicDataMapper.searchByName(normalizedKeyword, normalizedLimit));
+        return buildWatchTargetViews(typeBasicDataMapper.searchByName(normalizedKeyword, normalizedLimit, targetType));
     }
 
     /**

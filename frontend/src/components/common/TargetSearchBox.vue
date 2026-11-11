@@ -71,16 +71,19 @@ import { computed, ref, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { searchStockTargets } from '/@/api/watchtarget/watchTargetApi'
 import type { WatchTarget } from '/@/types/watchtarget/entity'
+import type { TargetType } from '/@/types/targetScope'
 
 // Props：父组件传入当前选中的 WatchTarget，以及可选的输入框提示文字。
 const props = withDefaults(
     defineProps<{
         modelValue?: WatchTarget | null
         placeholder?: string
+        targetType?: TargetType
     }>(),
     {
         modelValue: null,
         placeholder: '请输入股票代码或股票简称'
+        , targetType: 'STOCK'
     }
 )
 
@@ -172,7 +175,7 @@ async function search(rawKeyword: string) {
     loading.value = true
 
     try {
-        const result = await searchStockTargets(normalizedKeyword, 10)
+        const result = await searchStockTargets(normalizedKeyword, 10, props.targetType)
 
         // 丢弃过期请求结果，避免快速输入时列表被旧响应覆盖。
         if (currentSerial !== requestSerial) {
