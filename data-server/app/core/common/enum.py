@@ -53,24 +53,24 @@ class StockMarketType(str, Enum):
     股票所上市的市场
     """
     # 上交所主板A股
-    SSE_A = 1
+    SSE_A = "SSE_A"
     # 上证B股
-    SSE_B = 2
+    SSE_B = "SSE_B"
     # 深交所主板
-    SZSE_A = 4
+    SZSE_A = "SZSE_A"
     # 深交所B股
-    SZSE_B = 8
+    SZSE_B = "SZSE_B"
     # 深交所创业板
-    SZSE_CY = 16
+    SZSE_CY = "SZSE_CY"
     # 上交所科创板
-    SSE_KC = 32
+    SSE_KC = "SSE_KC"
     # 北交所
-    BSE = 64
+    BSE = "BSE"
     # 其他市场，包含未上市的股票、港股、美股等
-    OTHER = 99
+    OTHER = "OTHER"
 
 
-class IndexMarket(str, Enum):
+class PublisherCode(str, Enum):
     """
     基于Tushare指数基本信息接口中的市场分类，添加了东方财富指数和同花顺指数的分类
     """
@@ -92,14 +92,10 @@ class IndexMarket(str, Enum):
     # MSCI
     MSCI = ('MSCI', 7, 'MSCI指数')
     # 东方财富行业指数
-    EM = ('EM_INDUSTRY', 8, '东方财富行业指数')
-    # 东方财富概念指数
-    EM_CONCEPT = ('EM_CONCEPT', 9, '东方财富概念指数')
+    EM = ('EM', 8, '东方财富指数')
     # 同花顺行业指数
-    THS = ('THS_INDUSTRY', 10, '同花顺行业指数')
-    # 同花顺概念指数
-    THS_CONCEPT = ('THS_CONCEPT', 11, '同花顺概念指数')
-    # 其他指数
+    THS = ('THS', 9, '同花顺行业')
+
     OTH = ('OTH', 99, '其他指数')
 
     def __new__(cls, code: str, num: int, label: str):
@@ -113,26 +109,26 @@ class IndexMarket(str, Enum):
         return self.value
 
     @classmethod
-    def search_value(cls, value: str) -> "IndexMarket":
+    def search_value(cls, value: str) -> "PublisherCode":
         for item in cls:
             if item.value == value:
                 return item
-        logging.warning(f"未找到匹配的指数市场类型，value={value}，返回默认值OTH")
+        logging.warning(f"未找到匹配的指数发布方，value={value}，返回默认值OTH")
         return cls.OTH
 
     @classmethod
-    def from_num(cls, num: int) -> "IndexMarket":
+    def from_num(cls, num: int) -> "PublisherCode":
         for item in cls:
             if item.num == num:
                 return item
-        raise ValueError(f"No IndexMarket with num={num}")
+        raise ValueError(f"No PublisherCode with num={num}")
 
     @classmethod
-    def from_label(cls, label: str) -> "IndexMarket":
+    def from_label(cls, label: str) -> "PublisherCode":
         for item in cls:
             if item.label == label:
                 return item
-        raise ValueError(f"No IndexMarket with label={label}")
+        raise ValueError(f"No PublisherCode with label={label}")
 
     def to_dict(self) -> dict:
         return {

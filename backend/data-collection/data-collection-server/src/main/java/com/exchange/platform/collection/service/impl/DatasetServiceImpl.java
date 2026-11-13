@@ -427,7 +427,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         return view;
     }
 
-    /** 查询已加载数据集当前引用的数据类型版本结构。 */
+    /** 查询已加载数据集当前引用的数据类型版本结构，注意，这里的结构不是最新的数据类型字段，而是当前数据集所使用的结构。 */
     private List<?> loadStructure(Dataset dataset) {
         DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
                 .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
