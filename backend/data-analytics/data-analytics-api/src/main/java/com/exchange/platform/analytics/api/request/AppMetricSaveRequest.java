@@ -4,7 +4,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 /**
  * 应用指标主档保存请求。
@@ -16,7 +16,7 @@ public record AppMetricSaveRequest(
     @NotBlank(message = "指标名称不能为空") @Size(max = 128, message = "指标名称长度不能超过128个字符") String metricName,
     @NotBlank(message = "指标分类不能为空") @Size(max = 64, message = "指标分类长度不能超过64个字符") String metricCategory,
     /** 用户明确选择的指标适用标的类型，创建后不可修改。 */
-    @NotNull(message = "标的类型不能为空") AssetType targetType,
+    @NotNull(message = "标的类型不能为空") MarketAssetType targetType,
     @Size(max = 32, message = "单位长度不能超过32个字符") String unit,
     @NotBlank(message = "来源数据集不能为空") @Size(max = 64, message = "来源数据集编码长度不能超过64个字符") String datasetCode,
     @NotBlank(message = "来源字段不能为空") @Size(max = 64, message = "来源字段编码长度不能超过64个字符") String fieldCode,

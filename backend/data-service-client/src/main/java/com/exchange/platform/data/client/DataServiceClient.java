@@ -13,6 +13,8 @@ import com.exchange.platform.data.client.dto.TaskExecuteResult;
 import com.exchange.platform.data.client.dto.TaskRunExecuteRequest;
 import com.exchange.platform.data.client.dto.TaskTemplateSync;
 import com.exchange.platform.data.client.dto.DatasetMetricValueQuery;
+import com.exchange.platform.data.client.dto.DatasetRowsQuery;
+import com.exchange.platform.data.client.dto.DatasetRow;
 import com.exchange.platform.data.client.dto.MetricValue;
 
 /**
@@ -34,6 +36,10 @@ public interface DataServiceClient {
      */
     @PostMapping("/data-analytics/metric-values/query")
     List<MetricValue> queryDatasetMetricValues(@RequestBody DatasetMetricValueQuery query);
+
+    /** 读取 Dataset 的标准 fieldCode 行；仅供主数据发布编排器使用。 */
+    @PostMapping("/data-analytics/dataset-rows/query")
+    List<DatasetRow> queryDatasetRows(@RequestBody DatasetRowsQuery query);
 
     /**
      * GET /api/v1/collection-task/task-templates/current?taskCode=xxx

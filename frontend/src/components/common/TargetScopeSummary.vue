@@ -23,13 +23,13 @@ const props = withDefaults(defineProps<{
 
 const targetTypeName = computed(() => ASSET_TYPE_TEXT[props.scope.targetType]);
 const scopeLabel = computed(() => ({
-  BOARD: '板块', WATCH_GROUP: '关注分组', INDEX_TYPE: '类型', MARKET: '市场',
+  BOARD: '板块', WATCH_GROUP: '关注分组', INDEX_TYPE: '类型', PUBLISHER: '发布方', MARKET: '发布方',
 }[props.scope.scopeType] || '范围'));
 const currentOptions = computed(() => {
   if (props.scope.scopeType === 'BOARD') return props.options.board || [];
   if (props.scope.scopeType === 'WATCH_GROUP') return props.options.watchGroup || [];
   if (props.scope.scopeType === 'INDEX_TYPE') return props.options.indexType || [];
-  if (props.scope.scopeType === 'MARKET') return props.options.market || [];
+  if (props.scope.scopeType === 'PUBLISHER' || props.scope.scopeType === 'MARKET') return props.options.market || [];
   return [];
 });
 const detailText = computed(() => {

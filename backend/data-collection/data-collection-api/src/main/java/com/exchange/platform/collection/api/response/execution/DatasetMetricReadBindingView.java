@@ -3,7 +3,7 @@ package com.exchange.platform.collection.api.response.execution;
 import java.util.List;
 
 import com.exchange.platform.collection.api.enums.DatasetStatus;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import lombok.Data;
 
@@ -14,10 +14,12 @@ import lombok.Data;
 @Data
 public class DatasetMetricReadBindingView {
     private String datasetCode;
-    private AssetType assetType;
+    private String storageType;
+    private String dataSourceCode;
+    private MarketAssetType assetType;
     private DatasetStatus datasetStatus;
-    private String physicalSchemaName;
-    private String physicalTableName;
+    private String schemaName;
+    private String tableName;
     private String targetCodeColumn;
     private String dataTimeColumn;
     private List<DatasetMetricFieldBindingView> fields;

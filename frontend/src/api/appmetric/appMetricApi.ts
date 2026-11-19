@@ -34,7 +34,7 @@ export function updateAppMetricStatus(code: string, status: 'ENABLED' | 'DISABLE
     return http.post<void>(`/api/v1/analytics/metrics/${code}/status`, { status });
 }
 /** 复用 Dataset 目录接口，仅查询可用于新绑定的已启用数据集。 */
-export function queryEnabledDatasets(assetType: AssetType): Promise<PageResult<DatasetOption>> | any {
+export function queryEnabledDatasets(assetType?: AssetType): Promise<PageResult<DatasetOption>> | any {
     return http.get<PageResult<DatasetOption>>('/api/v1/collection/monitor/datasets', { params: { assetType, datasetStatus: 1, pageNo: 1, pageSize: 200 } });
 }
 /** 编辑时回显已停用/归档的原绑定 Dataset，不能因默认选项过滤而丢失值。 */

@@ -1,5 +1,8 @@
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 import type { WatchTarget } from '/@/types/watchtarget/entity'
+import type { MasterDataAsset } from '/@/types/masterdata'
+
+type NavigableAsset = WatchTarget | MasterDataAsset
 
 /**
  * 标的详情页面路由配置
@@ -15,7 +18,7 @@ interface TargetNavigationOptions {
     // 自定义路由解析规则
     // 如果不同页面需要不同的跳转方式，可以通过该方法覆盖默认规则
     resolveRoute?: (
-        target: WatchTarget,
+        target: NavigableAsset,
         fullSymbol: string
     ) => RouteLocationRaw | null
 }
@@ -24,7 +27,7 @@ interface TargetNavigationOptions {
  * 标的搜索结果导航 Composable
  *
  * 负责：
- * 1. 接收 WatchTarget
+ * 1. 接收已发布 Asset 或既有 WatchTarget
  * 2. 解析完整标的代码
  * 3. 根据标的类型确定目标路由
  * 4. 执行页面跳转
@@ -47,9 +50,9 @@ export function useTargetNavigation(
      *
      * 如果 targetCode 已经包含市场后缀，则直接返回。
      */
-    function getTargetFullSymbol(target: WatchTarget): string {
+    function getTargetFullSymbol(target: NavigableAsset): string {
 
-        const code = target.targetCode?.trim()
+        const code = ('assetCode' in target ? target.assetCode : target.targetCode)?.trim()
 
         if (!code) {
             return ''
@@ -59,7 +62,7 @@ export function useTargetNavigation(
             return code
         }
 
-        const marketCode = target.marketCode?.trim()
+        const marketCode = ('exchangeCode' in target ? target.exchangeCode : target.marketCode)?.trim()
 
         return marketCode
             ? `${code}.${marketCode}`
@@ -70,7 +73,7 @@ export function useTargetNavigation(
      * 根据标的类型解析目标路由
      */
     function resolveTargetRoute(
-        target: WatchTarget
+        target: NavigableAsset
     ): RouteLocationRaw | null {
 
         const fullSymbol = getTargetFullSymbol(target)
@@ -85,7 +88,8 @@ export function useTargetNavigation(
         }
 
         // 指数类型
-        if (target.targetType?.toUpperCase() === 'INDEX') {
+        const assetType = ('assetType' in target ? target.assetType : target.targetType)?.toUpperCase()
+        if (assetType === 'INDEX') {
 
             return {
                 name: options.indexRouteName || 'indexDetail',
@@ -108,7 +112,7 @@ export function useTargetNavigation(
      * 跳转到标的详情页面
      */
     async function navigateToTarget(
-        target: WatchTarget
+        target: NavigableAsset
     ): Promise<boolean> {
 
         const route = resolveTargetRoute(target)

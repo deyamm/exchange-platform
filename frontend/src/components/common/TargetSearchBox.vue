@@ -24,7 +24,7 @@
                 class="search-button"
                 :loading="loading"
                 :icon="Search"
-                aria-label="搜索股票"
+                aria-label="搜索标的"
                 @mousedown.prevent
                 @click="handleSearchButtonClick"
             />
@@ -42,23 +42,23 @@
             </div>
 
             <template v-else>
-                <!-- 一条候选股票；点击后将对应 WatchTarget 返回父组件。 -->
+    <!-- 一条已发布 Asset；关注状态等业务字段不属于搜索结果。 -->
                 <button
                     v-for="(target, index) in candidates"
-                    :key="`${target.marketCode}-${target.targetCode}`"
+                    :key="`${target.assetType}-${target.assetCode}`"
                     type="button"
                     class="candidate-item"
                     :class="{ 'is-active': index === activeIndex }"
                     @mouseenter="activeIndex = index"
                     @click="selectTarget(target)"
                 >
-                    <span class="candidate-code">{{ target.targetCode }}</span>
-                    <span class="candidate-name">{{ target.targetName }}</span>
+                    <span class="candidate-code">{{ target.assetCode }}</span>
+                    <span class="candidate-name">{{ target.assetName }}</span>
                 </button>
 
                 <!-- 请求完成但没有匹配结果时显示空状态。 -->
                 <div v-if="candidates.length === 0" class="dropdown-state">
-                    暂无匹配股票
+                    暂无匹配标的
                 </div>
             </template>
         </div>
@@ -69,28 +69,28 @@
 // ref：创建响应式状态；watch：监听父组件数据；computed：计算下拉框显示条件。
 import { computed, ref, watch } from 'vue'
 import { Search } from '@element-plus/icons-vue'
-import { searchStockTargets } from '/@/api/watchtarget/watchTargetApi'
-import type { WatchTarget } from '/@/types/watchtarget/entity'
+import { searchMasterDataAssets } from '/@/api/masterdata/masterDataApi'
+import type { MasterDataAsset } from '/@/types/masterdata'
 import type { TargetType } from '/@/types/targetScope'
 
-// Props：父组件传入当前选中的 WatchTarget，以及可选的输入框提示文字。
+// Props：父组件传入当前选中的主数据 Asset，以及可选的输入框提示文字。
 const props = withDefaults(
     defineProps<{
-        modelValue?: WatchTarget | null
+        modelValue?: MasterDataAsset | null
         placeholder?: string
         targetType?: TargetType
     }>(),
     {
         modelValue: null,
-        placeholder: '请输入股票代码或股票简称'
+        placeholder: '请输入标的代码或名称'
         , targetType: 'STOCK'
     }
 )
 
 // Emits：update:modelValue 用于支持 v-model；select 用于通知用户主动选中股票。
 const emit = defineEmits<{
-    (event: 'update:modelValue', value: WatchTarget | null): void
-    (event: 'select', value: WatchTarget): void
+    (event: 'update:modelValue', value: MasterDataAsset | null): void
+    (event: 'select', value: MasterDataAsset): void
 }>()
 
 // keyword：输入框当前显示的文本。
@@ -99,8 +99,8 @@ const keyword = ref('')
 const loading = ref(false)
 // focused：输入框是否处于焦点状态，用来控制下拉面板显示。
 const focused = ref(false)
-// candidates：后端返回的候选股票数组，每一项都是 WatchTarget。
-const candidates = ref<WatchTarget[]>([])
+// candidates：后端返回的候选项均为已发布主数据 Asset。
+const candidates = ref<MasterDataAsset[]>([])
 // activeIndex：键盘当前高亮的候选项下标；-1 表示没有高亮项。
 const activeIndex = ref(-1)
 
@@ -109,7 +109,7 @@ const activeIndex = ref(-1)
 // 请求序号：每次检索递增，确保只有最新请求可以覆盖候选列表。
 let requestSerial = 0
 
-// 监听父组件传入的 modelValue；当父组件设置了股票时，同步显示代码和简称。
+// 监听父组件传入的 modelValue；当父组件设置了标的时，同步显示代码和名称。
 watch(
     () => props.modelValue,
     (value) => {
@@ -125,9 +125,9 @@ watch(
     { immediate: true }
 )
 
-// 将 WatchTarget 格式化为输入框展示文本，例如“000001 平安银行”。
-function formatSelectedText(target: WatchTarget) {
-    return `${target.targetCode} ${target.targetName}`.trim()
+// 将 Asset 格式化为输入框展示文本，例如“000001 平安银行”。
+function formatSelectedText(target: MasterDataAsset) {
+    return `${target.assetCode} ${target.assetName}`.trim()
 }
 
 // 输入事件处理：用户每次编辑都会清除旧选择，并立即发起一次检索。
@@ -175,7 +175,7 @@ async function search(rawKeyword: string) {
     loading.value = true
 
     try {
-        const result = await searchStockTargets(normalizedKeyword, 10, props.targetType)
+        const result = await searchMasterDataAssets(normalizedKeyword, props.targetType, 10)
 
         // 丢弃过期请求结果，避免快速输入时列表被旧响应覆盖。
         if (currentSerial !== requestSerial) {
@@ -189,7 +189,7 @@ async function search(rawKeyword: string) {
             return
         }
 
-        console.error('检索股票失败', error)
+        console.error('检索标的失败', error)
         candidates.value = []
         activeIndex.value = -1
     } finally {
@@ -231,7 +231,7 @@ function handleEnter() {
 }
 
 // 选择股票：回填代码和简称、清空候选列表，并通过 v-model 与 select 事件返回对象。
-function selectTarget(target: WatchTarget) {
+function selectTarget(target: MasterDataAsset) {
     keyword.value = formatSelectedText(target)
     candidates.value = []
     activeIndex.value = -1

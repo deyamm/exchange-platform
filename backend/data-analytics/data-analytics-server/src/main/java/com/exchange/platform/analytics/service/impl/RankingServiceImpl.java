@@ -18,7 +18,6 @@ import org.springframework.util.StringUtils;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.ResultType;
 import com.exchange.platform.analytics.api.request.MetricQueryRequest;
 import com.exchange.platform.analytics.api.request.RankingQueryRequest;
@@ -30,32 +29,27 @@ import com.exchange.platform.analytics.api.response.RankingResultRowView;
 import com.exchange.platform.analytics.api.response.RankingResultView;
 import com.exchange.platform.analytics.api.response.RankingSnapshotView;
 import com.exchange.platform.analytics.entity.AppResult;
-import com.exchange.platform.analytics.entity.TargetGroup;
 import com.exchange.platform.analytics.entity.WatchTarget;
 import com.exchange.platform.analytics.mapper.AppResultMapper;
-import com.exchange.platform.analytics.mapper.TargetGroupMapper;
-import com.exchange.platform.analytics.mapper.TypeBasicDataMapper;
 import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.MetricValueQueryService;
 import com.exchange.platform.analytics.service.RankingService;
+import com.exchange.platform.analytics.service.masterdata.MasterDataTargetScopeService;
 import com.exchange.platform.analytics.service.support.TargetScopeTarget;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.exception.BusinessException;
 
 /** 多字段排序：缺失值始终最后，最后以 targetCode ASC 稳定兜底。 */
 @Service
 public class RankingServiceImpl implements RankingService {
     private final MetricValueQueryService metricValueQueryService;
-    private final TypeBasicDataMapper typeBasicDataMapper;
-    private final TargetGroupMapper targetGroupMapper;
+    private final MasterDataTargetScopeService masterDataTargetScopeService;
     private final WatchTargetMapper watchTargetMapper;
     private final AppResultMapper appResultMapper;
 
-    public RankingServiceImpl(MetricValueQueryService metricValueQueryService, TypeBasicDataMapper typeBasicDataMapper,
-            TargetGroupMapper targetGroupMapper, WatchTargetMapper watchTargetMapper, AppResultMapper appResultMapper) {
+    public RankingServiceImpl(MetricValueQueryService metricValueQueryService, MasterDataTargetScopeService masterDataTargetScopeService, WatchTargetMapper watchTargetMapper, AppResultMapper appResultMapper) {
         this.metricValueQueryService = metricValueQueryService;
-        this.typeBasicDataMapper = typeBasicDataMapper;
-        this.targetGroupMapper = targetGroupMapper;
+        this.masterDataTargetScopeService = masterDataTargetScopeService;
         this.watchTargetMapper = watchTargetMapper;
         this.appResultMapper = appResultMapper;
     }
@@ -126,7 +120,7 @@ public class RankingServiceImpl implements RankingService {
     private void validate(RankingQueryRequest request) {
         if (request == null || request.targetType() == null || request.targetScope() == null || request.rankingRules() == null || request.rankingRules().isEmpty())
             throw new BusinessException(40001, "排行请求不完整");
-        if (request.targetType() != AssetType.STOCK && request.targetType() != AssetType.INDEX) throw new BusinessException(40001, "当前仅支持股票和指数排行");
+        if (request.targetType() != MarketAssetType.STOCK && request.targetType() != MarketAssetType.INDEX) throw new BusinessException(40001, "当前仅支持股票和指数排行");
         if (request.targetScope().targetType() != request.targetType()) throw new BusinessException(40001, "请求标的类型与范围标的类型不一致");
         validateScopeProtocol(request.targetType(), request.targetScope());
         Set<String> codes = new LinkedHashSet<>();
@@ -151,25 +145,25 @@ public class RankingServiceImpl implements RankingService {
         return descending ? -compared : compared;
     }
 
-    private LinkedHashMap<String, TargetScopeTarget> resolveTargets(AssetType type, TargetScopeRequest scope) {
+    private LinkedHashMap<String, TargetScopeTarget> resolveTargets(MarketAssetType type, TargetScopeRequest scope) {
         String kind = scope.scopeType().trim().toUpperCase(); List<String> values = normalize(scope.scopeValues());
         List<TargetScopeTarget> targets;
         if ("WATCH_GROUP".equals(kind)) {
             targets = watchTargetMapper.selectList(new LambdaQueryWrapper<WatchTarget>().eq(WatchTarget::getTargetType, type.getValue()).in(WatchTarget::getGroupCode, values)
                     .orderByAsc(WatchTarget::getSortNo)).stream().map(w -> { TargetScopeTarget target = new TargetScopeTarget(); target.setTargetCode(w.getTargetCode()); target.setTargetName(w.getTargetName()); return target; }).toList();
-        } else if (type == AssetType.STOCK && "ALL".equals(kind)) targets = typeBasicDataMapper.selectActiveStockTargets(List.of());
-        else if (type == AssetType.STOCK && "BOARD".equals(kind)) targets = typeBasicDataMapper.selectActiveStockTargets(values);
-        else if (type == AssetType.INDEX && "ALL".equals(kind)) targets = typeBasicDataMapper.selectIndexTargets("", List.of());
-        else if (type == AssetType.INDEX && ("INDEX_TYPE".equals(kind) || "MARKET".equals(kind))) targets = typeBasicDataMapper.selectIndexTargets(kind, values);
-        else throw new BusinessException(40001, "标的类型不支持该范围类型：" + kind);
+        } else targets = masterDataTargetScopeService.resolve(type, kind, values,
+                scope.industryPublisherCode(), scope.industryLevel());
         return targets.stream().filter(t -> StringUtils.hasText(t.getTargetCode())).collect(Collectors.toMap(TargetScopeTarget::getTargetCode, t -> t, (a,b) -> a, LinkedHashMap::new));
     }
 
-    private void validateScopeProtocol(AssetType type, TargetScopeRequest scope) {
-        String kind = scope.scopeType().trim().toUpperCase(); Set<String> supported = type == AssetType.STOCK ? Set.of("ALL", "BOARD", "WATCH_GROUP") : Set.of("ALL", "INDEX_TYPE", "MARKET", "WATCH_GROUP");
+    private void validateScopeProtocol(MarketAssetType type, TargetScopeRequest scope) {
+        String kind = scope.scopeType().trim().toUpperCase(); Set<String> supported = type == MarketAssetType.STOCK ? Set.of("ALL", "BOARD", "WATCH_GROUP") : Set.of("ALL", "INDEX_TYPE", "PUBLISHER", "MARKET", "WATCH_GROUP");
         if (!supported.contains(kind)) throw new BusinessException(40001, "不支持的范围类型：" + kind);
         List<String> values = normalize(scope.scopeValues()); if ("ALL".equals(kind) && !values.isEmpty()) throw new BusinessException(40001, "ALL 范围不允许传范围值");
         if (!"ALL".equals(kind) && values.isEmpty()) throw new BusinessException(40001, "范围值不能为空");
+        if (type == MarketAssetType.STOCK && "BOARD".equals(kind)
+                && (!StringUtils.hasText(scope.industryPublisherCode()) || scope.industryLevel() == null || scope.industryLevel() < 1))
+            throw new BusinessException(40001, "板块范围必须指定行业发布方和层级");
     }
     private List<String> normalize(Collection<String> values) { return values == null ? List.of() : values.stream().filter(StringUtils::hasText).map(String::trim).distinct().toList(); }
     private String normalizeDirection(String value) { return StringUtils.hasText(value) ? value.trim().toUpperCase() : "DESC"; }

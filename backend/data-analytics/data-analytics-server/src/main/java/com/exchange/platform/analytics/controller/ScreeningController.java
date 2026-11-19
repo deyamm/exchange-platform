@@ -19,7 +19,7 @@ import com.exchange.platform.analytics.api.response.ScreeningResultView;
 import com.exchange.platform.analytics.api.response.ScreeningSnapshotView;
 import com.exchange.platform.analytics.api.response.TargetScopeOptionsView;
 import com.exchange.platform.analytics.service.ScreeningService;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
@@ -40,7 +40,7 @@ public class ScreeningController {
 
     @Operation(summary = "查询筛选范围可选项", description = "仅返回范围选择器所需的主数据编码和名称")
     @GetMapping("/scope-options")
-    public ApiResponse<TargetScopeOptionsView> scopeOptions(@RequestParam AssetType targetType,
+    public ApiResponse<TargetScopeOptionsView> scopeOptions(@RequestParam MarketAssetType targetType,
             HttpServletRequest request) {
         log.info("[Controller] scopeOptions: targetType={}", targetType);
         return ApiResponse.success(screeningService.getScopeOptions(targetType), RequestIdHolder.getRequestId(request));

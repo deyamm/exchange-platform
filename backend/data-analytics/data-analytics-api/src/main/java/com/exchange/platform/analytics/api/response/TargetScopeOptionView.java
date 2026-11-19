@@ -9,4 +9,11 @@ import lombok.Data;
 public class TargetScopeOptionView {
     private String code;
     private String name;
+    /** 仅行业指数选项携带，用于在前端按发布方和层级过滤。 */
+    private String publisherCode;
+    private Integer level;
+
+    public TargetScopeOptionView(String code, String name) {
+        this(code, name, null, null);
+    }
 }

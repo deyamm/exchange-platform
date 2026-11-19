@@ -62,12 +62,13 @@ public class MetricValueQueryServiceImpl implements MetricValueQueryService {
             DatasetMetricReadBinding binding = bindings.get(datasetCode);
             validateBinding(datasetCode, binding, request.targetType().getValue(), entry.getValue());
             List<MetricFieldQuery> fieldQueries = entry.getValue().stream().map(metric ->
-                    new MetricFieldQuery(metric.getMetricCode(), binding.fieldColumns().get(metric.getFieldCode())))
+                    new MetricFieldQuery(metric.getMetricCode(), metric.getFieldCode(),
+                            binding.fieldColumns().get(metric.getFieldCode())))
                     .collect(Collectors.toList());
             List<MetricValue> values = dataServiceClient.queryDatasetMetricValues(new DatasetMetricValueQuery(
-                    request.targetType().getValue(), datasetCode, binding.physicalSchemaName(),
-                    binding.physicalTableName(), binding.targetCodeColumn(), binding.dataTimeColumn(), targetCodes,
-                    fieldQueries, request.asOfTime()));
+                    request.targetType().getValue(), datasetCode, binding.storageType(), binding.dataSourceCode(),
+                    binding.schemaName(), binding.tableName(), binding.targetCodeColumn(), binding.dataTimeColumn(),
+                    targetCodes, fieldQueries, request.asOfTime()));
             if (values != null) {
                 values.forEach(value -> result.add(toView(value)));
             }
@@ -109,12 +110,13 @@ public class MetricValueQueryServiceImpl implements MetricValueQueryService {
         if (!targetType.equals(binding.assetType())) {
             throw new BusinessException(40001, "指标来源数据集标的类型不匹配：" + datasetCode);
         }
-        if (!StringUtils.hasText(binding.physicalSchemaName()) || !StringUtils.hasText(binding.physicalTableName())
+        if (!StringUtils.hasText(binding.storageType()) || !StringUtils.hasText(binding.dataSourceCode())
+                || !StringUtils.hasText(binding.schemaName()) || !StringUtils.hasText(binding.tableName())
                 || !StringUtils.hasText(binding.targetCodeColumn()) || !StringUtils.hasText(binding.dataTimeColumn())) {
             throw new BusinessException(40001, "指标来源数据集读取配置不完整：" + datasetCode);
         }
         for (AppMetric metric : metrics) {
-            if (!StringUtils.hasText(binding.fieldColumns().get(metric.getFieldCode()))) {
+        if (!StringUtils.hasText(binding.fieldColumns().get(metric.getFieldCode()))) {
                 throw new BusinessException(40001, "指标字段不在当前数据集结构中：" + metric.getMetricCode());
             }
         }

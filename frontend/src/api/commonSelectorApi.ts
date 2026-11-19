@@ -1,10 +1,8 @@
 import { queryAppMetricPage } from '/@/api/appmetric/appMetricApi';
-import { getIndexBasic } from '/@/api/marketoverview/marketOverviewApi';
 import { queryTargetGroupPage } from '/@/api/watchtarget/watchTargetApi';
 import type { AppMetric } from '/@/types/appmetric/entity';
 import type { MetricCategoryFilter } from '/@/types/appmetric/constants';
 import type { PageResult } from '/@/types/common';
-import type { IndexBasic } from '/@/types/marketoverview/entity';
 import type { TargetGroup } from '/@/types/watchtarget/entity';
 import type { TargetScopeOption, TargetScopeOptions, TargetType } from '/@/types/targetScope';
 
@@ -62,27 +60,4 @@ export async function queryEnabledTargetScopeGroups(): Promise<TargetScopeOption
         code: group.groupCode,
         name: group.groupName,
     }));
-}
-
-function uniqueOptions(rows: IndexBasic[], key: 'category' | 'market'): TargetScopeOption[] {
-    const seen = new Set<string>();
-    return rows.reduce<TargetScopeOption[]>((options, row) => {
-        const code = row[key]?.trim();
-        if (code && !seen.has(code)) {
-            seen.add(code);
-            // 编码和值来自 index_basic_data 主数据；此处不创建第二套指数类型/市场字典。
-            options.push({ code, name: code });
-        }
-        return options;
-    }, []);
-}
-
-/** 从已有指数基础主数据动态派生指数类型和所属市场选项。 */
-export async function queryIndexTargetScopeOptions(): Promise<Pick<TargetScopeOptions, 'indexType' | 'market'>> {
-    const rows = await getIndexBasic({});
-    const indexRows = (rows || []) as IndexBasic[];
-    return {
-        indexType: uniqueOptions(indexRows, 'category'),
-        market: uniqueOptions(indexRows, 'market'),
-    };
 }

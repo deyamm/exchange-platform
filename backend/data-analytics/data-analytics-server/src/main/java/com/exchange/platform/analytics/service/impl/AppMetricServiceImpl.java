@@ -27,7 +27,7 @@ import com.exchange.platform.analytics.service.support.CollectionDatasetMetadata
 import com.exchange.platform.analytics.service.support.CollectionDatasetMetadataClient.DatasetBinding;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 
 @Service
@@ -48,7 +48,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
 
     @Override
     @Transactional(readOnly = true)
-    public PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, AssetType targetType, CommonStatus status, Integer pageNo, Integer pageSize) {
+    public PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, MarketAssetType targetType, CommonStatus status, Integer pageNo, Integer pageSize) {
 
         log.info("[Service] getMetricList keyword={}, metricCategory={}, targetType={}, status={}, pageNo={}, pageSize={}", keyword, metricCategory, targetType, status, pageNo, pageSize);
 

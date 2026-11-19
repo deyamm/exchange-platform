@@ -7,7 +7,7 @@ import type { AssetType } from '/@/types/asset';
 export type TargetType = AssetType;
 
 export type StockScopeType = 'ALL' | 'BOARD' | 'WATCH_GROUP';
-export type IndexScopeType = 'ALL' | 'INDEX_TYPE' | 'MARKET' | 'WATCH_GROUP';
+export type IndexScopeType = 'ALL' | 'INDEX_TYPE' | 'PUBLISHER' | 'MARKET' | 'WATCH_GROUP';
 export type TargetScopeType = StockScopeType | IndexScopeType;
 
 /** 可持久化、可跨页面传递的范围模型；展示名称不写入 scopeValues。 */
@@ -15,12 +15,17 @@ export interface TargetScope {
     targetType: TargetType;
     scopeType: TargetScopeType;
     scopeValues: string[];
+    /** BOARD 以一套行业指数体系为边界，SW/EM/THS 只能选择其一。 */
+    industryPublisherCode?: 'SW' | 'EM' | 'THS';
+    industryLevel?: number;
 }
 
 /** 主数据查询结果到选择器的最小展示模型。 */
 export interface TargetScopeOption {
     code: string;
     name: string;
+    publisherCode?: string | null;
+    level?: number | null;
 }
 
 export interface TargetScopeOptions {
@@ -39,7 +44,7 @@ export const STOCK_SCOPE_TYPE_OPTIONS: Array<{ label: string; value: StockScopeT
 export const INDEX_SCOPE_TYPE_OPTIONS: Array<{ label: string; value: IndexScopeType }> = [
     { label: '全部指数', value: 'ALL' },
     { label: '指数类型', value: 'INDEX_TYPE' },
-    { label: '所属市场', value: 'MARKET' },
+    { label: '发布方', value: 'PUBLISHER' },
     { label: '关注分组', value: 'WATCH_GROUP' },
 ];
 
@@ -50,9 +55,10 @@ export function scopeTypeOptions(targetType: TargetType) {
 }
 
 export function isScopeTypeSupported(targetType: TargetType, scopeType: string): scopeType is TargetScopeType {
-    return scopeTypeOptions(targetType).some((item) => item.value === scopeType);
+    return scopeTypeOptions(targetType).some((item) => item.value === scopeType)
+        || (targetType === 'INDEX' && scopeType === 'MARKET');
 }
 
 export function emptyTargetScope(targetType: TargetType): TargetScope {
-    return { targetType, scopeType: 'ALL', scopeValues: [] };
+    return { targetType, scopeType: 'ALL', scopeValues: [], industryPublisherCode: undefined, industryLevel: undefined };
 }

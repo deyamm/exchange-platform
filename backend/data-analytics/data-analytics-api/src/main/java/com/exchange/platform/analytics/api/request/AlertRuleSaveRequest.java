@@ -8,7 +8,7 @@ import javax.validation.constraints.Size;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.RuleType;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 
 public record AlertRuleSaveRequest(
@@ -17,7 +17,7 @@ public record AlertRuleSaveRequest(
     RuleType ruleType,
     String targetCode,
     /** 具体标的提醒使用 targetType + targetCode 作为标的身份。 */
-    AssetType targetType,
+    MarketAssetType targetType,
     String groupCode,
     String metricCode,
     Object condition,

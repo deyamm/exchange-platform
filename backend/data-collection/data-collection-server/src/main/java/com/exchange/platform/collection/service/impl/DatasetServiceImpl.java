@@ -59,7 +59,7 @@ import com.exchange.platform.collection.service.DatasetExecutionService;
 import com.exchange.platform.collection.service.DatasetService;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
 
 import cn.hutool.json.JSONObject;
@@ -134,7 +134,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     public void registerSuccessfulRun(TaskRun run, ExecutionConfigSnapshot snapshot, StorageMapping mapping,
             ResultSummary summary) {
         Dataset dataset = findByCode(snapshot.getDatasetCode());
-        AssetType executedAssetType = requireExecutedAssetType(snapshot);
+        MarketAssetType executedAssetType = requireExecutedAssetType(snapshot);
         LocalDateTime now = LocalDateTime.now();
         if (dataset == null) {
             dataset = new Dataset()
@@ -185,7 +185,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     /** 按条件分页查询数据集目录，统一处理分页参数并转换为目录视图。 */
     @Override
     @Transactional(readOnly = true)
-    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, AssetType assetType, Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize) {
+    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, MarketAssetType assetType, Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize) {
         log.info("[Service] query start, datasetCode={}, datasetName={}, topicCode={}, dataTypeCode={}, assetType={}, datasetStatus={}, taskConfigCode={}, startTime={}, endTime={}, pageNo={}, pageSize={}",
                 datasetCode, datasetName, topicCode, dataTypeCode, assetType, datasetStatus, taskConfigCode, startTime,
                 endTime, pageNo, pageSize);
@@ -329,7 +329,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
             DatasetMetricBindingView view = new DatasetMetricBindingView();
             view.setDatasetCode(dataset.getDatasetCode());
             view.setDatasetName(dataset.getDatasetName());
-            view.setAssetType(AssetType.fromCode(dataset.getAssetType()));
+            view.setAssetType(MarketAssetType.fromCode(dataset.getAssetType()));
             view.setDatasetStatus(dataset.getDatasetStatus());
             view.setDataTypeVersionNo(dataset.getDataTypeVersionNo());
             DataTypeVersion version = dataTypeVersionMapper.selectOne(
@@ -378,8 +378,14 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         StorageMapping mapping = storageMappingMapper.selectOne(new LambdaQueryWrapper<StorageMapping>()
                 .eq(StorageMapping::getStorageMappingCode, dataset.getStorageMappingCode()).last("LIMIT 1"));
         if (mapping == null || !StringUtils.hasText(mapping.getPhysicalSchemaName())
-                || !StringUtils.hasText(mapping.getPhysicalTableName())) {
+                || !StringUtils.hasText(mapping.getPhysicalTableName())
+                || !StringUtils.hasText(mapping.getDataSourceCode())) {
             throw new BusinessException(40006, "数据集物理存储定位无效：" + dataset.getDatasetCode());
+        }
+        DataSourceConfig source = dataSourceConfigMapper.selectOne(new LambdaQueryWrapper<DataSourceConfig>()
+                .eq(DataSourceConfig::getDataSourceCode, mapping.getDataSourceCode()).last("LIMIT 1"));
+        if (source == null || source.getStatus() == null) {
+            throw new BusinessException(40006, "数据集数据源不存在或不可用：" + dataset.getDatasetCode());
         }
         // dataset 对应的 storage column mapping
         List<StorageColumnMapping> columns = storageColumnMappingMapper.selectList(
@@ -412,10 +418,12 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         }
         DatasetMetricReadBindingView view = new DatasetMetricReadBindingView();
         view.setDatasetCode(dataset.getDatasetCode());
-        view.setAssetType(AssetType.fromCode(dataset.getAssetType()));
+        view.setStorageType(source.getDataSourceType());
+        view.setDataSourceCode(mapping.getDataSourceCode());
+        view.setAssetType(MarketAssetType.fromCode(dataset.getAssetType()));
         view.setDatasetStatus(dataset.getDatasetStatus());
-        view.setPhysicalSchemaName(mapping.getPhysicalSchemaName());
-        view.setPhysicalTableName(mapping.getPhysicalTableName());
+        view.setSchemaName(mapping.getPhysicalSchemaName());
+        view.setTableName(mapping.getPhysicalTableName());
         view.setTargetCodeColumn(targetCodeColumn);
         view.setDataTimeColumn(dataTimeColumn);
         view.setFields(physicalColumns.entrySet().stream().map(entry -> {
@@ -454,7 +462,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     }
 
     /** 从执行快照固定的任务版本读取标的类型。 */
-    private AssetType requireExecutedAssetType(ExecutionConfigSnapshot snapshot) {
+    private MarketAssetType requireExecutedAssetType(ExecutionConfigSnapshot snapshot) {
         TaskTemplateVersion version = taskTemplateVersionMapper.selectOne(
             new LambdaQueryWrapper<TaskTemplateVersion>()
                 .eq(TaskTemplateVersion::getTaskCode, snapshot.getTaskCode())
@@ -464,7 +472,7 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         if (version == null || version.getAssetType() == null) {
             throw new BusinessException(40006, "执行使用的任务模板版本缺少有效资产类型");
         }
-        return AssetType.fromCode(version.getAssetType());
+        return MarketAssetType.fromCode(version.getAssetType());
     }
 
     /** 读取指定数据集的存储分组元数据值。 */
@@ -657,8 +665,8 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         DatasetView view = new DatasetView();
         view.setDatasetCode(entity.getDatasetCode());
         view.setDatasetName(entity.getDatasetName());
-        view.setAssetType(AssetType.fromCode(entity.getAssetType()));
-        view.setAssetTypeName(entity.getAssetType() == null ? null : AssetType.fromCode(entity.getAssetType()).getDisplayName());
+        view.setAssetType(MarketAssetType.fromCode(entity.getAssetType()));
+        view.setAssetTypeName(entity.getAssetType() == null ? null : MarketAssetType.fromCode(entity.getAssetType()).getDisplayName());
         view.setDescription(entity.getDescription());
         view.setTaskConfigCode(entity.getTaskConfigCode());
         view.setTaskCode(entity.getTaskCode());

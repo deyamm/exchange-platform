@@ -3,7 +3,7 @@ package com.exchange.platform.analytics.converter;
 
 import com.exchange.platform.analytics.api.response.AppMetricView;
 import com.exchange.platform.analytics.entity.AppMetric;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 public class MetricConverter {
 
@@ -19,8 +19,8 @@ public class MetricConverter {
         view.setMetricCode(entity.getMetricCode());
         view.setMetricName(entity.getMetricName());
         view.setMetricCategory(entity.getMetricCategory());
-        view.setTargetType(AssetType.fromCode(entity.getTargetType()));
-        view.setTargetTypeName(entity.getTargetType() == null ? null : AssetType.fromCode(entity.getTargetType()).getDisplayName());
+        view.setTargetType(MarketAssetType.fromCode(entity.getTargetType()));
+        view.setTargetTypeName(entity.getTargetType() == null ? null : MarketAssetType.fromCode(entity.getTargetType()).getDisplayName());
         view.setUnit(entity.getUnit());
         view.setDatasetCode(entity.getDatasetCode());
         view.setFieldCode(entity.getFieldCode());

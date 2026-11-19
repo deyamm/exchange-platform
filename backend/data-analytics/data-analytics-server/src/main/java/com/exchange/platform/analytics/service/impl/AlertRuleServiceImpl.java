@@ -131,6 +131,7 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
     }
 
     private Map<String, Object> normalizeCondition(AlertRuleSaveRequest request) {
+        @SuppressWarnings("unchecked")
         Map<String, Object> condition = request.condition() instanceof Map
                 ? new java.util.HashMap<>((Map<String, Object>) request.condition())
                 : new java.util.HashMap<>();
@@ -159,7 +160,7 @@ public class AlertRuleServiceImpl extends ServiceImpl<AlertRuleMapper, AlertRule
      * targetType 一致。没有具体标的的全局规则不适用这项校验，因而允许两字段均为空。
      */
     private void validateTargetAndMetricCompatibility(String targetCode,
-            com.exchange.platform.common.core.enums.AssetType targetType, AppMetric metric) {
+            com.exchange.platform.common.core.enums.MarketAssetType targetType, AppMetric metric) {
         if (!StringUtils.hasText(targetCode)) {
             return;
         }

@@ -1,6 +1,5 @@
 package com.exchange.platform.analytics.service;
 
-import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -20,12 +19,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
         long pageNo,
         long pageSize
     );
-
-    /**
-     * 根据输入内容检索股票。
-     * 纯数字输入按股票代码检索，否则按股票简称检索。
-     */
-    List<WatchTargetView> search(String keyword, Integer limit, String targetType);
 
     public WatchTargetView saveOrUpdateWatchTarget(WatchTargetSaveRequest request);
 

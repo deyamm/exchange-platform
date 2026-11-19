@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.exchange.platform.collection.api.enums.DatasetStatus;
 import com.exchange.platform.collection.api.response.dataType.DataTypeFieldView;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import lombok.Data;
 
@@ -18,7 +18,7 @@ public class DatasetMetricBindingView {
     private String datasetCode;
     private String datasetName;
     /** 应用指标保存时用来与 targetType 比对的 Dataset 权威标的类型。 */
-    private AssetType assetType;
+    private MarketAssetType assetType;
     private DatasetStatus datasetStatus;
     private Integer dataTypeVersionNo;
     private List<DataTypeFieldView> fields;

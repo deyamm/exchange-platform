@@ -47,17 +47,6 @@ INDEX_MARKET_NAME_MAP = {
     "OTH": "其他指数",
 }
 
-INDEX_EXCHANGE_NAME_MAP = {
-    "SSE": "上海证券交易所",
-    "SZSE": "深圳证券交易所",
-    "CSI": "中证指数有限公司",
-    "MSCI": "MSCI",
-    "CICC": "中金公司",
-    "SW": "申万宏源研究",
-    "SH": "上海证券交易所",
-    "SZ": "深圳证券交易所",
-}
-
 CHANGE_RANGE_DEFS: Sequence[Tuple[str, str, float, float, int]] = (
     # rangeCode, label, min, max, direction
     ("up-gt-10", ">10%", 10.0, 100.0, 1),

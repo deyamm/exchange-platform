@@ -18,14 +18,14 @@ import { querySelectableMetrics, type SelectableMetric } from '/@/api/commonSele
 import { queryComparison, saveComparisonResult } from '/@/api/comparisonApi';
 import type { ComparisonQueryRequest, ComparisonResult, ComparisonTarget } from '/@/types/comparison';
 import type { TargetType } from '/@/types/targetScope';
-import type { WatchTarget } from '/@/types/watchtarget/entity';
+import type { MasterDataAsset } from '/@/types/masterdata';
 
-const route = useRoute(); const targetType = ref<TargetType>((route.query.targetType as TargetType) || 'STOCK'); const targets = ref<ComparisonTarget[]>([]); const searchTarget = ref<WatchTarget | null>(null); const asOfTime = ref<string | null>(null); const selectedMetrics = ref<SelectableMetric[]>([]); const metricCatalog = ref<Record<string, SelectableMetric>>({}); const metricDialogVisible = ref(false); const result = ref<ComparisonResult>({ targetType: targetType.value, targets: [], rows: [] }); const loading = ref(false); const executed = ref(false);
+const route = useRoute(); const targetType = ref<TargetType>((route.query.targetType as TargetType) || 'STOCK'); const targets = ref<ComparisonTarget[]>([]); const searchTarget = ref<MasterDataAsset | null>(null); const asOfTime = ref<string | null>(null); const selectedMetrics = ref<SelectableMetric[]>([]); const metricCatalog = ref<Record<string, SelectableMetric>>({}); const metricDialogVisible = ref(false); const result = ref<ComparisonResult>({ targetType: targetType.value, targets: [], rows: [] }); const loading = ref(false); const executed = ref(false);
 onMounted(() => { const codes = String(route.query.selectedTargetCodes || '').split(',').filter(Boolean); codes.forEach(code => targets.value.push({ targetCode: code, targetName: code })); loadMetrics(); });
 const metricCodes = computed(() => selectedMetrics.value.map(metric => metric.metricCode));
 async function loadMetrics() { const page = await querySelectableMetrics({ targetType: targetType.value, pageNo: 1, pageSize: 200 }); metricCatalog.value = Object.fromEntries(page.records.map(metric => [metric.metricCode, metric])); }
 function resetTargets() { targets.value = []; executed.value = false; }
-function addTarget(target: WatchTarget) { if (target.targetType !== targetType.value) return ElMessage.warning('只能添加同一标的类型'); if (!targets.value.some(item => item.targetCode === target.targetCode)) targets.value.push({ targetCode: target.targetCode, targetName: target.targetName }); searchTarget.value = null; }
+function addTarget(target: MasterDataAsset) { if (target.assetType !== targetType.value) return ElMessage.warning('只能添加同一标的类型'); if (!targets.value.some(item => item.targetCode === target.assetCode)) targets.value.push({ targetCode: target.assetCode, targetName: target.assetName }); searchTarget.value = null; }
 function removeTarget(code: string) { targets.value = targets.value.filter(target => target.targetCode !== code); executed.value = false; }
 async function selectMetrics(codes: string[]) { metricDialogVisible.value = false; await loadMetrics(); selectedMetrics.value = codes.map(code => metricCatalog.value[code]).filter(Boolean); executed.value = false; }
 function removeMetric(code: string) { selectedMetrics.value = selectedMetrics.value.filter(metric => metric.metricCode !== code); executed.value = false; }

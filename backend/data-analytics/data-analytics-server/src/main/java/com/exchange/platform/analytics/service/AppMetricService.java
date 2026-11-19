@@ -6,12 +6,12 @@ import com.exchange.platform.analytics.api.request.AppMetricSaveRequest;
 import com.exchange.platform.analytics.api.response.AppMetricView;
 import com.exchange.platform.analytics.entity.AppMetric;
 import com.exchange.platform.common.core.page.PageResult;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 
 public interface AppMetricService extends IService<AppMetric> {
 
-    PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, AssetType targetType, CommonStatus status, Integer pageNo, Integer pageSize);
+    PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, MarketAssetType targetType, CommonStatus status, Integer pageNo, Integer pageSize);
 
     AppMetricView saveOrUpdateMetric(AppMetricSaveRequest request);
 

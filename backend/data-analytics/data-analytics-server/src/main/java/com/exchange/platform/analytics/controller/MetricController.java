@@ -22,7 +22,7 @@ import com.exchange.platform.analytics.service.AppMetricService;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import io.swagger.v3.oas.annotations.Operation;
 
@@ -43,7 +43,7 @@ public class MetricController {
     public ApiResponse<PageResult<AppMetricView>> getMetricList(
         @RequestParam(required = false) String keyword,
         @RequestParam(required = false) String metricCategory,
-        @RequestParam(required = false) AssetType targetType,
+        @RequestParam(required = false) MarketAssetType targetType,
         @RequestParam(required = false) CommonStatus status,
         @RequestParam(defaultValue = "1") Integer pageNo,
         @RequestParam(defaultValue = "20") Integer pageSize,

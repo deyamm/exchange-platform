@@ -21,6 +21,8 @@ import org.springframework.util.StringUtils;
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.exchange.platform.analytics.api.enums.CommonStatus;
+import com.exchange.platform.analytics.api.enums.IndexCategory;
+import com.exchange.platform.analytics.api.enums.PublisherCode;
 import com.exchange.platform.analytics.api.request.MetricConditionGroupRequest;
 import com.exchange.platform.analytics.api.request.MetricConditionRequest;
 import com.exchange.platform.analytics.api.request.MetricQueryRequest;
@@ -39,12 +41,12 @@ import com.exchange.platform.analytics.entity.AppResult;
 import com.exchange.platform.analytics.api.enums.ResultType;
 import com.exchange.platform.analytics.mapper.AppResultMapper;
 import com.exchange.platform.analytics.mapper.TargetGroupMapper;
-import com.exchange.platform.analytics.mapper.TypeBasicDataMapper;
 import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.MetricValueQueryService;
 import com.exchange.platform.analytics.service.ScreeningService;
+import com.exchange.platform.analytics.service.masterdata.MasterDataTargetScopeService;
 import com.exchange.platform.analytics.service.support.TargetScopeTarget;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.exception.BusinessException;
 
 /**
@@ -61,16 +63,16 @@ public class ScreeningServiceImpl implements ScreeningService {
     private static final Set<String> NULL_OPERATORS = Set.of("IS_NULL", "IS_NOT_NULL");
 
     private final MetricValueQueryService metricValueQueryService;
-    private final TypeBasicDataMapper typeBasicDataMapper;
+    private final MasterDataTargetScopeService masterDataTargetScopeService;
     private final TargetGroupMapper targetGroupMapper;
     private final WatchTargetMapper watchTargetMapper;
     private final AppResultMapper appResultMapper;
 
     public ScreeningServiceImpl(MetricValueQueryService metricValueQueryService,
-            TypeBasicDataMapper typeBasicDataMapper, TargetGroupMapper targetGroupMapper,
+            MasterDataTargetScopeService masterDataTargetScopeService, TargetGroupMapper targetGroupMapper,
             WatchTargetMapper watchTargetMapper, AppResultMapper appResultMapper) {
         this.metricValueQueryService = metricValueQueryService;
-        this.typeBasicDataMapper = typeBasicDataMapper;
+        this.masterDataTargetScopeService = masterDataTargetScopeService;
         this.targetGroupMapper = targetGroupMapper;
         this.watchTargetMapper = watchTargetMapper;
         this.appResultMapper = appResultMapper;
@@ -122,7 +124,7 @@ public class ScreeningServiceImpl implements ScreeningService {
 
     @Override
     @Transactional(readOnly = true)
-    public TargetScopeOptionsView getScopeOptions(AssetType targetType) {
+    public TargetScopeOptionsView getScopeOptions(MarketAssetType targetType) {
         assertSupportedTargetType(targetType);
         TargetScopeOptionsView view = new TargetScopeOptionsView();
         view.setWatchGroup(targetGroupMapper.selectList(new LambdaQueryWrapper<TargetGroup>()
@@ -130,14 +132,16 @@ public class ScreeningServiceImpl implements ScreeningService {
                 .orderByAsc(TargetGroup::getSortNo)).stream()
                 .map(group -> new TargetScopeOptionView(group.getGroupCode(), group.getGroupName()))
                 .collect(Collectors.toList()));
-        if (targetType == AssetType.STOCK) {
-            view.setBoard(toOptions(typeBasicDataMapper.selectStockBoardOptions()));
+        if (targetType == MarketAssetType.STOCK) {
+            view.setBoard(masterDataTargetScopeService.industryBoardOptions());
             view.setIndexType(List.of());
             view.setMarket(List.of());
         } else {
             view.setBoard(List.of());
-            view.setIndexType(toOptions(typeBasicDataMapper.selectIndexTypeOptions()));
-            view.setMarket(toOptions(typeBasicDataMapper.selectIndexMarketOptions()));
+            view.setIndexType(java.util.Arrays.stream(IndexCategory.values())
+                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getValue())).toList());
+            view.setMarket(java.util.Arrays.stream(PublisherCode.values())
+                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getValue())).toList());
         }
         return view;
     }
@@ -181,37 +185,22 @@ public class ScreeningServiceImpl implements ScreeningService {
         return JSON.parseObject(entity.getResultSummaryJson(), ScreeningSnapshotView.class);
     }
 
-    private LinkedHashMap<String, TargetScopeTarget> resolveTargets(AssetType targetType, TargetScopeRequest scope) {
+    private LinkedHashMap<String, TargetScopeTarget> resolveTargets(MarketAssetType targetType, TargetScopeRequest scope) {
         String scopeType = normalized(scope.scopeType());
         List<String> values = normalizeCodes(scope.scopeValues(), "范围值");
         List<TargetScopeTarget> resolved;
         if ("WATCH_GROUP".equals(scopeType)) {
             resolved = resolveWatchGroupTargets(targetType, values);
-        } else if (targetType == AssetType.STOCK && "ALL".equals(scopeType)) {
-            assertNoScopeValues(values, scopeType);
-            resolved = typeBasicDataMapper.selectActiveStockTargets(List.of());
-        } else if (targetType == AssetType.STOCK && "BOARD".equals(scopeType)) {
-            requireScopeValues(values, scopeType);
-            // 基础资料当前提供的可用行业字段作为板块主数据来源；不会在代码中伪造板块枚举。
-            resolved = typeBasicDataMapper.selectActiveStockTargets(values);
-        } else if (targetType == AssetType.INDEX && "ALL".equals(scopeType)) {
-            assertNoScopeValues(values, scopeType);
-            resolved = typeBasicDataMapper.selectIndexTargets("", List.of());
-        } else if (targetType == AssetType.INDEX && "INDEX_TYPE".equals(scopeType)) {
-            requireScopeValues(values, scopeType);
-            resolved = typeBasicDataMapper.selectIndexTargets("INDEX_TYPE", values);
-        } else if (targetType == AssetType.INDEX && "MARKET".equals(scopeType)) {
-            requireScopeValues(values, scopeType);
-            resolved = typeBasicDataMapper.selectIndexTargets("MARKET", values);
         } else {
-            throw new BusinessException(40001, "标的类型不支持该范围类型：" + scopeType);
+            resolved = masterDataTargetScopeService.resolve(targetType, scopeType, values,
+                    scope.industryPublisherCode(), scope.industryLevel());
         }
         return resolved.stream().filter(target -> StringUtils.hasText(target.getTargetCode()))
                 .collect(Collectors.toMap(TargetScopeTarget::getTargetCode, target -> target, (first, ignored) -> first,
                         LinkedHashMap::new));
     }
 
-    private List<TargetScopeTarget> resolveWatchGroupTargets(AssetType targetType, List<String> groupCodes) {
+    private List<TargetScopeTarget> resolveWatchGroupTargets(MarketAssetType targetType, List<String> groupCodes) {
         requireScopeValues(groupCodes, "WATCH_GROUP");
         return watchTargetMapper.selectList(new LambdaQueryWrapper<WatchTarget>()
                 .eq(WatchTarget::getTargetType, targetType.getValue())
@@ -256,11 +245,11 @@ public class ScreeningServiceImpl implements ScreeningService {
     }
 
     /** 在不读取基础资料的情况下校验范围协议，保存快照时也能拒绝非法 scopeType。 */
-    private void validateScopeProtocol(AssetType targetType, TargetScopeRequest scope) {
+    private void validateScopeProtocol(MarketAssetType targetType, TargetScopeRequest scope) {
         String scopeType = normalized(scope.scopeType());
-        Set<String> supported = targetType == AssetType.STOCK
+        Set<String> supported = targetType == MarketAssetType.STOCK
                 ? Set.of("ALL", "BOARD", "WATCH_GROUP")
-                : Set.of("ALL", "INDEX_TYPE", "MARKET", "WATCH_GROUP");
+                : Set.of("ALL", "INDEX_TYPE", "PUBLISHER", "MARKET", "WATCH_GROUP");
         if (!supported.contains(scopeType)) {
             throw new BusinessException(40001, "标的类型不支持该范围类型：" + scope.scopeType());
         }
@@ -270,6 +259,11 @@ public class ScreeningServiceImpl implements ScreeningService {
         }
         if (!"ALL".equals(scopeType) && values.isEmpty()) {
             throw new BusinessException(40001, scopeType + " 至少需要一个范围值");
+        }
+        if (targetType == MarketAssetType.STOCK && "BOARD".equals(scopeType)
+                && (!StringUtils.hasText(scope.industryPublisherCode()) || scope.industryLevel() == null
+                        || scope.industryLevel() < 1)) {
+            throw new BusinessException(40001, "板块范围必须指定行业发布方和层级");
         }
     }
 
@@ -377,12 +371,6 @@ public class ScreeningServiceImpl implements ScreeningService {
         return new ArrayList<>(codes);
     }
 
-    private List<TargetScopeOptionView> toOptions(List<TargetScopeTarget> targets) {
-        return targets.stream().filter(target -> StringUtils.hasText(target.getTargetCode()))
-                .map(target -> new TargetScopeOptionView(target.getTargetCode(), target.getTargetName()))
-                .collect(Collectors.toList());
-    }
-
     private List<String> normalizeCodes(Collection<String> rawValues, String label) {
         if (rawValues == null) return List.of();
         return rawValues.stream().filter(StringUtils::hasText).map(String::trim).distinct().collect(Collectors.toList());
@@ -426,12 +414,8 @@ public class ScreeningServiceImpl implements ScreeningService {
         if (values.isEmpty()) throw new BusinessException(40001, scopeType + " 至少需要一个范围值");
     }
 
-    private void assertNoScopeValues(List<String> values, String scopeType) {
-        if (!values.isEmpty()) throw new BusinessException(40001, scopeType + " 不允许传范围值");
-    }
-
-    private void assertSupportedTargetType(AssetType targetType) {
-        if (targetType != AssetType.STOCK && targetType != AssetType.INDEX) {
+    private void assertSupportedTargetType(MarketAssetType targetType) {
+        if (targetType != MarketAssetType.STOCK && targetType != MarketAssetType.INDEX) {
             throw new BusinessException(40001, "条件筛选当前仅支持股票和指数");
         }
     }

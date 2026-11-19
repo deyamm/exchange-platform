@@ -27,7 +27,7 @@ import com.exchange.platform.collection.service.DatasetService;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,7 +55,7 @@ public class DatasetController {
     public ApiResponse<PageResult<DatasetView>> query(
         @RequestParam(required = false) String datasetCode, @RequestParam(required = false) String datasetName,
         @RequestParam(required = false) String dataTopicCode, @RequestParam(required = false) String dataTypeCode,
-        @RequestParam(required = false) AssetType assetType,
+        @RequestParam(required = false) MarketAssetType assetType,
         @RequestParam(required = false) Integer datasetStatus, @RequestParam(required = false) String taskConfigCode,
         @RequestParam(required = false) String startTime, @RequestParam(required = false) String endTime,
         @RequestParam(defaultValue = "1") Integer pageNo, @RequestParam(defaultValue = "20") Integer pageSize,

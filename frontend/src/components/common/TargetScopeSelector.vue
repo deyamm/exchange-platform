@@ -10,6 +10,20 @@
             </el-form-item>
 
             <template v-if="draft.scopeType !== 'ALL'">
+                <template v-if="draft.scopeType === 'BOARD'">
+                    <el-form-item label="行业发布方">
+                        <el-select v-model="draft.industryPublisherCode" placeholder="请选择发布方" @change="handleIndustryDimensionChange">
+                            <el-option label="申万" value="SW" />
+                            <el-option label="东方财富" value="EM" />
+                            <el-option label="同花顺" value="THS" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="行业层级">
+                        <el-select v-model="draft.industryLevel" placeholder="请选择层级" :disabled="!draft.industryPublisherCode" @change="handleIndustryDimensionChange">
+                            <el-option v-for="level in industryLevels" :key="level" :label="`Level ${level}`" :value="level" />
+                        </el-select>
+                    </el-form-item>
+                </template>
                 <el-form-item :label="optionLabel">
                     <el-input v-model="keyword" clearable placeholder="搜索名称" />
                 </el-form-item>
@@ -39,7 +53,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { queryEnabledTargetScopeGroups, queryIndexTargetScopeOptions } from '/@/api/commonSelectorApi';
+import { queryEnabledTargetScopeGroups } from '/@/api/commonSelectorApi';
 import {
     emptyTargetScope,
     isScopeTypeSupported,
@@ -55,7 +69,7 @@ const props = withDefaults(defineProps<{
     open: boolean;
     targetType: TargetType;
     value?: TargetScope;
-    /** 板块主数据尚未提供公共只读接口时由调用方传入，避免在组件内固化示例板块。 */
+    /** 页面传入的已发布主数据选项，组件不固化板块或指数枚举。 */
     boardOptions?: TargetScopeOption[];
     watchGroupOptions?: TargetScopeOption[];
     indexTypeOptions?: TargetScopeOption[];
@@ -84,10 +98,17 @@ const optionKey = computed<keyof TargetScopeOptions | undefined>(() => {
     if (draft.scopeType === 'BOARD') return 'board';
     if (draft.scopeType === 'WATCH_GROUP') return 'watchGroup';
     if (draft.scopeType === 'INDEX_TYPE') return 'indexType';
-    if (draft.scopeType === 'MARKET') return 'market';
+    // 后端为兼容历史响应字段仍使用 market 承载指数发布方枚举。
+    if (draft.scopeType === 'PUBLISHER' || draft.scopeType === 'MARKET') return 'market';
     return undefined;
 });
-const optionLabel = computed(() => ({ BOARD: '板块', WATCH_GROUP: '关注分组', INDEX_TYPE: '指数类型', MARKET: '所属市场' }[draft.scopeType] || '选项'));
+const optionLabel = computed(() => ({
+    BOARD: '行业指数',
+    WATCH_GROUP: '关注分组',
+    INDEX_TYPE: '指数类型',
+    PUBLISHER: '发布方',
+    MARKET: '发布方',
+}[draft.scopeType] || '选项'));
 const activeOptions = computed<TargetScopeOption[]>(() => {
     switch (optionKey.value) {
         case 'board': return props.boardOptions.length ? props.boardOptions : loadedOptions.board;
@@ -97,10 +118,20 @@ const activeOptions = computed<TargetScopeOption[]>(() => {
         default: return [];
     }
 });
+const industryLevels = computed(() => Array.from(new Set(
+    (props.boardOptions.length ? props.boardOptions : loadedOptions.board)
+        .filter(item => item.publisherCode === draft.industryPublisherCode)
+        .map(item => item.level)
+        .filter((level): level is number => typeof level === 'number'),
+)).sort((left, right) => left - right));
 const filteredOptions = computed(() => {
     const normalizedKeyword = keyword.value.trim().toLowerCase();
-    if (!normalizedKeyword) return activeOptions.value;
-    return activeOptions.value.filter((item) => item.name.toLowerCase().includes(normalizedKeyword));
+    return activeOptions.value.filter((item) => {
+        const matchesIndustryDimension = draft.scopeType !== 'BOARD'
+            || (item.publisherCode === draft.industryPublisherCode && item.level === draft.industryLevel);
+        return matchesIndustryDimension
+            && (!normalizedKeyword || item.name.toLowerCase().includes(normalizedKeyword));
+    });
 });
 
 watch(() => [props.open, props.targetType] as const, async ([visible]) => {
@@ -116,6 +147,8 @@ function resetDraft() {
     draft.targetType = props.targetType;
     draft.scopeType = next.scopeType;
     draft.scopeValues = next.scopeType === 'ALL' ? [] : [...new Set(next.scopeValues || [])];
+    draft.industryPublisherCode = next.industryPublisherCode;
+    draft.industryLevel = next.industryLevel;
     keyword.value = '';
 }
 
@@ -126,12 +159,6 @@ async function loadOptions() {
         if (!props.watchGroupOptions.length) {
             loads.push(queryEnabledTargetScopeGroups().then((options) => { loadedOptions.watchGroup = options; }));
         }
-        if (props.targetType === 'INDEX' && (!props.indexTypeOptions.length || !props.indexMarketOptions.length)) {
-            loads.push(queryIndexTargetScopeOptions().then((options) => {
-                if (!props.indexTypeOptions.length) loadedOptions.indexType = options.indexType;
-                if (!props.indexMarketOptions.length) loadedOptions.market = options.market;
-            }));
-        }
         await Promise.all(loads);
     } finally {
         loading.value = false;
@@ -141,6 +168,8 @@ async function loadOptions() {
 function handleScopeTypeChange(scopeType: TargetScopeType) {
     draft.scopeType = scopeType;
     draft.scopeValues = [];
+    draft.industryPublisherCode = undefined;
+    draft.industryLevel = undefined;
     keyword.value = '';
 }
 
@@ -149,11 +178,24 @@ function handleConfirm() {
         ElMessage.warning(`请至少选择一个${optionLabel.value}`);
         return;
     }
+    if (draft.scopeType === 'BOARD' && (!draft.industryPublisherCode || !draft.industryLevel)) {
+        ElMessage.warning('请选择行业发布方和层级');
+        return;
+    }
     emit('confirm', {
         targetType: props.targetType,
         scopeType: draft.scopeType,
         scopeValues: draft.scopeType === 'ALL' ? [] : [...new Set(draft.scopeValues)],
+        industryPublisherCode: draft.scopeType === 'BOARD' ? draft.industryPublisherCode : undefined,
+        industryLevel: draft.scopeType === 'BOARD' ? draft.industryLevel : undefined,
     });
+}
+
+function handleIndustryDimensionChange() {
+    draft.scopeValues = [];
+    if (!industryLevels.value.includes(draft.industryLevel || 0)) {
+        draft.industryLevel = undefined;
+    }
 }
 
 function handleCancel() {

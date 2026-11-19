@@ -1,0 +1,214 @@
+backend/common/common-core/src/main/java/com/exchange/platform/common/core/enums/AssetType.java[36m:[mpublic enum [1;31mAssetType[m {
+backend/common/common-core/src/main/java/com/exchange/platform/common/core/enums/AssetType.java[36m:[m    [1;31mAssetType[m(String code, String displayName) {
+backend/common/common-core/src/main/java/com/exchange/platform/common/core/enums/AssetType.java[36m:[m    public static [1;31mAssetType[m fromCode(String code) {
+backend/common/common-core/src/main/java/com/exchange/platform/common/core/enums/AssetType.java[36m:[m            return [1;31mAssetType[m.valueOf(code.trim().toUpperCase());
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/AlertRuleSaveRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/AlertRuleSaveRequest.java[36m:[m    [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/AppMetricSaveRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/AppMetricSaveRequest.java[36m:[m    @NotNull(message = "标的类型不能为空") [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/ComparisonQueryRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/ComparisonQueryRequest.java[36m:[m        @NotNull [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/MetricQueryRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/MetricQueryRequest.java[36m:[m        @NotNull(message = "标的类型不能为空") [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/RankingQueryRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/RankingQueryRequest.java[36m:[m        @NotNull [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/ScreeningQueryRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/ScreeningQueryRequest.java[36m:[m    @NotNull(message = "标的类型不能为空") [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/TargetScopeRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/TargetScopeRequest.java[36m:[m        @NotNull(message = "范围标的类型不能为空") [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/WatchTargetSaveRequest.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/request/WatchTargetSaveRequest.java[36m:[m    @NotNull(message = "标的类型不能为空") [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/AlertRuleView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/AlertRuleView.java[36m:[m    private [1;31mAssetType[m targetType;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/AppMetricView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/AppMetricView.java[36m:[m    private [1;31mAssetType[m targetType;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/ComparisonResultView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-api/src/main/java/com/exchange/platform/analytics/api/response/ComparisonResultView.java[36m:[m    private [1;31mAssetType[m targetType;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/controller/MetricController.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/controller/MetricController.java[36m:[m        @RequestParam(required = false) [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/controller/ScreeningController.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/controller/ScreeningController.java[36m:[m    public ApiResponse<TargetScopeOptionsView> scopeOptions(@RequestParam [1;31mAssetType[m targetType,
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/converter/AlertRuleConverter.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/converter/AlertRuleConverter.java[36m:[m        view.setTargetType([1;31mAssetType[m.fromCode(entity.getTargetType()));
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/converter/MetricConverter.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/converter/MetricConverter.java[36m:[m        view.setTargetType([1;31mAssetType[m.fromCode(entity.getTargetType()));
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/converter/MetricConverter.java[36m:[m        view.setTargetTypeName(entity.getTargetType() == null ? null : [1;31mAssetType[m.fromCode(entity.getTargetType()).getDisplayName());
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/entity/AppMetric.java[36m:[m    /** 指标适用的标的类型，由用户创建时选择，后续禁止变更。 [1;31mAssetType[m类型的枚举值。 */
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/AppMetricService.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/AppMetricService.java[36m:[m    PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, [1;31mAssetType[m targetType, CommonStatus status, Integer pageNo, Integer pageSize);
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/ScreeningService.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/ScreeningService.java[36m:[m    TargetScopeOptionsView getScopeOptions([1;31mAssetType[m targetType);
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/AlertMessageServiceImpl.java[36m:[m                    new MetricQueryRequest(com.exchange.platform.common.core.enums.[1;31mAssetType[m.fromCode(entry.getKey()), targets, metrics, null));
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/AlertRuleServiceImpl.java[36m:[m            com.exchange.platform.common.core.enums.[1;31mAssetType[m targetType, AppMetric metric) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/AppMetricServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/AppMetricServiceImpl.java[36m:[m    public PageResult<AppMetricView> getMetricList(String keyword, String metricCategory, [1;31mAssetType[m targetType, CommonStatus status, Integer pageNo, Integer pageSize) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ComparisonServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ComparisonServiceImpl.java[36m:[m        if (request.targetType() != [1;31mAssetType[m.STOCK && request.targetType() != [1;31mAssetType[m.INDEX)
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[m        if (request.targetType() != [1;31mAssetType[m.STOCK && request.targetType() != [1;31mAssetType[m.INDEX) throw new BusinessException(40001, "当前仅支持股票和指数排行");
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[m    private LinkedHashMap<String, TargetScopeTarget> resolveTargets([1;31mAssetType[m type, TargetScopeRequest scope) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[m    private void validateScopeProtocol([1;31mAssetType[m type, TargetScopeRequest scope) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[m        String kind = scope.scopeType().trim().toUpperCase(); Set<String> supported = type == [1;31mAssetType[m.STOCK ? Set.of("ALL", "BOARD", "WATCH_GROUP") : Set.of("ALL", "INDEX_TYPE", "PUBLISHER", "MARKET", "WATCH_GROUP");
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/RankingServiceImpl.java[36m:[m        if (type == [1;31mAssetType[m.STOCK && "BOARD".equals(kind)
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m    public TargetScopeOptionsView getScopeOptions([1;31mAssetType[m targetType) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m        if (targetType == [1;31mAssetType[m.STOCK) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m    private LinkedHashMap<String, TargetScopeTarget> resolveTargets([1;31mAssetType[m targetType, TargetScopeRequest scope) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m    private List<TargetScopeTarget> resolveWatchGroupTargets([1;31mAssetType[m targetType, List<String> groupCodes) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m    private void validateScopeProtocol([1;31mAssetType[m targetType, TargetScopeRequest scope) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m        Set<String> supported = targetType == [1;31mAssetType[m.STOCK
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m        if (targetType == [1;31mAssetType[m.STOCK && "BOARD".equals(scopeType)
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m    private void assertSupportedTargetType([1;31mAssetType[m targetType) {
+backend/data-analytics/data-analytics-server/src/main/java/com/exchange/platform/analytics/service/impl/ScreeningServiceImpl.java[36m:[m        if (targetType != [1;31mAssetType[m.STOCK && targetType != [1;31mAssetType[m.INDEX) {
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetMetricBindingView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetMetricBindingView.java[36m:[m    private [1;31mAssetType[m assetType;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetMetricReadBindingView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetMetricReadBindingView.java[36m:[m    private [1;31mAssetType[m assetType;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/execution/DatasetView.java[36m:[m    private [1;31mAssetType[m assetType;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/tasks/TaskTemplateVersionView.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-api/src/main/java/com/exchange/platform/collection/api/response/tasks/TaskTemplateVersionView.java[36m:[m    private [1;31mAssetType[m assetType;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/controller/DatasetController.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/controller/DatasetController.java[36m:[m        @RequestParam(required = false) [1;31mAssetType[m assetType,
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/converter/TaskTemplateConverter.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/converter/TaskTemplateConverter.java[36m:[m        versionView.set[1;31mAssetType[m([1;31mAssetType[m.fromCode(version.get[1;31mAssetType[m()));
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/converter/TaskTemplateConverter.java[36m:[m        versionView.set[1;31mAssetType[mName(version.get[1;31mAssetType[m() == null ? null : [1;31mAssetType[m.fromCode(version.get[1;31mAssetType[m()).getDisplayName());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/DatasetService.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/DatasetService.java[36m:[m    PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, [1;31mAssetType[m assetType,
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[m        [1;31mAssetType[m assetType;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[m            assetType = [1;31mAssetType[m.fromCode(syncData.assetType());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[m                || !Objects.equals(latestVersion.get[1;31mAssetType[m(), assetType)
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[m                    .set[1;31mAssetType[m(assetType.getValue())
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/CollectionTaskServiceImpl.java[36m:[m            .set[1;31mAssetType[m(assetType.getValue())
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[mimport com.exchange.platform.common.core.enums.[1;31mAssetType[m;
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        [1;31mAssetType[m executed[1;31mAssetType[m = requireExecuted[1;31mAssetType[m(snapshot);
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m                    .set[1;31mAssetType[m(executed[1;31mAssetType[m.getValue())
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m            if (dataset.get[1;31mAssetType[m() != null && !dataset.get[1;31mAssetType[m().equals(executed[1;31mAssetType[m.getValue())) {
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m                        + dataset.get[1;31mAssetType[m() + ", execution=" + executed[1;31mAssetType[m.getValue());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m            if (dataset.get[1;31mAssetType[m() == null) {
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m                dataset.set[1;31mAssetType[m(executed[1;31mAssetType[m.getValue());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m    public PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, [1;31mAssetType[m assetType, Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize) {
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m            wrapper.eq(Dataset::get[1;31mAssetType[m, assetType.getValue());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m            view.set[1;31mAssetType[m([1;31mAssetType[m.fromCode(dataset.get[1;31mAssetType[m()));
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        view.set[1;31mAssetType[m([1;31mAssetType[m.fromCode(dataset.get[1;31mAssetType[m()));
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m    private [1;31mAssetType[m requireExecuted[1;31mAssetType[m(ExecutionConfigSnapshot snapshot) {
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        if (version == null || version.get[1;31mAssetType[m() == null) {
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        return [1;31mAssetType[m.fromCode(version.get[1;31mAssetType[m());
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        view.set[1;31mAssetType[m([1;31mAssetType[m.fromCode(entity.get[1;31mAssetType[m()));
+backend/data-collection/data-collection-server/src/main/java/com/exchange/platform/collection/service/impl/DatasetServiceImpl.java[36m:[m        view.set[1;31mAssetType[mName(entity.get[1;31mAssetType[m() == null ? null : [1;31mAssetType[m.fromCode(entity.get[1;31mAssetType[m()).getDisplayName());
+data-server/app/core/common/enum.py[36m:[mclass [1;31mAssetType[m(str, Enum):
+data-server/app/schemas/collection_task/task_template.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/schemas/collection_task/task_template.py[36m:[m    asset_type: Optional[[1;31mAssetType[m] = Field(default=None, validation_alias="assetType", serialization_alias="assetType", description="资产类型")
+data-server/app/tasks/basic_data/index_basic_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/basic_data/index_basic_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/basic_data/index_constituent_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/basic_data/index_constituent_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/basic_data/index_industry_level.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/basic_data/index_industry_level.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/basic_data/stock_basic_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/basic_data/stock_basic_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/price_data/index_daily_price_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/price_data/index_daily_price_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/exchange_data/price_data/index_daily_price_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/price_data/index_daily_price_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/exchange_data/price_data/stock_daily_price_by_code_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/price_data/stock_daily_price_by_code_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/price_data/stock_daily_price_by_date_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/price_data/stock_daily_price_by_date_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/index_daily_indicator_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/index_daily_indicator_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/exchange_data/reference_data/index_daily_indicator_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/index_daily_indicator_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.INDEX,
+data-server/app/tasks/exchange_data/reference_data/stock_adjust_factor_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_adjust_factor_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/stock_adjust_factor_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_adjust_factor_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/stock_daily_indicator_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_daily_indicator_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/stock_daily_indicator_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_daily_indicator_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/stock_daily_moneyflow_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_daily_moneyflow_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/exchange_data/reference_data/stock_daily_moneyflow_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/exchange_data/reference_data/stock_daily_moneyflow_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_balancesheet_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_balancesheet_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_balancesheet_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_balancesheet_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_cashflow_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_cashflow_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_cashflow_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_cashflow_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_income_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_income_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_income_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_income_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_indicator_data_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_indicator_data_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+data-server/app/tasks/finance_data/finance_indicator_init_task.py[36m:[mfrom app.core.common.enum import [1;31mAssetType[m
+data-server/app/tasks/finance_data/finance_indicator_init_task.py[36m:[m            asset_type=[1;31mAssetType[m.STOCK,
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m# [1;31mAssetType[m 与应用指标标的类型改造实施说明（Codex 执行版）
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m1. Python 端继续使用已经统一的 `[1;31mAssetType[m` 枚举；
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m2. Java 端增加对应 `[1;31mAssetType[m` 枚举，并放在 `com.exchange.platform.common.core.enums` 包下；
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m## 2. [1;31mAssetType[m 统一枚举
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mclass [1;31mAssetType[m(str, Enum):
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[masset_type=[1;31mAssetType[m.STOCK
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m[1;31mAssetType[m
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mpublic enum [1;31mAssetType[m {
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m    [1;31mAssetType[m(String displayName) {
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m    public static [1;31mAssetType[m fromCode(String code) {
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m            return [1;31mAssetType[m.valueOf(code.trim().toUpperCase());
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mJava 接收 Python 任务模板信息时，将 `asset_type` 按 Java `[1;31mAssetType[m` 解析并保存标准编码。
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mPython [1;31mAssetType[m.STOCK
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mJava [1;31mAssetType[m.STOCK
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mprivate [1;31mAssetType[m assetType;
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mprivate [1;31mAssetType[m targetType;
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m1. `targetType` 必须属于 [1;31mAssetType[m；
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m## 23. 前端公共 [1;31mAssetType[m 选项
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m[1;31mAssetType[m.getDisplayName()
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m2. 确认 Python 已使用 [1;31mAssetType[m 枚举
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[m3. 在 com.exchange.platform.common.core.enums 增加 Java [1;31mAssetType[m
+"docs/\346\225\260\346\215\256\351\207\207\351\233\206/AssetType\344\270\216\345\272\224\347\224\250\346\214\207\346\240\207\346\240\207\347\232\204\347\261\273\345\236\213\346\224\271\351\200\240\345\256\236\346\226\275\350\257\264\346\230\216_Codex.md"[36m:[mPython [1;31mAssetType[m
+frontend/src/api/appmetric/appMetricApi.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/appmetric/constants';
+frontend/src/api/appmetric/appMetricApi.ts[36m:[mexport interface DatasetOption { datasetCode: string; datasetName: string; datasetStatus: number | string; assetType?: [1;31mAssetType[m; assetTypeName?: string; }
+frontend/src/api/appmetric/appMetricApi.ts[36m:[mexport function queryEnabledDatasets(assetType?: [1;31mAssetType[m): Promise<PageResult<DatasetOption>> | any {
+frontend/src/types/alertrule/constants.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset';
+frontend/src/types/alertrule/constants.ts[36m:[m    targetType?: [1;31mAssetType[m | '';
+frontend/src/types/alertrule/entity.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset';
+frontend/src/types/alertrule/entity.ts[36m:[m    targetType?: [1;31mAssetType[m | '';
+frontend/src/types/appmetric/constants.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset';
+frontend/src/types/appmetric/constants.ts[36m:[mexport type { [1;31mAssetType[m } from '/@/types/asset';
+frontend/src/types/appmetric/constants.ts[36m:[m    targetType?: [1;31mAssetType[m | '';
+frontend/src/types/appmetric/constants.ts[36m:[m    targetType: [1;31mAssetType[m;
+frontend/src/types/appmetric/entity.ts[36m:[mimport type { [1;31mAssetType[m } from './constants';
+frontend/src/types/appmetric/entity.ts[36m:[m    targetType: [1;31mAssetType[m | '';
+frontend/src/types/asset.ts[36m:[m * 此处必须与 Python `[1;31mAssetType[m`、Java `[1;31mAssetType[m` 及数据库保存值保持完全一致；
+frontend/src/types/asset.ts[36m:[mexport type [1;31mAssetType[m = 'STOCK' | 'INDEX' | 'FUTURE' | 'FUND' | 'BOND';
+frontend/src/types/asset.ts[36m:[mexport const ASSET_TYPE_OPTIONS: SelectOption<[1;31mAssetType[m>[] = [
+frontend/src/types/asset.ts[36m:[mexport const ASSET_TYPE_TEXT: Record<[1;31mAssetType[m, string> = {
+frontend/src/types/execution/constants.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset'
+frontend/src/types/execution/constants.ts[36m:[m    assetType?: [1;31mAssetType[m | ''
+frontend/src/types/execution/entity.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset'
+frontend/src/types/execution/entity.ts[36m:[m    assetType?: [1;31mAssetType[m
+frontend/src/types/targetScope.ts[36m:[mimport type { [1;31mAssetType[m } from '/@/types/asset';
+frontend/src/types/targetScope.ts[36m:[m * 标的范围使用与跨服务 [1;31mAssetType[m 完全一致的协议值。
+frontend/src/types/targetScope.ts[36m:[mexport type TargetType = [1;31mAssetType[m;
+frontend/src/types/watchtarget/constants.ts[36m:[mexport type [1;31mAssetType[m = 'STOCK' | 'INDEX' | 'FUTURE' | 'FUND' | 'BOND';
+frontend/src/types/watchtarget/constants.ts[36m:[m    targetType?: [1;31mAssetType[m | '';
+frontend/src/types/watchtarget/constants.ts[36m:[m    targetType: [1;31mAssetType[m;
+frontend/src/types/watchtarget/entity.ts[36m:[mimport type { [1;31mAssetType[m, WatchStatus } from './constants';
+frontend/src/types/watchtarget/entity.ts[36m:[m  targetType: [1;31mAssetType[m;
+frontend/src/types/watchtarget/view.ts[36m:[mimport { [1;31mAssetType[m, WatchStatus } from "./constants";
+frontend/src/types/watchtarget/view.ts[36m:[mexport const ASSET_TYPE_TEXT: Record<[1;31mAssetType[m, string> = {
+frontend/src/views/appconfig/appmetric/AppMetricFormDialog.vue[36m:[mimport { ASSET_TYPE_OPTIONS, METRIC_CATEGORY_OPTIONS, type [1;31mAssetType[m } from '/@/types/appmetric/constants';
+frontend/src/views/appconfig/appmetric/AppMetricFormDialog.vue[36m:[m      targetType: form.targetType as [1;31mAssetType[m,
+frontend/src/views/appconfig/appmetric/AppMetricPage.vue[36m:[m                ASSET_TYPE_TEXT[row.targetType as [1;31mAssetType[m] ||
+frontend/src/views/appconfig/appmetric/AppMetricPage.vue[36m:[m  type [1;31mAssetType[m,
+frontend/src/views/appconfig/appmetric/AppMetricPage.vue[36m:[m  targetType: '' as [1;31mAssetType[m | '',
+frontend/src/views/appconfig/watchtarget/WatchTargetPage.vue[36m:[m                            {{ ASSET_TYPE_TEXT[row.targetType as [1;31mAssetType[m] || row.targetType || '-' }}
+frontend/src/views/appconfig/watchtarget/WatchTargetPage.vue[36m:[mimport type { WatchTargetQueryParams, TargetGroupQueryParams, [1;31mAssetType[m } from '/@/types/watchtarget/constants';
+frontend/src/views/collectionMonitor/dataset/DatasetDetailPage.vue[36m:[m                        {{ detail.dataset.assetTypeName || ASSET_TYPE_TEXT[detail.dataset.assetType as [1;31mAssetType[m] || displayValue(detail.dataset.assetType) }}
+frontend/src/views/collectionMonitor/dataset/DatasetDetailPage.vue[36m:[mimport { ASSET_TYPE_TEXT, type [1;31mAssetType[m } from '/@/types/asset'
+frontend/src/views/collectionMonitor/dataset/DatasetPage.vue[36m:[m                        {{ row.assetTypeName || ASSET_TYPE_TEXT[row.assetType as [1;31mAssetType[m] || row.assetType || '—' }}
+frontend/src/views/collectionMonitor/dataset/DatasetPage.vue[36m:[mimport { ASSET_TYPE_OPTIONS, ASSET_TYPE_TEXT, type [1;31mAssetType[m } from '/@/types/asset'

@@ -3,7 +3,7 @@ package com.exchange.platform.collection.api.response.execution;
 import java.time.LocalDateTime;
 
 import com.exchange.platform.collection.api.enums.DatasetStatus;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import lombok.Data;
 
@@ -15,7 +15,7 @@ public class DatasetView {
     /** 数据集名称。 */
     private String datasetName;
     /** 标准标的类型编码。 */
-    private AssetType assetType;
+    private MarketAssetType assetType;
     /** 标的类型中文展示名称。 */
     private String assetTypeName;
     /** 数据集说明。 */

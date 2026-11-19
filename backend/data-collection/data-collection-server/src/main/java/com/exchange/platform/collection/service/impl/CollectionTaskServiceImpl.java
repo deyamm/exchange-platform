@@ -38,7 +38,7 @@ import com.exchange.platform.collection.entity.tasks.TaskConfig;
 import com.exchange.platform.collection.entity.tasks.TaskTemplate;
 import com.exchange.platform.collection.entity.tasks.TaskTemplateVersion;
 import com.exchange.platform.common.core.exception.BusinessException;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.data.client.DataServiceClient;
 import com.exchange.platform.data.client.dto.TaskTemplateSync;
@@ -705,9 +705,9 @@ public class CollectionTaskServiceImpl extends ServiceImpl<TaskTemplateMapper, T
 
         // Python 枚举经 JSON 传递为标准编码。这里集中严格解析，拒绝中文或未知旧值，
         // 防止不受控字符串进入 task_template_version.asset_type。
-        AssetType assetType;
+        MarketAssetType assetType;
         try {
-            assetType = AssetType.fromCode(syncData.assetType());
+            assetType = MarketAssetType.fromCode(syncData.assetType());
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(40001, ex.getMessage());
         }

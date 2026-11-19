@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 
 import com.exchange.platform.analytics.api.enums.CommonStatus;
 import com.exchange.platform.analytics.api.enums.RuleType;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +19,7 @@ public class AlertRuleView {
     private RuleType ruleType;
     private String targetCode;
     /** 具体标的提醒的标准标的类型。 */
-    private AssetType targetType;
+    private MarketAssetType targetType;
     private String groupCode;
     private String metricCode;
     private String operator;

@@ -17,7 +17,7 @@ class MetricValueService:
 
     async def query_dataset_values(self, query: DatasetMetricValueQuery) -> list[MetricValue]:
         self._validate_query(query)
-        engine = get_engine_by_schema(query.physical_schema_name)
+        engine = get_engine_by_schema(query.schema_name)
         sql, params = self._build_latest_value_query(query)
         async with engine.connect() as connection:
             result = await connection.execute(text(sql), params)
@@ -30,22 +30,22 @@ class MetricValueService:
             row = rows_by_target.get(target_code)
             for index, metric in enumerate(query.metrics):
                 values.append(MetricValue(
-                    targetType=query.target_type,
-                    targetCode=target_code,
-                    metricCode=metric.metric_code,
+                    target_type=query.target_type,
+                    target_code=target_code,
+                    metric_code=metric.metric_code,
                     value=None if row is None else row[f"metric_{index}"],
-                    dataTime=None if row is None else self._to_iso_time(row["data_time"]),
+                    data_time=None if row is None else self._to_iso_time(row["data_time"]),
                 ))
         return values
 
     def _build_latest_value_query(self, query: DatasetMetricValueQuery) -> tuple[str, dict[str, Any]]:
         target_params = {f"target_code_{index}": code for index, code in enumerate(query.target_codes)}
         placeholders = ", ".join(f":{name}" for name in target_params)
-        table = self._qualified_identifier(query.physical_schema_name, query.physical_table_name)
+        table = self._qualified_identifier(query.schema_name, query.table_name)
         target_column = self._quoted_identifier(query.target_code_column)
         data_time_column = self._quoted_identifier(query.data_time_column)
         metric_columns = ", ".join(
-            f"source.{self._quoted_identifier(metric.physical_column_name)} AS metric_{index}"
+            f"source.{self._quoted_identifier(metric.physical_column)} AS metric_{index}"
             for index, metric in enumerate(query.metrics)
         )
         as_of_predicate = ""
@@ -73,11 +73,6 @@ class MetricValueService:
         return sql, params
 
     def _validate_query(self, query: DatasetMetricValueQuery) -> None:
-        # Schema 必须由 db.py 的白名单解析；字段与表名仍逐一校验，防止动态 SQL 标识符注入。
-        self._assert_identifier(query.physical_schema_name)
-        self._assert_identifier(query.physical_table_name)
-        self._assert_identifier(query.target_code_column)
-        self._assert_identifier(query.data_time_column)
         if not query.target_type or not query.dataset_code:
             raise ValueError("targetType and datasetCode are required")
         if any(not code.strip() for code in query.target_codes):
@@ -87,7 +82,6 @@ class MetricValueService:
             if not metric.metric_code or metric.metric_code in metric_codes:
                 raise ValueError("metrics must contain unique metricCode values")
             metric_codes.add(metric.metric_code)
-            self._assert_identifier(metric.physical_column_name)
 
     def _qualified_identifier(self, schema: str, table: str) -> str:
         return f"{self._quoted_identifier(schema)}.{self._quoted_identifier(table)}"

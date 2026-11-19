@@ -4,11 +4,11 @@ import java.util.List;
 
 import lombok.Data;
 
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 @Data
 public class ComparisonResultView {
-    private AssetType targetType;
+    private MarketAssetType targetType;
     private List<ComparisonTargetView> targets;
     private List<ComparisonMetricRowView> rows;
 }

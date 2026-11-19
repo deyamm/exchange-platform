@@ -9,6 +9,8 @@ from app.service.analytics.index_service import IndexService
 from app.api.deps import get_market_service, get_stock_service, get_index_service
 from app.schemas.analytics.metric_value import DatasetMetricValueQuery, MetricValue
 from app.service.analytics.metric_value_service import MetricValueService
+from app.schemas.analytics.dataset_rows import DatasetRow, DatasetRowsQuery
+from app.service.analytics.dataset_row_service import DatasetRowService
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,14 @@ router = APIRouter()
 async def query_metric_values(query: DatasetMetricValueQuery):
     try:
         return await MetricValueService().query_dataset_values(query)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/dataset-rows/query", response_model=list[DatasetRow], summary="读取 Dataset 标准行")
+async def query_dataset_rows(query: DatasetRowsQuery):
+    try:
+        return await DatasetRowService().query_rows(query)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

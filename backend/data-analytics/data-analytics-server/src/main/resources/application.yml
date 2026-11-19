@@ -26,12 +26,6 @@ spring:
           password: qq16281091
           driver-class-name: com.mysql.cj.jdbc.Driver
         
-        type_basic_data:
-          url: jdbc:mysql://localhost:3306/type_basic_data?serverTimezone=GMT%2B8
-          username: root
-          password: qq16281091
-          driver-class-name: com.mysql.cj.jdbc.Driver
-
   redis:
     host: 127.0.0.1
     port: 6379
@@ -71,3 +65,8 @@ mybatis-plus:
 # A-03 仅调用数据采集服务的只读 Dataset 元数据接口，未接入 Python 取数或跨 Dataset 组合。
 collection-metadata:
   base-url: http://localhost:8082
+
+analytics:
+  reference-datasets:
+    # 逻辑 Dataset 身份；实际 schema/table/column 由采集服务元数据解析并交给 Python。
+    index-basic-code: index_basic_data

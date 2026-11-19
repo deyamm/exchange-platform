@@ -10,7 +10,7 @@ import com.exchange.platform.collection.api.response.execution.DatasetMetricRead
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.common.core.page.PageResult;
-import com.exchange.platform.common.core.enums.AssetType;
+import com.exchange.platform.common.core.enums.MarketAssetType;
 
 /**
  * 数据集管理服务。
@@ -18,7 +18,7 @@ import com.exchange.platform.common.core.enums.AssetType;
  */
 public interface DatasetService {
     /** 按条件分页查询数据集目录。 */
-    PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, AssetType assetType,
+    PageResult<DatasetView> query(String datasetCode, String datasetName, String topicCode, String dataTypeCode, MarketAssetType assetType,
         Integer datasetStatus, String taskConfigCode, String startTime, String endTime, Integer pageNo, Integer pageSize);
 
     /** 查询数据集详情及最近执行信息。 */

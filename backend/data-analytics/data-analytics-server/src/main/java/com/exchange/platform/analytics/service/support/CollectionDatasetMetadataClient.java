@@ -16,8 +16,10 @@ import com.exchange.platform.common.core.exception.BusinessException;
 
 /**
  * 数据分析服务访问数据集元数据的最小只读客户端。
- * <p>应用指标只需要 Dataset 主档状态和当前版本的标准字段快照，因此这里不会读取
- * 物理表、StorageMapping 或 Python 服务。批量接口也避免了指标列表展示时的 N+1 请求。</p>
+ * <p>
+ * 应用指标只需要 Dataset 主档状态和当前版本的标准字段快照，因此这里不会读取
+ * 物理表、StorageMapping 或 Python 服务。批量接口也避免了指标列表展示时的 N+1 请求。
+ * </p>
  */
 @Component
 public class CollectionDatasetMetadataClient {
@@ -64,13 +66,13 @@ public class CollectionDatasetMetadataClient {
                     for (Object rawField : (List<?>) rawFields) {
                         if (rawField instanceof Map<?, ?>) {
                             Map<String, Object> field = (Map<String, Object>) rawField;
-                            fields.add(new FieldDefinition(asString(field.get("fieldCode")),
-                                    asString(field.get("fieldName")), asString(field.get("fieldType"))));
+                            fields.add(
+                                new FieldDefinition(asString(field.get("fieldCode")), asString(field.get("fieldName")), asString(field.get("fieldType")))
+                            );
                         }
                     }
                 }
-                result.put(datasetCode, new DatasetBinding(datasetCode, asString(binding.get("datasetName")),
-                        asString(binding.get("assetType")), asString(binding.get("datasetStatus")), fields));
+                result.put(datasetCode, new DatasetBinding(datasetCode, asString(binding.get("datasetName")), asString(binding.get("assetType")), asString(binding.get("datasetStatus")), fields));
             }
             return result;
         } catch (BusinessException ex) {
@@ -125,8 +127,9 @@ public class CollectionDatasetMetadataClient {
                     }
                 }
                 result.put(datasetCode, new DatasetMetricReadBinding(datasetCode, asString(binding.get("assetType")),
-                        asString(binding.get("datasetStatus")), asString(binding.get("physicalSchemaName")),
-                        asString(binding.get("physicalTableName")), asString(binding.get("targetCodeColumn")),
+                        asString(binding.get("datasetStatus")), asString(binding.get("storageType")),
+                        asString(binding.get("dataSourceCode")), asString(binding.get("schemaName")),
+                        asString(binding.get("tableName")), asString(binding.get("targetCodeColumn")),
                         asString(binding.get("dataTimeColumn")), fieldColumns));
             }
             return result;
@@ -135,6 +138,11 @@ public class CollectionDatasetMetadataClient {
         } catch (Exception ex) {
             throw new BusinessException(40001, "读取数据集指标取数绑定失败，请确认数据采集服务可用");
         }
+    }
+
+    /** 读取单个 Dataset 的受控 StorageMapping，供统一逻辑行读取适配器使用。 */
+    public DatasetMetricReadBinding getMetricReadBinding(String datasetCode) {
+        return getMetricReadBindings(List.of(datasetCode)).get(datasetCode);
     }
 
     private Integer asInteger(Object value) {
@@ -153,14 +161,32 @@ public class CollectionDatasetMetadataClient {
     }
 
     /** Dataset 当前可用于指标绑定的必要元数据。 */
-    public record DatasetBinding(String datasetCode, String datasetName, String assetType, String datasetStatus,
-            List<FieldDefinition> fields) {}
+    public record DatasetBinding(
+        String datasetCode, 
+        String datasetName, 
+        String assetType, 
+        String datasetStatus,
+        List<FieldDefinition> fields
+    ) { }
 
-    /** 仅在分析服务到 Python 数据服务的受控链路中使用的读取定位。 */
-    public record DatasetMetricReadBinding(String datasetCode, String assetType, String datasetStatus,
-            String physicalSchemaName, String physicalTableName, String targetCodeColumn, String dataTimeColumn,
-            Map<String, String> fieldColumns) {}
+    /** 分析服务使用的受控 Dataset 执行绑定，仅通过内部协议传递给 Python。 */
+    public record DatasetMetricReadBinding(
+        String datasetCode, 
+        String assetType, 
+        String datasetStatus,
+        String storageType, 
+        String dataSourceCode, 
+        String schemaName, 
+        String tableName,
+        String targetCodeColumn, 
+        String dataTimeColumn, 
+        Map<String, String> fieldColumns
+    ) { }
 
     /** 当前 DataTypeVersion 快照中的标准字段定义。 */
-    public record FieldDefinition(String fieldCode, String fieldName, String fieldType) {}
+    public record FieldDefinition(
+        String fieldCode, 
+        String fieldName, 
+        String fieldType
+    ) { }
 }

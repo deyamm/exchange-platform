@@ -74,7 +74,7 @@ public class AlertMessageServiceImpl implements AlertMessageService {
             List<String> targets = entry.getValue().stream().map(AlertRule::getTargetCode).distinct().toList();
             List<String> metrics = entry.getValue().stream().map(AlertRule::getMetricCode).distinct().toList();
             List<MetricValueView> rows = metricValueQueryService.queryMetricValues(
-                    new MetricQueryRequest(com.exchange.platform.common.core.enums.AssetType.fromCode(entry.getKey()), targets, metrics, null));
+                    new MetricQueryRequest(com.exchange.platform.common.core.enums.MarketAssetType.fromCode(entry.getKey()), targets, metrics, null));
             for (MetricValueView row : rows) values.put(key(row.getTargetCode(), row.getMetricCode()), row);
         }
 
