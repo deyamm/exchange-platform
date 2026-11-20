@@ -22,7 +22,9 @@ import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+@Tag(name = "分析TargetGroup")
 @RestController
 @RequestMapping("/api/v1/analytics/target-groups")
 public class TargetGroupController {

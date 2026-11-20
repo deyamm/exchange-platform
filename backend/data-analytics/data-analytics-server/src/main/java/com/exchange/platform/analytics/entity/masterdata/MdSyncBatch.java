@@ -6,7 +6,9 @@ import com.exchange.platform.analytics.api.enums.*;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
-@Data @Accessors(chain = true) @TableName("md_sync_batch")
+@Data 
+@Accessors(chain = true) 
+@TableName("md_sync_batch")
 public class MdSyncBatch {
     @TableId(type = IdType.AUTO) private Long id;
     private com.exchange.platform.analytics.api.enums.MasterDataType masterDataType;

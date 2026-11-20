@@ -25,7 +25,9 @@ import com.exchange.platform.common.server.support.RequestIdHolder;
 import com.exchange.platform.common.core.enums.MarketAssetType;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+@Tag(name = "分析Metric")
 @RestController
 @RequestMapping("/api/v1/analytics/metrics")
 public class MetricController {

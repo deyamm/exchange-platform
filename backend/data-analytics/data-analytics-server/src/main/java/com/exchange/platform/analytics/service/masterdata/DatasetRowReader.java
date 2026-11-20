@@ -1,37 +1,147 @@
 package com.exchange.platform.analytics.service.masterdata;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 主数据同步读取 Dataset 的抽象边界。
  *
- * <p>上层只声明逻辑 Dataset、需要的标准字段、筛选条件和分页信息，
- * 不直接依赖物理表、数据库连接或采集服务的实现细节。具体实现负责解析
- * Dataset 元数据并完成实际 I/O，因此替换数据服务时不会影响主数据发布流程。</p>
+ * <p>
+ * 上层只声明逻辑 Dataset、需要读取的字段、筛选条件和分页信息，
+ * 不直接依赖物理表、数据库连接或采集服务的实现细节。
+ * 具体实现负责解析 Dataset 元数据并完成实际 I/O。
+ * </p>
+ *
+ * <p>
+ * 发布场景通常需要读取完整 Dataset，因此接口额外提供
+ * {@link #readAll(DatasetReadRequest)}。该方法基于 pageNo/pageSize
+ * 自动翻页，避免固定只读取前 2000 条数据。
+ * </p>
  */
 public interface DatasetRowReader {
-    /** 按逻辑查询条件读取数据行；返回的每一行以标准 fieldCode 为键。 */
+
+    /**
+     * 单页读取 Dataset。
+     *
+     * @param request 查询条件
+     * @return 当前页数据；实现不应返回 null
+     */
     List<Map<String, Object>> read(DatasetReadRequest request);
+
+    /**
+     * 从请求指定的起始页开始自动翻页，读取完整结果集。
+     *
+     * <p>
+     * 每次请求沿用原始查询条件，只递增页码。最后一页的记录数小于
+     * pageSize 时停止；如果总记录数刚好是 pageSize 的整数倍，
+     * 会额外读取一个空页后结束。
+     * </p>
+     *
+     * <p>
+     * 为避免底层数据服务忽略 pageSize 而导致无限循环，这里校验
+     * 单页返回数量不能超过请求的 pageSize。
+     * </p>
+     */
+    default List<Map<String, Object>> readAll(DatasetReadRequest request) {
+        Objects.requireNonNull(request, "DatasetReadRequest 不能为空");
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        int pageNo = request.pageNo();
+
+        while (true) {
+            DatasetReadRequest pageRequest = request.withPage(pageNo);
+            List<Map<String, Object>> page = read(pageRequest);
+
+            if (page == null) {
+                throw new IllegalStateException(
+                        "DatasetRowReader.read() 不允许返回 null: " + request.datasetCode());
+            }
+
+            if (page.size() > pageRequest.pageSize()) {
+                throw new IllegalStateException(
+                        "Dataset 单页返回数量超过 pageSize，无法安全执行自动分页: dataset="
+                                + request.datasetCode()
+                                + ", pageNo=" + pageNo
+                                + ", pageSize=" + pageRequest.pageSize()
+                                + ", actual=" + page.size());
+            }
+
+            if (page.isEmpty()) {
+                break;
+            }
+
+            result.addAll(page);
+
+            if (page.size() < pageRequest.pageSize()) {
+                break;
+            }
+
+            if (pageNo == Integer.MAX_VALUE) {
+                throw new IllegalStateException(
+                        "Dataset 自动分页页码已达到 Integer.MAX_VALUE: " + request.datasetCode());
+            }
+
+            pageNo++;
+        }
+
+        return Collections.unmodifiableList(result);
+    }
 
     /**
      * 一次 Dataset 行读取的完整参数。
      *
-     * <p>构造时立即复制集合，避免调用方在请求发送后继续修改查询条件；
-     * 同时把分页参数收敛到安全范围，防止误读过大的数据集。</p>
+     * <p>
+     * 构造时复制集合，避免调用方后续修改查询条件。
+     * 页码最小为 1；pageSize 默认 500，单页最大 2000。
+     * </p>
      */
-    record DatasetReadRequest(String datasetCode, List<String> fieldCodes, Map<String, Object> filters,
-            List<String> assetCodes, LocalDateTime from, LocalDateTime to, String orderBy,
-            int pageNo, int pageSize) {
+    record DatasetReadRequest(
+            String datasetCode,
+            List<String> fieldCodes,
+            Map<String, Object> filters,
+            List<String> assetCodes,
+            LocalDateTime from,
+            LocalDateTime to,
+            String orderBy,
+            int pageNo,
+            int pageSize) {
+
         public DatasetReadRequest {
-            // 空集合表示“不额外限定”；复制后保证请求对象不可变。
             fieldCodes = fieldCodes == null ? List.of() : List.copyOf(fieldCodes);
-            filters = filters == null ? Map.of() : Map.copyOf(filters);
+            filters = immutableMapAllowingNullValues(filters);
             assetCodes = assetCodes == null ? List.of() : List.copyOf(assetCodes);
-            // 页码从 1 开始，单页最多读取 2000 行，避免一次发布占用过多内存。
+
             pageNo = pageNo < 1 ? 1 : pageNo;
             pageSize = pageSize < 1 ? 500 : Math.min(pageSize, 2000);
+        }
+
+        /** 基于当前请求创建指定页请求，其他条件保持不变。 */
+        public DatasetReadRequest withPage(int newPageNo) {
+            return new DatasetReadRequest(
+                    datasetCode,
+                    fieldCodes,
+                    filters,
+                    assetCodes,
+                    from,
+                    to,
+                    orderBy,
+                    newPageNo,
+                    pageSize);
+        }
+
+        private static Map<String, Object> immutableMapAllowingNullValues(
+                Map<String, Object> source) {
+
+            if (source == null || source.isEmpty()) {
+                return Map.of();
+            }
+
+            return Collections.unmodifiableMap(new LinkedHashMap<>(source));
         }
     }
 }

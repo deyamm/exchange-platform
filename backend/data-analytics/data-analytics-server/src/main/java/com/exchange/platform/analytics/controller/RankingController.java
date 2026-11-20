@@ -3,12 +3,17 @@ package com.exchange.platform.analytics.controller;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.exchange.platform.analytics.api.request.RankingQueryRequest;
 import com.exchange.platform.analytics.api.request.RankingResultSaveRequest;
@@ -18,9 +23,12 @@ import com.exchange.platform.analytics.service.RankingService;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
+@Tag(name = "分析Ranking")
 @RestController
 @RequestMapping("/api/v1/analytics/ranking")
 public class RankingController {
+
+    private static final Logger log = LoggerFactory.getLogger(RankingController.class);
     private final RankingService rankingService;
     public RankingController(RankingService rankingService) { this.rankingService = rankingService; }
 

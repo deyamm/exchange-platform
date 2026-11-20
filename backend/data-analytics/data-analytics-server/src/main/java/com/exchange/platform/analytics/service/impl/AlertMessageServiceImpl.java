@@ -11,6 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,8 @@ import com.exchange.platform.analytics.api.response.MetricValueView;
 
 @Service
 public class AlertMessageServiceImpl implements AlertMessageService {
+
+    private static final Logger log = LoggerFactory.getLogger(AlertMessageServiceImpl.class);
     private static final Set<String> OPERATORS = Set.of("GT", "GTE", "LT", "LTE", "EQ", "NE");
     private final AlertRuleMapper ruleMapper;
     private final AlertMessageMapper messageMapper;
@@ -60,6 +65,7 @@ public class AlertMessageServiceImpl implements AlertMessageService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int evaluateEnabledRules() {
+        log.info("[Service] evaluateEnabledRules");
         LocalDateTime now = LocalDateTime.now();
         List<AlertRule> rules = ruleMapper.selectList(new LambdaQueryWrapper<AlertRule>()
                 .eq(AlertRule::getRuleType, RuleType.METRIC)
@@ -153,6 +159,7 @@ public class AlertMessageServiceImpl implements AlertMessageService {
     @Override
     @Transactional(readOnly = true)
     public List<AlertMessageView> listRecent(String targetType, String targetCode, int limit) {
+        log.info("[Service] listRecent targetType={}, targetCode={}, limit={}", targetType, targetCode, limit);
         int safeLimit = Math.max(1, Math.min(limit, 50));
         return messageMapper.selectList(new LambdaQueryWrapper<AlertMessage>()
                 .eq(StringUtils.hasText(targetType), AlertMessage::getTargetType, targetType)

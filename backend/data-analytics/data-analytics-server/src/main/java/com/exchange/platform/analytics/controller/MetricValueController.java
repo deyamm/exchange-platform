@@ -5,6 +5,9 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,11 +20,15 @@ import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /** 统一指标取数入口，不包含筛选、排行或提醒等业务计算。 */
+@Tag(name = "分析MetricValue")
 @RestController
 @RequestMapping("/api/v1/analytics/metric-values")
 public class MetricValueController {
+
+    private static final Logger log = LoggerFactory.getLogger(MetricValueController.class);
     private final MetricValueQueryService metricValueQueryService;
 
     public MetricValueController(MetricValueQueryService metricValueQueryService) {

@@ -24,8 +24,10 @@ import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /** 条件筛选业务接口；保存方案/快照属于后续持久化能力，本接口只负责当前执行。 */
+@Tag(name = "分析Screening")
 @RestController
 @RequestMapping("/api/v1/analytics/screening")
 public class ScreeningController {

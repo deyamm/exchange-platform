@@ -14,6 +14,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -58,6 +61,8 @@ import com.exchange.platform.common.core.exception.BusinessException;
  */
 @Service
 public class ScreeningServiceImpl implements ScreeningService {
+
+    private static final Logger log = LoggerFactory.getLogger(ScreeningServiceImpl.class);
     private static final Set<String> NUMERIC_OPERATORS = Set.of("GT", "GTE", "LT", "LTE", "BETWEEN");
     private static final Set<String> VALUE_OPERATORS = Set.of("EQ", "NE", "GT", "GTE", "LT", "LTE", "BETWEEN", "IN", "NOT_IN");
     private static final Set<String> NULL_OPERATORS = Set.of("IS_NULL", "IS_NOT_NULL");
@@ -81,6 +86,7 @@ public class ScreeningServiceImpl implements ScreeningService {
     @Override
     @Transactional(readOnly = true)
     public ScreeningResultView execute(ScreeningQueryRequest request) {
+        log.info("[Service] execute request={}", request);
         validateRequest(request);
         LinkedHashMap<String, TargetScopeTarget> targets = resolveTargets(request.targetType(), request.targetScope());
         List<String> metricCodes = collectMetricCodes(request.conditionGroups());
@@ -125,6 +131,7 @@ public class ScreeningServiceImpl implements ScreeningService {
     @Override
     @Transactional(readOnly = true)
     public TargetScopeOptionsView getScopeOptions(MarketAssetType targetType) {
+        log.info("[Service] getScopeOptions targetType={}", targetType);
         assertSupportedTargetType(targetType);
         TargetScopeOptionsView view = new TargetScopeOptionsView();
         view.setWatchGroup(targetGroupMapper.selectList(new LambdaQueryWrapper<TargetGroup>()
@@ -149,6 +156,7 @@ public class ScreeningServiceImpl implements ScreeningService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ScreeningSnapshotView saveResult(ScreeningResultSaveRequest saveRequest) {
+        log.info("[Service] saveResult request={}", saveRequest);
         // 保存前复用完整请求校验，防止调用方绕过范围/操作符的协议约束写入不可回放数据。
         validateRequest(saveRequest.request());
         LocalDateTime executedAt = LocalDateTime.now();
@@ -173,6 +181,7 @@ public class ScreeningServiceImpl implements ScreeningService {
     @Override
     @Transactional(readOnly = true)
     public ScreeningSnapshotView getSavedResult(String resultId) {
+        log.info("[Service] getSavedResult resultId={}", resultId);
         if (!StringUtils.hasText(resultId)) {
             throw new BusinessException(40001, "筛选结果标识不能为空");
         }

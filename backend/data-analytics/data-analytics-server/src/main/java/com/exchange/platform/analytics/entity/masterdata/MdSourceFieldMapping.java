@@ -7,7 +7,9 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 /** Dataset 标准 fieldCode 到 Registry targetField 的映射。 */
-@Data @Accessors(chain = true) @TableName("md_source_field_mapping")
+@Data 
+@Accessors(chain = true) 
+@TableName("md_source_field_mapping")
 public class MdSourceFieldMapping {
     @TableId(type = IdType.AUTO) private Long id;
     private Long bindingId;

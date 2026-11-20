@@ -20,11 +20,13 @@ import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * A-07 市场概览模块接口。
  * 对应 I-18 查询市场概览、I-19 查询自选观察概览。
  */
+@Tag(name = "分析MarketOverview")
 @RestController
 @RequestMapping("/api/v1/analytics")
 public class MarketOverviewController {

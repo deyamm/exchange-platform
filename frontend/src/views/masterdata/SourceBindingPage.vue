@@ -47,10 +47,10 @@
             <el-table v-loading="loading" :data="records" border empty-text="暂无来源绑定">
                 <el-table-column prop="bindingName" label="来源名称" min-width="150" />
                 <el-table-column prop="bindingCode" label="编码" min-width="130" />
-                <el-table-column label="MasterDataType" min-width="150">
+                <el-table-column label="主数据类型" min-width="150">
                     <template #default="{ row }">{{ typeLabel(row.masterDataType) }}</template>
                 </el-table-column>
-                <el-table-column prop="datasetCode" label="Dataset" min-width="150" />
+                <el-table-column prop="datasetCode" label="数据集" min-width="150" />
                 <el-table-column prop="triggerMode" label="触发方式" width="100" />
                 <el-table-column label="启用" width="85">
                     <template #default="{ row }">
@@ -97,7 +97,7 @@
                 <el-form-item label="来源名称" required>
                     <el-input v-model="editor.bindingName" />
                 </el-form-item>
-                <el-form-item label="MasterDataType" required>
+                <el-form-item label="主数据类型" required>
                     <el-select
                         v-model="editor.masterDataType"
                         :disabled="!!editingId"
@@ -112,11 +112,11 @@
                         />
                     </el-select>
                 </el-form-item>
-                <el-form-item label="Dataset" required>
+                <el-form-item label="数据集" required>
                     <el-select
                         v-model="editor.datasetCode"
                         filterable
-                        placeholder="选择已存在的 Dataset"
+                        placeholder="选择已存在的数据集"
                         style="width: 100%"
                     >
                         <el-option

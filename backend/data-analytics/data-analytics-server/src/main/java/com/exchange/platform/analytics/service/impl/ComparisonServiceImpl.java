@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -37,6 +40,8 @@ import com.exchange.platform.common.core.exception.BusinessException;
 /** 明确标的集合的横向矩阵；指标为行、标的为列，不计算优劣或综合评分。 */
 @Service
 public class ComparisonServiceImpl implements ComparisonService {
+
+    private static final Logger log = LoggerFactory.getLogger(ComparisonServiceImpl.class);
     private final MetricValueQueryService metricValueQueryService;
     private final MetricMapper metricMapper;
     private final AppResultMapper appResultMapper;
@@ -53,6 +58,7 @@ public class ComparisonServiceImpl implements ComparisonService {
     @Override
     @Transactional(readOnly = true)
     public ComparisonResultView execute(ComparisonQueryRequest request) {
+        log.info("[Service] execute request={}", request);
         validate(request);
         List<String> targets = normalize(request.targetCodes());
         List<String> metrics = normalize(request.metricCodes());
@@ -100,6 +106,7 @@ public class ComparisonServiceImpl implements ComparisonService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ComparisonSnapshotView saveResult(ComparisonResultSaveRequest save) {
+        log.info("[Service] saveResult request={}", save);
         validate(save.request());
         ComparisonSnapshotView snapshot = new ComparisonSnapshotView();
         snapshot.setResultId(java.util.UUID.randomUUID().toString().replace("-", ""));
@@ -115,6 +122,7 @@ public class ComparisonServiceImpl implements ComparisonService {
     @Override
     @Transactional(readOnly = true)
     public ComparisonSnapshotView getSavedResult(String resultId) {
+        log.info("[Service] getSavedResult resultId={}", resultId);
         if (!StringUtils.hasText(resultId))
             throw new BusinessException(40001, "对比结果标识不能为空");
         AppResult entity = appResultMapper.selectOne(new LambdaQueryWrapper<AppResult>()

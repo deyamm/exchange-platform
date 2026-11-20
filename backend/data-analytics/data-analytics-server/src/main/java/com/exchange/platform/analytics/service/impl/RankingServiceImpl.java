@@ -12,6 +12,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -42,6 +45,8 @@ import com.exchange.platform.common.core.exception.BusinessException;
 /** 多字段排序：缺失值始终最后，最后以 targetCode ASC 稳定兜底。 */
 @Service
 public class RankingServiceImpl implements RankingService {
+
+    private static final Logger log = LoggerFactory.getLogger(RankingServiceImpl.class);
     private final MetricValueQueryService metricValueQueryService;
     private final MasterDataTargetScopeService masterDataTargetScopeService;
     private final WatchTargetMapper watchTargetMapper;
@@ -57,6 +62,7 @@ public class RankingServiceImpl implements RankingService {
     @Override
     @Transactional(readOnly = true)
     public RankingResultView execute(RankingQueryRequest request) {
+        log.info("[Service] execute request={}", request);
         validate(request);
         LinkedHashMap<String, TargetScopeTarget> targets = resolveTargets(request.targetType(), request.targetScope());
         List<RankingRuleRequest> rules = orderedRules(request.rankingRules());
@@ -98,6 +104,7 @@ public class RankingServiceImpl implements RankingService {
 
     @Override @Transactional(rollbackFor = Exception.class)
     public RankingSnapshotView saveResult(RankingResultSaveRequest save) {
+        log.info("[Service] saveResult request={}", save);
         validate(save.request());
         RankingSnapshotView snapshot = new RankingSnapshotView();
         snapshot.setResultId(java.util.UUID.randomUUID().toString().replace("-", ""));
@@ -110,6 +117,7 @@ public class RankingServiceImpl implements RankingService {
 
     @Override @Transactional(readOnly = true)
     public RankingSnapshotView getSavedResult(String resultId) {
+        log.info("[Service] getSavedResult resultId={}", resultId);
         if (!StringUtils.hasText(resultId)) throw new BusinessException(40001, "排行结果标识不能为空");
         AppResult entity = appResultMapper.selectOne(new LambdaQueryWrapper<AppResult>().eq(AppResult::getResultId, resultId.trim())
                 .eq(AppResult::getResultType, ResultType.RANKING));

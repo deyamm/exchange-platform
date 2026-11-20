@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,6 +37,8 @@ import com.exchange.platform.data.client.dto.MetricValue;
  */
 @Service
 public class MetricValueQueryServiceImpl implements MetricValueQueryService {
+
+    private static final Logger log = LoggerFactory.getLogger(MetricValueQueryServiceImpl.class);
     private final MetricMapper metricMapper;
     private final CollectionDatasetMetadataClient datasetMetadataClient;
     private final DataServiceClient dataServiceClient;
@@ -48,6 +53,7 @@ public class MetricValueQueryServiceImpl implements MetricValueQueryService {
     @Override
     @Transactional(readOnly = true)
     public List<MetricValueView> queryMetricValues(MetricQueryRequest request) {
+        log.info("[Service] queryMetricValues request={}", request);
         List<String> targetCodes = normalizeCodes(request.targetCodes(), "标的编码");
         List<String> metricCodes = normalizeCodes(request.metricCodes(), "指标编码");
         Map<String, AppMetric> metrics = loadAndValidateMetrics(metricCodes, request);

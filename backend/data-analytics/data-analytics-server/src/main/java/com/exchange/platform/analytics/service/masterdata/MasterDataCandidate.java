@@ -1,29 +1,69 @@
 package com.exchange.platform.analytics.service.masterdata;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.exchange.platform.common.core.enums.MarketAssetType;
 
 /**
- * 从 Dataset 行转换出的统一资产候选对象。
+ * 从 Dataset 标准行转换出的统一资产候选对象。
  *
- * <p>候选对象把股票、指数的公共身份字段提取出来，并保留其余标准字段，
- * 供校验和后续 upsert 使用。它还没有写入正式主数据表，因此不会绕过发布前校验。</p>
+ * <p>
+ * 候选对象把股票、指数的公共身份字段提取出来，并保留其余标准字段，
+ * 供后续业务校验和正式表 upsert 使用。
+ * </p>
  */
-public record MasterDataCandidate(MarketAssetType marketAssetType, String assetCode, String assetName,
+public record MasterDataCandidate(
+        MarketAssetType marketAssetType,
+        String assetCode,
+        String assetName,
         Map<String, Object> fields) {
+
     public MasterDataCandidate {
-        // 字段快照不可变，防止映射阶段之后的数据被意外改写。
-        fields = fields == null ? Map.of() : Map.copyOf(fields);
+        fields = fields == null || fields.isEmpty()
+                ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(fields));
     }
 
-    /** 读取字段的文本值；缺失字段统一返回 null。 */
-    public String text(String code) { Object value = fields.get(code); return value == null ? null : value.toString(); }
+    /** 字段不存在或值为 null 时返回 null。 */
+    public String text(String code) {
+        Object value = fields.get(code);
+        return value == null ? null : value.toString();
+    }
 
-    /** 将字段解析为整数；空值表示未提供可选字段。 */
-    public Integer integer(String code) { String value = text(code); return value == null || value.isBlank() ? null : Integer.valueOf(value); }
+    /** 兼容 Number 和字符串形式的整数。 */
+    public Integer integer(String code) {
+        Object value = fields.get(code);
 
-    /** 将 ISO-8601 日期字段解析为 LocalDate；空值表示未提供可选字段。 */
-    public LocalDate date(String code) { String value = text(code); return value == null || value.isBlank() ? null : LocalDate.parse(value); }
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        String text = value.toString();
+        return text.isBlank() ? null : Integer.valueOf(text);
+    }
+
+    /** 兼容 LocalDate、LocalDateTime 和 ISO-8601 日期字符串。 */
+    public LocalDate date(String code) {
+        Object value = fields.get(code);
+
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime.toLocalDate();
+        }
+
+        String text = value.toString();
+        return text.isBlank() ? null : LocalDate.parse(text);
+    }
 }
