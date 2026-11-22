@@ -28,11 +28,11 @@ import com.exchange.platform.collection.api.enums.DatasetStatus;
 import com.exchange.platform.collection.api.enums.DatasetMetadataDefinition;
 import com.exchange.platform.collection.api.enums.DatasetMetadataMaintainMode;
 import com.exchange.platform.collection.api.request.execution.DatasetMetadataUpdateRequest;
-import com.exchange.platform.collection.api.request.execution.DatasetMetricBindingQueryRequest;
+import com.exchange.platform.collection.api.request.execution.MetricDatasetQueryRequest;
 import com.exchange.platform.collection.api.response.execution.DatasetDetailView;
-import com.exchange.platform.collection.api.response.execution.DatasetMetricBindingView;
-import com.exchange.platform.collection.api.response.execution.DatasetMetricFieldBindingView;
-import com.exchange.platform.collection.api.response.execution.DatasetMetricReadBindingView;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetConfigView;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetFieldMappingView;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetExecutionView;
 import com.exchange.platform.collection.api.response.execution.DatasetMetadataView;
 import com.exchange.platform.collection.api.response.execution.DatasetView;
 import com.exchange.platform.collection.api.response.dataType.DataTypeFieldView;
@@ -311,112 +311,228 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
     }
 
     /**
-     * 为应用指标等消费者批量读取数据集元数据，避免消费者对分页记录逐行发起 HTTP 请求。
-     * 字段定义严格读取 Dataset 固定的当前版本快照，而不是仍可能变动的 DataType 草稿字段。
+     * 为指标配置场景批量读取 Dataset 主档及其固定版本的逻辑字段快照。
+     * <p>
+     * 这里只返回配置阶段需要的逻辑元数据，不校验物理存储是否可执行。
+     * </p>
      */
     @Override
     @Transactional(readOnly = true)
-    public List<DatasetMetricBindingView> getMetricBindings(DatasetMetricBindingQueryRequest request) {
-        List<String> datasetCodes = request.datasetCodes().stream().filter(StringUtils::hasText).distinct().toList();
+    public List<MetricDatasetConfigView> getDatasetsForMetricConfiguration(MetricDatasetQueryRequest request) {
+        List<Dataset> datasets = loadDatasetsForMetricQuery(request);
+        if (datasets.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        Map<String, DataTypeVersion> versions = loadCurrentDataTypeVersions(datasets);
+        return datasets.stream()
+                .map(dataset -> toMetricDatasetConfigView(dataset, versions))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 为指标执行场景批量读取 Dataset 的受控物理读取映射。
+     * <p>
+     * 返回结果只包含服务端确认过的物理定位和字段映射，并对 Dataset 状态、存储映射、
+     * 数据源、当前字段结构、标的代码列和数据时间列进行强校验。
+     * </p>
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<MetricDatasetExecutionView> getDatasetsForMetricExecution(MetricDatasetQueryRequest request) {
+        List<Dataset> datasets = loadDatasetsForMetricQuery(request);
+        if (datasets.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        MetricExecutionContext context = loadMetricExecutionContext(datasets);
+        return datasets.stream()
+                .map(dataset -> toMetricDatasetExecutionView(dataset, context))
+                .collect(Collectors.toList());
+    }
+
+    /** 指标配置与执行查询共用的 Dataset 主档批量加载。 */
+    private List<Dataset> loadDatasetsForMetricQuery(MetricDatasetQueryRequest request) {
+        if (request == null || request.datasetCodes() == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> datasetCodes = request.datasetCodes().stream()
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
         if (datasetCodes.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Dataset> datasets = datasetMapper.selectList(
-            new LambdaQueryWrapper<Dataset>()
-                .in(Dataset::getDatasetCode, datasetCodes)
-        );
-        return datasets.stream().map(dataset -> {
-            DatasetMetricBindingView view = new DatasetMetricBindingView();
-            view.setDatasetCode(dataset.getDatasetCode());
-            view.setDatasetName(dataset.getDatasetName());
-            view.setAssetType(MarketAssetType.fromCode(dataset.getAssetType()));
-            view.setDatasetStatus(dataset.getDatasetStatus());
-            view.setDataTypeVersionNo(dataset.getDataTypeVersionNo());
-            DataTypeVersion version = dataTypeVersionMapper.selectOne(
+
+        return datasetMapper.selectList(
+                new LambdaQueryWrapper<Dataset>()
+                        .in(Dataset::getDatasetCode, datasetCodes));
+    }
+
+    /** 批量加载 Dataset 当前固定的数据类型版本，避免逐 Dataset 查询形成 N+1。 */
+    private Map<String, DataTypeVersion> loadCurrentDataTypeVersions(List<Dataset> datasets) {
+        List<String> dataTypeCodes = datasets.stream()
+                .map(Dataset::getDataTypeCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+        if (dataTypeCodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        return dataTypeVersionMapper.selectList(
                 new LambdaQueryWrapper<DataTypeVersion>()
-                    .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
-                    .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1")
-            );
-            view.setFields(version == null || !StringUtils.hasText(version.getFieldSchemaContent())
-                    ? Collections.emptyList()
-                    : JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class));
-            return view;
-        }).collect(Collectors.toList());
+                        .in(DataTypeVersion::getDataTypeCode, dataTypeCodes))
+                .stream()
+                .collect(Collectors.toMap(
+                        version -> dataTypeVersionKey(version.getDataTypeCode(), version.getVersion()),
+                        version -> version,
+                        (left, right) -> left));
     }
 
-    /**
-     * 返回统一指标读取的最小物理绑定。目标代码和数据时间均来自已经确认的 Dataset 结构，
-     * 不使用调用方传入的列名，从而保持 metricCode -> Dataset 的服务端边界。
-     */
-    @Override
-    @Transactional(readOnly = true)
-    public List<DatasetMetricReadBindingView> getMetricReadBindings(DatasetMetricBindingQueryRequest request) {
-        List<String> datasetCodes = request.datasetCodes().stream().filter(StringUtils::hasText).distinct().toList();
-        if (datasetCodes.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Dataset> datasets = datasetMapper.selectList(
-            new LambdaQueryWrapper<Dataset>()
-                .in(Dataset::getDatasetCode, datasetCodes)
-        );
-        return datasets.stream().map(this::toMetricReadBinding).collect(Collectors.toList());
+    /** 将 Dataset 转换为指标配置阶段使用的逻辑元数据视图。 */
+    private MetricDatasetConfigView toMetricDatasetConfigView(
+            Dataset dataset, Map<String, DataTypeVersion> versions) {
+        MetricDatasetConfigView view = new MetricDatasetConfigView();
+        view.setDatasetCode(dataset.getDatasetCode());
+        view.setDatasetName(dataset.getDatasetName());
+        view.setAssetType(MarketAssetType.fromCode(dataset.getAssetType()));
+        view.setDatasetStatus(dataset.getDatasetStatus());
+        view.setDataTypeVersionNo(dataset.getDataTypeVersionNo());
+
+        DataTypeVersion version = versions.get(
+                dataTypeVersionKey(dataset.getDataTypeCode(), dataset.getDataTypeVersionNo()));
+        view.setFields(version == null || !StringUtils.hasText(version.getFieldSchemaContent())
+                ? Collections.emptyList()
+                : JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class));
+        return view;
     }
 
-    /**
-     * 
-     * @param dataset
-     * @return
-     */
-    private DatasetMetricReadBindingView toMetricReadBinding(Dataset dataset) {
+    /** 一次性加载指标执行视图需要的物理绑定数据，避免逐 Dataset 多次访问数据库。 */
+    private MetricExecutionContext loadMetricExecutionContext(List<Dataset> datasets) {
+        Map<String, DataTypeVersion> versions = loadCurrentDataTypeVersions(datasets);
+
+        List<String> storageMappingCodes = datasets.stream()
+                .map(Dataset::getStorageMappingCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, StorageMapping> storageMappings = storageMappingCodes.isEmpty()
+                ? Collections.emptyMap()
+                : storageMappingMapper.selectList(
+                        new LambdaQueryWrapper<StorageMapping>()
+                                .in(StorageMapping::getStorageMappingCode, storageMappingCodes))
+                        .stream()
+                        .collect(Collectors.toMap(
+                                StorageMapping::getStorageMappingCode,
+                                mapping -> mapping,
+                                (left, right) -> left));
+
+        List<String> dataSourceCodes = storageMappings.values().stream()
+                .map(StorageMapping::getDataSourceCode)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, DataSourceConfig> dataSources = dataSourceCodes.isEmpty()
+                ? Collections.emptyMap()
+                : dataSourceConfigMapper.selectList(
+                        new LambdaQueryWrapper<DataSourceConfig>()
+                                .in(DataSourceConfig::getDataSourceCode, dataSourceCodes))
+                        .stream()
+                        .collect(Collectors.toMap(
+                                DataSourceConfig::getDataSourceCode,
+                                source -> source,
+                                (left, right) -> left));
+
+        Map<String, List<StorageColumnMapping>> columnMappings = storageMappingCodes.isEmpty()
+                ? Collections.emptyMap()
+                : storageColumnMappingMapper.selectList(
+                        new LambdaQueryWrapper<StorageColumnMapping>()
+                                .in(StorageColumnMapping::getStorageMappingCode, storageMappingCodes))
+                        .stream()
+                        .collect(Collectors.groupingBy(StorageColumnMapping::getStorageMappingCode));
+
+        List<Long> datasetIds = datasets.stream()
+                .map(Dataset::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> dataTimeFields = datasetIds.isEmpty()
+                ? Collections.emptyMap()
+                : metadataMapper.selectList(
+                        new LambdaQueryWrapper<DatasetMetadata>()
+                                .in(DatasetMetadata::getDatasetId, datasetIds)
+                                .eq(DatasetMetadata::getMetadataGroup, STORAGE)
+                                .eq(DatasetMetadata::getMetadataKey, "data_time_field"))
+                        .stream()
+                        .collect(Collectors.toMap(
+                                DatasetMetadata::getDatasetId,
+                                DatasetMetadata::getMetadataValue,
+                                (left, right) -> left));
+
+        return new MetricExecutionContext(
+                versions, storageMappings, dataSources, columnMappings, dataTimeFields);
+    }
+
+    /** 将 Dataset 转换为指标执行阶段使用的受控物理读取视图。 */
+    private MetricDatasetExecutionView toMetricDatasetExecutionView(
+            Dataset dataset, MetricExecutionContext context) {
         if (dataset.getDatasetStatus() != DatasetStatus.ENABLED) {
             throw new BusinessException(40006, "数据集未启用，不能读取指标值：" + dataset.getDatasetCode());
         }
         if (!StringUtils.hasText(dataset.getStorageMappingCode())) {
             throw new BusinessException(40006, "数据集缺少存储映射：" + dataset.getDatasetCode());
         }
-        // storage mapping
-        StorageMapping mapping = storageMappingMapper.selectOne(new LambdaQueryWrapper<StorageMapping>()
-                .eq(StorageMapping::getStorageMappingCode, dataset.getStorageMappingCode()).last("LIMIT 1"));
+
+        StorageMapping mapping = context.storageMappings().get(dataset.getStorageMappingCode());
         if (mapping == null || !StringUtils.hasText(mapping.getPhysicalSchemaName())
                 || !StringUtils.hasText(mapping.getPhysicalTableName())
                 || !StringUtils.hasText(mapping.getDataSourceCode())) {
             throw new BusinessException(40006, "数据集物理存储定位无效：" + dataset.getDatasetCode());
         }
-        DataSourceConfig source = dataSourceConfigMapper.selectOne(new LambdaQueryWrapper<DataSourceConfig>()
-                .eq(DataSourceConfig::getDataSourceCode, mapping.getDataSourceCode()).last("LIMIT 1"));
+
+        DataSourceConfig source = context.dataSources().get(mapping.getDataSourceCode());
         if (source == null || source.getStatus() == null) {
             throw new BusinessException(40006, "数据集数据源不存在或不可用：" + dataset.getDatasetCode());
         }
-        // dataset 对应的 storage column mapping
-        List<StorageColumnMapping> columns = storageColumnMappingMapper.selectList(
-                new LambdaQueryWrapper<StorageColumnMapping>()
-                        .eq(StorageColumnMapping::getStorageMappingCode, mapping.getStorageMappingCode()));
-        DataTypeVersion version = dataTypeVersionMapper.selectOne(new LambdaQueryWrapper<DataTypeVersion>()
-                .eq(DataTypeVersion::getDataTypeCode, dataset.getDataTypeCode())
-                .eq(DataTypeVersion::getVersion, dataset.getDataTypeVersionNo()).last("LIMIT 1"));
+
+        DataTypeVersion version = context.versions().get(
+                dataTypeVersionKey(dataset.getDataTypeCode(), dataset.getDataTypeVersionNo()));
         if (version == null || !StringUtils.hasText(version.getFieldSchemaContent())) {
             throw new BusinessException(40006, "数据集当前字段结构无效：" + dataset.getDatasetCode());
         }
-        // 解析当前字段结构
-        List<DataTypeFieldView> currentFields = JSON.parseArray(version.getFieldSchemaContent(), DataTypeFieldView.class);
-        List<String> currentFieldCodes = currentFields
-            .stream()
-            .map(DataTypeFieldView::getFieldCode)
-            .filter(StringUtils::hasText)
-            .collect(Collectors.toList());
-        Map<String, String> physicalColumns = columns
-            .stream()
-            .filter(column -> StringUtils.hasText(column.getDataTypeFieldCode()) && StringUtils.hasText(column.getPhysicalColumnName()))
-            .filter(column -> currentFieldCodes.contains(column.getDataTypeFieldCode()))
-            .collect(Collectors.toMap(StorageColumnMapping::getDataTypeFieldCode,
-                    StorageColumnMapping::getPhysicalColumnName, (left, right) -> left));
+
+        List<DataTypeFieldView> currentFields = JSON.parseArray(
+                version.getFieldSchemaContent(), DataTypeFieldView.class);
+        List<String> currentFieldCodes = currentFields.stream()
+                .map(DataTypeFieldView::getFieldCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toList());
+
+        List<StorageColumnMapping> columns = context.columnMappings()
+                .getOrDefault(mapping.getStorageMappingCode(), Collections.emptyList());
+
+        Map<String, String> physicalColumns = columns.stream()
+                .filter(column -> StringUtils.hasText(column.getDataTypeFieldCode())
+                        && StringUtils.hasText(column.getPhysicalColumnName()))
+                .filter(column -> currentFieldCodes.contains(column.getDataTypeFieldCode()))
+                .collect(Collectors.toMap(
+                        StorageColumnMapping::getDataTypeFieldCode,
+                        StorageColumnMapping::getPhysicalColumnName,
+                        (left, right) -> left));
+
         String targetCodeColumn = physicalColumns.get("full_symbole");
-        String dataTimeField = metadataValue(dataset.getId(), "data_time_field");
+        String dataTimeField = context.dataTimeFields().get(dataset.getId());
         String dataTimeColumn = physicalColumns.get(dataTimeField);
         if (!StringUtils.hasText(targetCodeColumn) || !StringUtils.hasText(dataTimeColumn)) {
             throw new BusinessException(40006, "数据集缺少标的代码或数据时间字段映射：" + dataset.getDatasetCode());
         }
-        DatasetMetricReadBindingView view = new DatasetMetricReadBindingView();
+
+        MetricDatasetExecutionView view = new MetricDatasetExecutionView();
         view.setDatasetCode(dataset.getDatasetCode());
         view.setStorageType(source.getDataSourceType());
         view.setDataSourceCode(mapping.getDataSourceCode());
@@ -427,12 +543,25 @@ public class DatasetServiceImpl implements DatasetService, DatasetExecutionServi
         view.setTargetCodeColumn(targetCodeColumn);
         view.setDataTimeColumn(dataTimeColumn);
         view.setFields(physicalColumns.entrySet().stream().map(entry -> {
-            DatasetMetricFieldBindingView field = new DatasetMetricFieldBindingView();
+            MetricDatasetFieldMappingView field = new MetricDatasetFieldMappingView();
             field.setFieldCode(entry.getKey());
             field.setPhysicalColumnName(entry.getValue());
             return field;
         }).collect(Collectors.toList()));
         return view;
+    }
+
+    private String dataTypeVersionKey(String dataTypeCode, Object version) {
+        return String.valueOf(dataTypeCode) + "#" + String.valueOf(version);
+    }
+
+    /** 指标执行阶段批量查询所需的只读上下文。 */
+    private record MetricExecutionContext(
+            Map<String, DataTypeVersion> versions,
+            Map<String, StorageMapping> storageMappings,
+            Map<String, DataSourceConfig> dataSources,
+            Map<String, List<StorageColumnMapping>> columnMappings,
+            Map<Long, String> dataTimeFields) {
     }
 
     /** 查询已加载数据集当前引用的数据类型版本结构，注意，这里的结构不是最新的数据类型字段，而是当前数据集所使用的结构。 */

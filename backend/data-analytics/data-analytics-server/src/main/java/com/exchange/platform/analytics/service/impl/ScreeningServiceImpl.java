@@ -47,8 +47,7 @@ import com.exchange.platform.analytics.mapper.TargetGroupMapper;
 import com.exchange.platform.analytics.mapper.WatchTargetMapper;
 import com.exchange.platform.analytics.service.MetricValueQueryService;
 import com.exchange.platform.analytics.service.ScreeningService;
-import com.exchange.platform.analytics.service.masterdata.MasterDataTargetScopeService;
-import com.exchange.platform.analytics.service.support.TargetScopeTarget;
+import com.exchange.platform.analytics.service.MasterDataService;
 import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.exception.BusinessException;
 
@@ -68,16 +67,16 @@ public class ScreeningServiceImpl implements ScreeningService {
     private static final Set<String> NULL_OPERATORS = Set.of("IS_NULL", "IS_NOT_NULL");
 
     private final MetricValueQueryService metricValueQueryService;
-    private final MasterDataTargetScopeService masterDataTargetScopeService;
+    private final MasterDataService masterDataService;
     private final TargetGroupMapper targetGroupMapper;
     private final WatchTargetMapper watchTargetMapper;
     private final AppResultMapper appResultMapper;
 
     public ScreeningServiceImpl(MetricValueQueryService metricValueQueryService,
-            MasterDataTargetScopeService masterDataTargetScopeService, TargetGroupMapper targetGroupMapper,
+            MasterDataService masterDataService, TargetGroupMapper targetGroupMapper,
             WatchTargetMapper watchTargetMapper, AppResultMapper appResultMapper) {
         this.metricValueQueryService = metricValueQueryService;
-        this.masterDataTargetScopeService = masterDataTargetScopeService;
+        this.masterDataService = masterDataService;
         this.targetGroupMapper = targetGroupMapper;
         this.watchTargetMapper = watchTargetMapper;
         this.appResultMapper = appResultMapper;
@@ -88,7 +87,7 @@ public class ScreeningServiceImpl implements ScreeningService {
     public ScreeningResultView execute(ScreeningQueryRequest request) {
         log.info("[Service] execute request={}", request);
         validateRequest(request);
-        LinkedHashMap<String, TargetScopeTarget> targets = resolveTargets(request.targetType(), request.targetScope());
+        LinkedHashMap<String, Map<String, Object>> targets = resolveTargets(request.targetType(), request.targetScope());
         List<String> metricCodes = collectMetricCodes(request.conditionGroups());
 
         // 先为每个“标的 × 指标”补 null。统一取数接口没有返回记录也必须被解释为 missing，不能变成 0。
@@ -110,12 +109,12 @@ public class ScreeningServiceImpl implements ScreeningService {
         }
 
         List<ScreeningResultRowView> rows = new ArrayList<>();
-        for (Map.Entry<String, TargetScopeTarget> entry : targets.entrySet()) {
+        for (Map.Entry<String, Map<String, Object>> entry : targets.entrySet()) {
             Map<String, Object> values = matrix.get(entry.getKey());
             if (matchesAllGroups(values, request.conditionGroups(), request.groupOperator())) {
                 ScreeningResultRowView row = new ScreeningResultRowView();
                 row.setTargetCode(entry.getKey());
-                row.setTargetName(entry.getValue().getTargetName());
+                row.setTargetName((String) entry.getValue().get("targetName"));
                 row.setMetricValues(values);
                 rows.add(row);
             }
@@ -140,7 +139,8 @@ public class ScreeningServiceImpl implements ScreeningService {
                 .map(group -> new TargetScopeOptionView(group.getGroupCode(), group.getGroupName()))
                 .collect(Collectors.toList()));
         if (targetType == MarketAssetType.STOCK) {
-            view.setBoard(masterDataTargetScopeService.industryBoardOptions());
+            // TODO: setBoard还需要改
+            view.setBoard(List.of());
             view.setIndexType(List.of());
             view.setMarket(List.of());
         } else {
@@ -194,31 +194,30 @@ public class ScreeningServiceImpl implements ScreeningService {
         return JSON.parseObject(entity.getResultSummaryJson(), ScreeningSnapshotView.class);
     }
 
-    private LinkedHashMap<String, TargetScopeTarget> resolveTargets(MarketAssetType targetType, TargetScopeRequest scope) {
+    private LinkedHashMap<String, Map<String, Object>> resolveTargets(MarketAssetType targetType, TargetScopeRequest scope) {
         String scopeType = normalized(scope.scopeType());
         List<String> values = normalizeCodes(scope.scopeValues(), "范围值");
-        List<TargetScopeTarget> resolved;
+        List<Map<String, Object>> resolved;
         if ("WATCH_GROUP".equals(scopeType)) {
             resolved = resolveWatchGroupTargets(targetType, values);
         } else {
-            resolved = masterDataTargetScopeService.resolve(targetType, scopeType, values,
-                    scope.industryPublisherCode(), scope.industryLevel());
+            resolved = masterDataService.resolveScope(targetType, scopeType, values);
         }
-        return resolved.stream().filter(target -> StringUtils.hasText(target.getTargetCode()))
-                .collect(Collectors.toMap(TargetScopeTarget::getTargetCode, target -> target, (first, ignored) -> first,
+        return resolved.stream().filter(target -> StringUtils.hasText(target.get("targetCode").toString()))
+                .collect(Collectors.toMap(target -> target.get("targetCode").toString(), target -> target, (first, ignored) -> first,
                         LinkedHashMap::new));
     }
 
-    private List<TargetScopeTarget> resolveWatchGroupTargets(MarketAssetType targetType, List<String> groupCodes) {
+    private List<Map<String, Object>> resolveWatchGroupTargets(MarketAssetType targetType, List<String> groupCodes) {
         requireScopeValues(groupCodes, "WATCH_GROUP");
         return watchTargetMapper.selectList(new LambdaQueryWrapper<WatchTarget>()
                 .eq(WatchTarget::getTargetType, targetType.getValue())
                 .in(WatchTarget::getGroupCode, groupCodes)
                 .orderByAsc(WatchTarget::getSortNo))
                 .stream().map(watch -> {
-                    TargetScopeTarget target = new TargetScopeTarget();
-                    target.setTargetCode(watch.getTargetCode());
-                    target.setTargetName(watch.getTargetName());
+                    Map<String, Object> target = new LinkedHashMap<>();
+                    target.put("targetCode", watch.getTargetCode());
+                    target.put("targetName", watch.getTargetName());
                     return target;
                 }).collect(Collectors.toList());
     }

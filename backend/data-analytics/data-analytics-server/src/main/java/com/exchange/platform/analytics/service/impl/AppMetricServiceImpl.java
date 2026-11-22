@@ -63,7 +63,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
             .eq(status != null, AppMetric::getStatus, status);
 
         Page<AppMetric> page = this.page(new Page<>(safePageNo, safePageSize), wrapper);
-        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getBindings(
+        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
                 page.getRecords().stream().map(AppMetric::getDatasetCode).collect(Collectors.toSet()));
         List<AppMetricView> viewList = page.getRecords().stream()
             .map(metric -> toView(metric, bindings.get(metric.getDatasetCode())))
@@ -107,7 +107,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
         }
 
         this.saveOrUpdate(entity);
-        DatasetBinding binding = collectionDatasetMetadataClient.getBindings(List.of(entity.getDatasetCode()))
+        DatasetBinding binding = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(List.of(entity.getDatasetCode()))
                 .get(entity.getDatasetCode());
         return toView(entity, binding);
     }
@@ -155,7 +155,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
         if (!ALLOWED_CATEGORIES.contains(request.metricCategory())) {
             throw new BusinessException(40001, "指标分类不合法");
         }
-        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getBindings(
+        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
                 Collections.singletonList(request.datasetCode()));
         DatasetBinding dataset = bindings.get(request.datasetCode());
         if (dataset == null) {

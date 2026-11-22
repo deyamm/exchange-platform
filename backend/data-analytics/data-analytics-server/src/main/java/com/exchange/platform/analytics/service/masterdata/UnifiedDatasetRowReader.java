@@ -38,7 +38,7 @@ public class UnifiedDatasetRowReader implements DatasetRowReader {
     @Override
     public List<Map<String, Object>> read(DatasetReadRequest request) {
         DatasetMetricReadBinding binding =
-                metadataClient.getMetricReadBinding(request.datasetCode());
+                metadataClient.getDatasetForMetricExecution(request.datasetCode());
 
         if (binding == null
                 || binding.fieldColumns() == null

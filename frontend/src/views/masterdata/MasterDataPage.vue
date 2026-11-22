@@ -107,22 +107,6 @@
                 </el-table-column>
                 <el-table-column prop="assetCode" label="代码" min-width="130" />
                 <el-table-column prop="assetName" label="名称" min-width="150" />
-                <el-table-column
-                    v-if="filters.marketAssetType !== 'INDEX'"
-                    prop="marketType"
-                    label="市场"
-                    width="110"
-                >
-                    <template #default="{ row }">{{ valueOf(row.marketType) }}</template>
-                </el-table-column>
-                <el-table-column
-                    v-if="filters.marketAssetType !== 'STOCK'"
-                    prop="publisherCode"
-                    label="发布方"
-                    width="100"
-                >
-                    <template #default="{ row }">{{ valueOf(row.publisherCode) }}</template>
-                </el-table-column>
                 <el-table-column label="状态" width="100">
                     <template #default="{ row }">
                         <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>

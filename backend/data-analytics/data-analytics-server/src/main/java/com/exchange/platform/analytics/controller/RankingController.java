@@ -34,11 +34,13 @@ public class RankingController {
 
     @PostMapping("/query")
     public ApiResponse<RankingResultView> query(@Valid @RequestBody RankingQueryRequest body, HttpServletRequest request) {
+        log.info("[Controller] Executing ranking query with request: {}", body);
         return ApiResponse.success(rankingService.execute(body), RequestIdHolder.getRequestId(request));
     }
 
     @PostMapping("/results")
     public ApiResponse<RankingSnapshotView> save(@Valid @RequestBody RankingResultSaveRequest body, HttpServletRequest request) {
+        log.info("[Controller] Saving ranking result with request: {}", body);
         return ApiResponse.success(rankingService.saveResult(body), RequestIdHolder.getRequestId(request));
     }
 

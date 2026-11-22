@@ -39,6 +39,7 @@ public class MetricValueController {
     @PostMapping("/query")
     public ApiResponse<List<MetricValueView>> query(@Valid @RequestBody MetricQueryRequest body,
             HttpServletRequest request) {
+        log.info("[Controller] Querying metric values with request: {}", body);
         String requestId = RequestIdHolder.getRequestId(request);
         return ApiResponse.success(metricValueQueryService.queryMetricValues(body), requestId);
     }

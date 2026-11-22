@@ -1,13 +1,11 @@
 package com.exchange.platform.analytics.api.enums;
 
 /**
- * 系统内置的主数据业务类型。它与 MarketAssetType 分离：MarketAssetType 描述资产，
- * MasterDataType 描述一次发布产生的对象或关系。
+ * 系统内置的主数据业务类型。它与 MarketAssetType 分离：MarketAssetType 描述资产， MasterDataType
+ * 描述一次发布产生的实体型主数据。
  */
 public enum MasterDataType {
-    MARKET_ASSET_STOCK("股票主数据", "MARKET_ASSET", "ENTITY"),
-    MARKET_ASSET_INDEX("指数主数据", "MARKET_ASSET", "ENTITY"),
-    MARKET_ASSET_REL_INDEX_MEMBER("指数成分关系", "MARKET_ASSET", "RELATION");
+    MARKET_ASSET_STOCK("股票主数据", "MARKET_ASSET", "ENTITY"), MARKET_ASSET_INDEX("指数主数据", "MARKET_ASSET", "ENTITY");
 
     private final String displayName;
     private final String domain;
@@ -19,7 +17,15 @@ public enum MasterDataType {
         this.category = category;
     }
 
-    public String getDisplayName() { return displayName; }
-    public String getDomain() { return domain; }
-    public String getCategory() { return category; }
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDomain() {
+        return domain;
+    }
+
+    public String getCategory() {
+        return category;
+    }
 }

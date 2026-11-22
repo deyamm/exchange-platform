@@ -33,7 +33,7 @@ import com.exchange.platform.analytics.mapper.AppResultMapper;
 import com.exchange.platform.analytics.mapper.MetricMapper;
 import com.exchange.platform.analytics.service.ComparisonService;
 import com.exchange.platform.analytics.service.MetricValueQueryService;
-import com.exchange.platform.analytics.service.masterdata.MasterDataTargetScopeService;
+import com.exchange.platform.analytics.service.MasterDataService;
 import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.exception.BusinessException;
 
@@ -45,14 +45,14 @@ public class ComparisonServiceImpl implements ComparisonService {
     private final MetricValueQueryService metricValueQueryService;
     private final MetricMapper metricMapper;
     private final AppResultMapper appResultMapper;
-    private final MasterDataTargetScopeService masterDataTargetScopeService;
+    private final MasterDataService masterDataService;
 
     public ComparisonServiceImpl(MetricValueQueryService metricValueQueryService, MetricMapper metricMapper,
-            AppResultMapper appResultMapper, MasterDataTargetScopeService masterDataTargetScopeService) {
+            AppResultMapper appResultMapper, MasterDataService masterDataService) {
         this.metricValueQueryService = metricValueQueryService;
         this.metricMapper = metricMapper;
         this.appResultMapper = appResultMapper;
-        this.masterDataTargetScopeService = masterDataTargetScopeService;
+        this.masterDataService = masterDataService;
     }
 
     @Override
@@ -63,8 +63,7 @@ public class ComparisonServiceImpl implements ComparisonService {
         List<String> targets = normalize(request.targetCodes());
         List<String> metrics = normalize(request.metricCodes());
         Map<String, AppMetric> metricCatalog = metricMapper
-                .selectList(new LambdaQueryWrapper<AppMetric>().in(AppMetric::getMetricCode, metrics))
-                .stream()
+                .selectList(new LambdaQueryWrapper<AppMetric>().in(AppMetric::getMetricCode, metrics)).stream()
                 .collect(Collectors.toMap(AppMetric::getMetricCode, metric -> metric, (a, b) -> a, LinkedHashMap::new));
         Map<String, Map<String, Object>> values = new LinkedHashMap<>();
         Map<String, Map<String, String>> times = new LinkedHashMap<>();
@@ -84,10 +83,8 @@ public class ComparisonServiceImpl implements ComparisonService {
         });
         ComparisonResultView result = new ComparisonResultView();
         result.setTargetType(request.targetType());
-        Map<String, String> targetNames = masterDataTargetScopeService.findByCodes(request.targetType(), targets)
-                .stream()
-                .collect(Collectors.toMap(target -> target.getTargetCode(), target -> target.getTargetName(),
-                        (left, right) -> left));
+        Map<String, String> targetNames = masterDataService.findByCodes(request.targetType(), targets)
+                .stream().collect(Collectors.toMap(target -> target.get("assetCode").toString(), target -> target.get("assetName").toString(), (left, right) -> left));
         result.setTargets(targets.stream()
                 .map(code -> new ComparisonTargetView(code, targetNames.getOrDefault(code, code))).toList());
         result.setRows(metrics.stream().map(metric -> {

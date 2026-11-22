@@ -12,15 +12,13 @@ import java.util.Objects;
  * 主数据同步读取 Dataset 的抽象边界。
  *
  * <p>
- * 上层只声明逻辑 Dataset、需要读取的字段、筛选条件和分页信息，
- * 不直接依赖物理表、数据库连接或采集服务的实现细节。
- * 具体实现负责解析 Dataset 元数据并完成实际 I/O。
+ * 上层只声明逻辑 Dataset、需要读取的字段、筛选条件和分页信息， 不直接依赖物理表、数据库连接或采集服务的实现细节。 具体实现负责解析 Dataset
+ * 元数据并完成实际 I/O。
  * </p>
  *
  * <p>
- * 发布场景通常需要读取完整 Dataset，因此接口额外提供
- * {@link #readAll(DatasetReadRequest)}。该方法基于 pageNo/pageSize
- * 自动翻页，避免固定只读取前 2000 条数据。
+ * 发布场景通常需要读取完整 Dataset，因此接口额外提供 {@link #readAll(DatasetReadRequest)}。该方法基于
+ * pageNo/pageSize 自动翻页，避免固定只读取前 2000 条数据。
  * </p>
  */
 public interface DatasetRowReader {
@@ -37,14 +35,8 @@ public interface DatasetRowReader {
      * 从请求指定的起始页开始自动翻页，读取完整结果集。
      *
      * <p>
-     * 每次请求沿用原始查询条件，只递增页码。最后一页的记录数小于
-     * pageSize 时停止；如果总记录数刚好是 pageSize 的整数倍，
+     * 每次请求沿用原始查询条件，只递增页码。最后一页的记录数小于 pageSize 时停止；如果总记录数刚好是 pageSize 的整数倍，
      * 会额外读取一个空页后结束。
-     * </p>
-     *
-     * <p>
-     * 为避免底层数据服务忽略 pageSize 而导致无限循环，这里校验
-     * 单页返回数量不能超过请求的 pageSize。
      * </p>
      */
     default List<Map<String, Object>> readAll(DatasetReadRequest request) {
@@ -58,19 +50,13 @@ public interface DatasetRowReader {
             List<Map<String, Object>> page = read(pageRequest);
 
             if (page == null) {
-                throw new IllegalStateException(
-                        "DatasetRowReader.read() 不允许返回 null: " + request.datasetCode());
+                throw new IllegalStateException("DatasetRowReader.read() 不允许返回 null: " + request.datasetCode());
             }
-
             if (page.size() > pageRequest.pageSize()) {
-                throw new IllegalStateException(
-                        "Dataset 单页返回数量超过 pageSize，无法安全执行自动分页: dataset="
-                                + request.datasetCode()
-                                + ", pageNo=" + pageNo
-                                + ", pageSize=" + pageRequest.pageSize()
-                                + ", actual=" + page.size());
+                throw new IllegalStateException("Dataset 单页返回数量超过 pageSize，无法安全执行自动分页: dataset=" 
+                    + request.datasetCode()
+                    + ", pageNo=" + pageNo + ", pageSize=" + pageRequest.pageSize() + ", actual=" + page.size());
             }
-
             if (page.isEmpty()) {
                 break;
             }
@@ -80,10 +66,8 @@ public interface DatasetRowReader {
             if (page.size() < pageRequest.pageSize()) {
                 break;
             }
-
             if (pageNo == Integer.MAX_VALUE) {
-                throw new IllegalStateException(
-                        "Dataset 自动分页页码已达到 Integer.MAX_VALUE: " + request.datasetCode());
+                throw new IllegalStateException("Dataset 自动分页页码已达到 Integer.MAX_VALUE: " + request.datasetCode());
             }
 
             pageNo++;
@@ -94,22 +78,8 @@ public interface DatasetRowReader {
 
     /**
      * 一次 Dataset 行读取的完整参数。
-     *
-     * <p>
-     * 构造时复制集合，避免调用方后续修改查询条件。
-     * 页码最小为 1；pageSize 默认 500，单页最大 2000。
-     * </p>
      */
-    record DatasetReadRequest(
-            String datasetCode,
-            List<String> fieldCodes,
-            Map<String, Object> filters,
-            List<String> assetCodes,
-            LocalDateTime from,
-            LocalDateTime to,
-            String orderBy,
-            int pageNo,
-            int pageSize) {
+    record DatasetReadRequest(String datasetCode, List<String> fieldCodes, Map<String, Object> filters, List<String> assetCodes, LocalDateTime from, LocalDateTime to, String orderBy, int pageNo, int pageSize) {
 
         public DatasetReadRequest {
             fieldCodes = fieldCodes == null ? List.of() : List.copyOf(fieldCodes);
@@ -122,20 +92,11 @@ public interface DatasetRowReader {
 
         /** 基于当前请求创建指定页请求，其他条件保持不变。 */
         public DatasetReadRequest withPage(int newPageNo) {
-            return new DatasetReadRequest(
-                    datasetCode,
-                    fieldCodes,
-                    filters,
-                    assetCodes,
-                    from,
-                    to,
-                    orderBy,
-                    newPageNo,
+            return new DatasetReadRequest(datasetCode, fieldCodes, filters, assetCodes, from, to, orderBy, newPageNo,
                     pageSize);
         }
 
-        private static Map<String, Object> immutableMapAllowingNullValues(
-                Map<String, Object> source) {
+        private static Map<String, Object> immutableMapAllowingNullValues(Map<String, Object> source) {
 
             if (source == null || source.isEmpty()) {
                 return Map.of();

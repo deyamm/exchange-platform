@@ -34,14 +34,15 @@ public class CollectionDatasetMetadataClient {
 
     /** 按 Dataset 编码批量读取名称、状态及当前版本字段定义。 */
     @SuppressWarnings("unchecked")
-    public Map<String, DatasetBinding> getBindings(Collection<String> sourceCodes) {
+    public Map<String, DatasetBinding> getDatasetsForMetricConfiguration(Collection<String> sourceCodes) {
         List<String> datasetCodes = sourceCodes.stream().filter(StringUtils::hasText).distinct().toList();
         if (datasetCodes.isEmpty()) {
             return Collections.emptyMap();
         }
         try {
+            // TODO: 需要将这里对 collection 的调用改为使用 data-collection.data-collection-client 中向外提供的接口
             Map<String, Object> response = restTemplate.postForObject(
-                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-bindings/query",
+                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-configuration/query",
                     Collections.singletonMap("datasetCodes", datasetCodes), Map.class);
             if (response == null || !Integer.valueOf(0).equals(asInteger(response.get("code")))) {
                 throw new BusinessException(40001, "读取数据集元数据失败");
@@ -86,14 +87,15 @@ public class CollectionDatasetMetadataClient {
      * 统一指标取数专用的受控读取绑定。该方法只由后端服务调用；页面仍只能传 metricCode。
      */
     @SuppressWarnings("unchecked")
-    public Map<String, DatasetMetricReadBinding> getMetricReadBindings(Collection<String> sourceCodes) {
+    public Map<String, DatasetMetricReadBinding> getDatasetsForMetricExecution(Collection<String> sourceCodes) {
         List<String> datasetCodes = sourceCodes.stream().filter(StringUtils::hasText).distinct().toList();
         if (datasetCodes.isEmpty()) {
             return Collections.emptyMap();
         }
         try {
+            // TODO: 需要将这里对 collection 的调用改为使用 data-collection.data-collection-client 中向外提供的接口
             Map<String, Object> response = restTemplate.postForObject(
-                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-read-bindings/query",
+                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-execution/query",
                     Collections.singletonMap("datasetCodes", datasetCodes), Map.class);
             if (response == null || !Integer.valueOf(0).equals(asInteger(response.get("code")))) {
                 throw new BusinessException(40001, "读取数据集指标取数绑定失败");
@@ -141,8 +143,8 @@ public class CollectionDatasetMetadataClient {
     }
 
     /** 读取单个 Dataset 的受控 StorageMapping，供统一逻辑行读取适配器使用。 */
-    public DatasetMetricReadBinding getMetricReadBinding(String datasetCode) {
-        return getMetricReadBindings(List.of(datasetCode)).get(datasetCode);
+    public DatasetMetricReadBinding getDatasetForMetricExecution(String datasetCode) {
+        return getDatasetsForMetricExecution(List.of(datasetCode)).get(datasetCode);
     }
 
     private Integer asInteger(Object value) {

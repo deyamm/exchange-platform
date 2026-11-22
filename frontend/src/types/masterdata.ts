@@ -10,7 +10,7 @@ export type MappingMode = 'FIELD' | 'CONSTANT'
 export type TriggerType = 'MANUAL' | 'AUTO' | 'REPUBLISH'
 export type ReadinessStatus = 'READY' | 'INVALID' | 'DISABLED'
 
-export interface TargetFieldDefinition {
+export interface MdFieldDefinition {
     fieldCode: string
     fieldName: string
     valueType: string
@@ -19,11 +19,11 @@ export interface TargetFieldDefinition {
     allowedMappingModes: MappingMode[]
 }
 export interface MasterDataTypeDefinition {
-    typeCode: 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX' | 'MARKET_ASSET_REL_INDEX_MEMBER'
+    typeCode: 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX'
     displayName: string
     domain: string
     category: string
-    fields: TargetFieldDefinition[]
+    fields: MdFieldDefinition[]
 }
 export interface SourceFieldMapping {
     id?: number
@@ -46,24 +46,14 @@ export interface SourceBinding {
     lastBatch?: SyncBatch | null
 }
 
-/** 与 Java MarketAssetView 一一对应；时间字段保留 optional，以兼容后端逐步扩展。 */
+/** 与 Java Map<String, Object> 一一对应；类型专属字段由 attributes 动态承载。 */
 export interface MasterDataAsset {
     id: number
     marketAssetType: MarketAssetType | null
     assetCode: string
     assetName: string
     status: MasterDataStatus
-    marketType?: string | null
-    exchangeCode?: string | null
-    currencyCode?: string | null
-    listDate?: string | null
-    delistDate?: string | null
-    publisherCode?: string | null
-    indexCategory?: string | null
-    schemeCode?: string | null
-    level?: number | null
-    launchDate?: string | null
-    endDate?: string | null
+    attributes: Record<string, unknown>
     createdAt?: string | null
     updatedAt?: string | null
 }
@@ -100,7 +90,7 @@ export interface AssetMemberDisplay extends AssetMember {
 export interface SyncBatch {
     id: number
     assetType?: MasterDataAssetType
-    masterDataType?: 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX' | 'MARKET_ASSET_REL_INDEX_MEMBER' | null
+    masterDataType?: 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX' | null
     bindingId?: number | null
     bindingCode?: string | null
     bindingName?: string | null

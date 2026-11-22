@@ -1,7 +1,7 @@
 import http from '/@/utils/http'
 import type { PageResult } from '/@/types/common'
 import type {
-    AssetMember, MasterDataAsset, MasterDataAssetQuery, MasterDataAssetType, SyncBatch, SyncBatchQuery,
+    MasterDataAsset, MasterDataAssetQuery, MasterDataAssetType, SyncBatch, SyncBatchQuery,
     MasterDataTypeDefinition, SourceBinding, SourceFieldMapping, TriggerType, MarketAssetType,
     SyncType,
 } from '/@/types/masterdata'
@@ -20,15 +20,6 @@ export function searchMasterDataAssets(keyword: string, marketAssetType?: Market
 
 export function getMasterDataAsset(marketAssetType: MasterDataAssetType, assetCode: string): Promise<MasterDataAsset> | any {
     return http.get<MasterDataAsset>(`${BASE_URL}/${marketAssetType}/${encodeURIComponent(assetCode)}`)
-}
-
-export function queryIndexMembers(assetCode: string): Promise<AssetMember[]> | any {
-    return http.get<AssetMember[]>(`${BASE_URL}/INDEX/${encodeURIComponent(assetCode)}/members`)
-}
-
-/** 复用后端已有批量详情端点，为 INDEX 成分表补充股票名称，避免任何本地猜测。 */
-export function batchGetMasterDataAssets(assetCodes: string[]): Promise<MasterDataAsset[]> | any {
-    return http.post<MasterDataAsset[]>(`${BASE_URL}/batch-detail`, assetCodes.map(assetCode => ({ marketAssetType: 'STOCK', assetCode })))
 }
 
 export function querySyncBatches(params: SyncBatchQuery): Promise<PageResult<SyncBatch>> | any {

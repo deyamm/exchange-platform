@@ -17,7 +17,6 @@
                     >
                         <el-option label="股票主数据" value="MARKET_ASSET_STOCK" />
                         <el-option label="指数主数据" value="MARKET_ASSET_INDEX" />
-                        <el-option label="指数成分关系" value="MARKET_ASSET_REL_INDEX_MEMBER" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="Dataset">

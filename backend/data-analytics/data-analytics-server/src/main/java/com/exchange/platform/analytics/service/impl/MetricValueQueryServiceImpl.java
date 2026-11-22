@@ -39,12 +39,12 @@ import com.exchange.platform.data.client.dto.MetricValue;
 public class MetricValueQueryServiceImpl implements MetricValueQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(MetricValueQueryServiceImpl.class);
+
     private final MetricMapper metricMapper;
     private final CollectionDatasetMetadataClient datasetMetadataClient;
     private final DataServiceClient dataServiceClient;
 
-    public MetricValueQueryServiceImpl(MetricMapper metricMapper,
-            CollectionDatasetMetadataClient datasetMetadataClient, DataServiceClient dataServiceClient) {
+    public MetricValueQueryServiceImpl(MetricMapper metricMapper, CollectionDatasetMetadataClient datasetMetadataClient, DataServiceClient dataServiceClient) {
         this.metricMapper = metricMapper;
         this.datasetMetadataClient = datasetMetadataClient;
         this.dataServiceClient = dataServiceClient;
@@ -54,13 +54,15 @@ public class MetricValueQueryServiceImpl implements MetricValueQueryService {
     @Transactional(readOnly = true)
     public List<MetricValueView> queryMetricValues(MetricQueryRequest request) {
         log.info("[Service] queryMetricValues request={}", request);
+
         List<String> targetCodes = normalizeCodes(request.targetCodes(), "标的编码");
         List<String> metricCodes = normalizeCodes(request.metricCodes(), "指标编码");
         Map<String, AppMetric> metrics = loadAndValidateMetrics(metricCodes, request);
-        Map<String, List<AppMetric>> metricsByDataset = metrics.values().stream()
-                .collect(Collectors.groupingBy(AppMetric::getDatasetCode, LinkedHashMap::new, Collectors.toList()));
+        Map<String, List<AppMetric>> metricsByDataset = metrics.values()
+            .stream()
+            .collect(Collectors.groupingBy(AppMetric::getDatasetCode, LinkedHashMap::new, Collectors.toList()));
         Map<String, DatasetMetricReadBinding> bindings = datasetMetadataClient
-                .getMetricReadBindings(metricsByDataset.keySet());
+                .getDatasetsForMetricExecution(metricsByDataset.keySet());
 
         List<MetricValueView> result = new ArrayList<>();
         for (Map.Entry<String, List<AppMetric>> entry : metricsByDataset.entrySet()) {
