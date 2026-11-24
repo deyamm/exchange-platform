@@ -3,7 +3,8 @@ import type { PageResult } from '/@/types/common'
 import type {
     MasterDataAsset, MasterDataAssetQuery, MasterDataAssetType, SyncBatch, SyncBatchQuery,
     MasterDataTypeDefinition, SourceBinding, SourceFieldMapping, TriggerType, MarketAssetType,
-    SyncType,
+    SyncType, MasterDataTypeCode, PublishedMasterDataRowsQuery,
+    PublishedMasterDataType, PublishedMasterDataTypeDetail,
 } from '/@/types/masterdata'
 
 const BASE_URL = '/api/v1/analytics/master-data'
@@ -32,6 +33,20 @@ export function republishSyncBatch(batchId: number): Promise<SyncBatch> | any {
 
 export function queryMasterDataTypes(): Promise<MasterDataTypeDefinition[]> | any {
     return http.get<MasterDataTypeDefinition[]>(`${BASE_URL}/registry/types`)
+}
+
+/** 查询已成功发布的主数据类型；浏览器不直接读取 Dataset 或物理表。 */
+export function queryPublishedMasterDataTypes(keyword?: string): Promise<PublishedMasterDataType[]> | any {
+    return http.get<PublishedMasterDataType[]>(`${BASE_URL}/published-types`, { params: { keyword } })
+}
+
+export function getPublishedMasterDataType(typeCode: MasterDataTypeCode): Promise<PublishedMasterDataTypeDetail> | any {
+    return http.get<PublishedMasterDataTypeDetail>(`${BASE_URL}/published-types/${typeCode}`)
+}
+
+export function queryPublishedMasterDataRows(typeCode: MasterDataTypeCode,
+    params: PublishedMasterDataRowsQuery): Promise<PageResult<Record<string, any>>> | any {
+    return http.get<PageResult<Record<string, any>>>(`${BASE_URL}/published-types/${typeCode}/records`, { params })
 }
 
 export function querySourceBindings(params: { keyword?: string; datasetCode?: string; masterDataType?: string; triggerMode?: string; enabled?: boolean; readiness?: string; pageNo: number; pageSize: number }): Promise<PageResult<SourceBinding>> | any {

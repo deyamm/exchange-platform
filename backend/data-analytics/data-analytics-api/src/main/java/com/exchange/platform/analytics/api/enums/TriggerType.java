@@ -1,3 +1,15 @@
 package com.exchange.platform.analytics.api.enums;
 
-public enum TriggerType { MANUAL, AUTO, REPUBLISH }
+import com.baomidou.mybatisplus.annotation.IEnum;
+
+public enum TriggerType implements IEnum<String> { 
+    MANUAL, 
+    AUTO, 
+    REPUBLISH;
+
+    @Override
+    public String getValue() {
+        return this.name();
+    }
+
+}

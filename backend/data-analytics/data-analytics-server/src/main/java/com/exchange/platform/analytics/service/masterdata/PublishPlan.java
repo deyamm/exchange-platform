@@ -47,7 +47,7 @@ public record PublishPlan(Long bindingId, String bindingCode, MasterDataType mas
 
         for (FieldMapping mapping : fieldMappings) {
             Object value = mapping.mappingMode() == MappingMode.CONSTANT ? mapping.constantValue()
-                    : safeSource.get(mapping.sourceFieldCode());
+                : safeSource.get(mapping.sourceFieldCode());
 
             mapped.put(mapping.targetField(), value);
         }
@@ -71,8 +71,8 @@ public record PublishPlan(Long bindingId, String bindingCode, MasterDataType mas
         }
 
         return fieldMappings.stream().filter(mapping -> mapping.mappingMode() == MappingMode.FIELD)
-                .filter(mapping -> targetOrderField.equals(mapping.targetField())).map(FieldMapping::sourceFieldCode)
-                .filter(PublishPlan::hasText).findFirst().orElseGet(this::firstDatasetField);
+            .filter(mapping -> targetOrderField.equals(mapping.targetField())).map(FieldMapping::sourceFieldCode)
+            .filter(PublishPlan::hasText).findFirst().orElseGet(this::firstDatasetField);
     }
 
     private String firstDatasetField() {
@@ -84,7 +84,12 @@ public record PublishPlan(Long bindingId, String bindingCode, MasterDataType mas
     }
 
     /** SourceBinding 中的一条目标字段映射快照。 */
-    public record FieldMapping(String targetField, MappingMode mappingMode, String sourceFieldCode, String constantValue) {
+    public record FieldMapping(
+        String targetField, 
+        MappingMode mappingMode, 
+        String sourceFieldCode, 
+        String constantValue
+    ) {
         
     }
 }

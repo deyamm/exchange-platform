@@ -1,18 +1,20 @@
 package com.exchange.platform.analytics.service.support;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestTemplate;
 
+import com.exchange.platform.collection.api.request.execution.MetricDatasetQueryRequest;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetConfigView;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetExecutionView;
+import com.exchange.platform.collection.client.feign.DataCollectionClient;
 import com.exchange.platform.common.core.exception.BusinessException;
+import com.exchange.platform.common.core.result.ApiResponse;
 
 /**
  * 数据分析服务访问数据集元数据的最小只读客户端。
@@ -23,57 +25,39 @@ import com.exchange.platform.common.core.exception.BusinessException;
  */
 @Component
 public class CollectionDatasetMetadataClient {
-    private final RestTemplate restTemplate;
-    private final String collectionBaseUrl;
+    private final DataCollectionClient dataCollectionClient;
 
-    public CollectionDatasetMetadataClient(RestTemplate restTemplate,
-            @Value("${collection-metadata.base-url:http://localhost:8082}") String collectionBaseUrl) {
-        this.restTemplate = restTemplate;
-        this.collectionBaseUrl = collectionBaseUrl.replaceAll("/+$", "");
+    public CollectionDatasetMetadataClient(DataCollectionClient dataCollectionClient) {
+        this.dataCollectionClient = dataCollectionClient;
     }
 
     /** 按 Dataset 编码批量读取名称、状态及当前版本字段定义。 */
-    @SuppressWarnings("unchecked")
-    public Map<String, DatasetBinding> getDatasetsForMetricConfiguration(Collection<String> sourceCodes) {
+    public Map<String, MetricDatasetConfigView> getDatasetsForMetricConfiguration(Collection<String> sourceCodes) {
         List<String> datasetCodes = sourceCodes.stream().filter(StringUtils::hasText).distinct().toList();
+
         if (datasetCodes.isEmpty()) {
             return Collections.emptyMap();
         }
         try {
-            // TODO: 需要将这里对 collection 的调用改为使用 data-collection.data-collection-client 中向外提供的接口
-            Map<String, Object> response = restTemplate.postForObject(
-                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-configuration/query",
-                    Collections.singletonMap("datasetCodes", datasetCodes), Map.class);
-            if (response == null || !Integer.valueOf(0).equals(asInteger(response.get("code")))) {
+            ApiResponse<List<MetricDatasetConfigView>> response = dataCollectionClient
+                    .queryMetricDatasetConfigurations(new MetricDatasetQueryRequest(datasetCodes));
+            if (!isSuccessful(response)) {
                 throw new BusinessException(40001, "读取数据集元数据失败");
             }
-            Object data = response.get("data");
-            if (!(data instanceof List<?>)) {
+            List<MetricDatasetConfigView> data = response.data();
+            if (data == null) {
                 return Collections.emptyMap();
             }
-            Map<String, DatasetBinding> result = new LinkedHashMap<>();
-            for (Object item : (List<?>) data) {
-                if (!(item instanceof Map<?, ?>)) {
+            Map<String, MetricDatasetConfigView> result = new LinkedHashMap<>();
+            for (MetricDatasetConfigView binding : data) {
+                if (binding == null) {
                     continue;
                 }
-                Map<String, Object> binding = (Map<String, Object>) item;
-                String datasetCode = asString(binding.get("datasetCode"));
+                String datasetCode = binding.getDatasetCode();
                 if (!StringUtils.hasText(datasetCode)) {
                     continue;
                 }
-                List<FieldDefinition> fields = new ArrayList<>();
-                Object rawFields = binding.get("fields");
-                if (rawFields instanceof List<?>) {
-                    for (Object rawField : (List<?>) rawFields) {
-                        if (rawField instanceof Map<?, ?>) {
-                            Map<String, Object> field = (Map<String, Object>) rawField;
-                            fields.add(
-                                new FieldDefinition(asString(field.get("fieldCode")), asString(field.get("fieldName")), asString(field.get("fieldType")))
-                            );
-                        }
-                    }
-                }
-                result.put(datasetCode, new DatasetBinding(datasetCode, asString(binding.get("datasetName")), asString(binding.get("assetType")), asString(binding.get("datasetStatus")), fields));
+                result.put(datasetCode, binding);
             }
             return result;
         } catch (BusinessException ex) {
@@ -86,53 +70,35 @@ public class CollectionDatasetMetadataClient {
     /**
      * 统一指标取数专用的受控读取绑定。该方法只由后端服务调用；页面仍只能传 metricCode。
      */
-    @SuppressWarnings("unchecked")
-    public Map<String, DatasetMetricReadBinding> getDatasetsForMetricExecution(Collection<String> sourceCodes) {
+    public Map<String, MetricDatasetExecutionView> getDatasetsForMetricExecution(Collection<String> sourceCodes) {
         List<String> datasetCodes = sourceCodes.stream().filter(StringUtils::hasText).distinct().toList();
         if (datasetCodes.isEmpty()) {
             return Collections.emptyMap();
         }
+
         try {
-            // TODO: 需要将这里对 collection 的调用改为使用 data-collection.data-collection-client 中向外提供的接口
-            Map<String, Object> response = restTemplate.postForObject(
-                    collectionBaseUrl + "/api/v1/collection/monitor/datasets/metric-execution/query",
-                    Collections.singletonMap("datasetCodes", datasetCodes), Map.class);
-            if (response == null || !Integer.valueOf(0).equals(asInteger(response.get("code")))) {
-                throw new BusinessException(40001, "读取数据集指标取数绑定失败");
+            ApiResponse<List<MetricDatasetExecutionView>> response = dataCollectionClient
+                    .queryMetricDatasetExecutions(new MetricDatasetQueryRequest(datasetCodes));
+            if (!isSuccessful(response)) {
+                throw new BusinessException(40001, "读取数据集指标取数绑定失败，错误原因：" + response.message());
             }
-            Object data = response.get("data");
-            if (!(data instanceof List<?>)) {
+
+            List<MetricDatasetExecutionView> data = response.data();
+            if (data == null) {
                 return Collections.emptyMap();
             }
-            Map<String, DatasetMetricReadBinding> result = new LinkedHashMap<>();
-            for (Object item : (List<?>) data) {
-                if (!(item instanceof Map<?, ?>)) {
+
+            Map<String, MetricDatasetExecutionView> result = new LinkedHashMap<>();
+            for (MetricDatasetExecutionView binding : data) {
+                if (binding == null) {
                     continue;
                 }
-                Map<String, Object> binding = (Map<String, Object>) item;
-                String datasetCode = asString(binding.get("datasetCode"));
+                String datasetCode = binding.getDatasetCode();
                 if (!StringUtils.hasText(datasetCode)) {
                     continue;
                 }
-                Map<String, String> fieldColumns = new LinkedHashMap<>();
-                Object rawFields = binding.get("fields");
-                if (rawFields instanceof List<?>) {
-                    for (Object rawField : (List<?>) rawFields) {
-                        if (rawField instanceof Map<?, ?>) {
-                            Map<String, Object> field = (Map<String, Object>) rawField;
-                            String fieldCode = asString(field.get("fieldCode"));
-                            String physicalColumnName = asString(field.get("physicalColumnName"));
-                            if (StringUtils.hasText(fieldCode) && StringUtils.hasText(physicalColumnName)) {
-                                fieldColumns.put(fieldCode, physicalColumnName);
-                            }
-                        }
-                    }
-                }
-                result.put(datasetCode, new DatasetMetricReadBinding(datasetCode, asString(binding.get("assetType")),
-                        asString(binding.get("datasetStatus")), asString(binding.get("storageType")),
-                        asString(binding.get("dataSourceCode")), asString(binding.get("schemaName")),
-                        asString(binding.get("tableName")), asString(binding.get("targetCodeColumn")),
-                        asString(binding.get("dataTimeColumn")), fieldColumns));
+        
+                result.put(datasetCode, binding);
             }
             return result;
         } catch (BusinessException ex) {
@@ -143,52 +109,12 @@ public class CollectionDatasetMetadataClient {
     }
 
     /** 读取单个 Dataset 的受控 StorageMapping，供统一逻辑行读取适配器使用。 */
-    public DatasetMetricReadBinding getDatasetForMetricExecution(String datasetCode) {
+    public MetricDatasetExecutionView getDatasetForMetricExecution(String datasetCode) {
         return getDatasetsForMetricExecution(List.of(datasetCode)).get(datasetCode);
     }
 
-    private Integer asInteger(Object value) {
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-        try {
-            return value == null ? null : Integer.valueOf(value.toString());
-        } catch (NumberFormatException ex) {
-            return null;
-        }
+    private boolean isSuccessful(ApiResponse<?> response) {
+        return response != null && response.code() == 0;
     }
 
-    private String asString(Object value) {
-        return value == null ? null : String.valueOf(value);
-    }
-
-    /** Dataset 当前可用于指标绑定的必要元数据。 */
-    public record DatasetBinding(
-        String datasetCode, 
-        String datasetName, 
-        String assetType, 
-        String datasetStatus,
-        List<FieldDefinition> fields
-    ) { }
-
-    /** 分析服务使用的受控 Dataset 执行绑定，仅通过内部协议传递给 Python。 */
-    public record DatasetMetricReadBinding(
-        String datasetCode, 
-        String assetType, 
-        String datasetStatus,
-        String storageType, 
-        String dataSourceCode, 
-        String schemaName, 
-        String tableName,
-        String targetCodeColumn, 
-        String dataTimeColumn, 
-        Map<String, String> fieldColumns
-    ) { }
-
-    /** 当前 DataTypeVersion 快照中的标准字段定义。 */
-    public record FieldDefinition(
-        String fieldCode, 
-        String fieldName, 
-        String fieldType
-    ) { }
 }

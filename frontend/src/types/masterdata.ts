@@ -9,6 +9,7 @@ export type SyncType = 'INIT' | 'FULL' | 'INCREMENTAL'
 export type MappingMode = 'FIELD' | 'CONSTANT'
 export type TriggerType = 'MANUAL' | 'AUTO' | 'REPUBLISH'
 export type ReadinessStatus = 'READY' | 'INVALID' | 'DISABLED'
+export type MasterDataTypeCode = 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX'
 
 export interface MdFieldDefinition {
     fieldCode: string
@@ -19,11 +20,32 @@ export interface MdFieldDefinition {
     allowedMappingModes: MappingMode[]
 }
 export interface MasterDataTypeDefinition {
-    typeCode: 'MARKET_ASSET_STOCK' | 'MARKET_ASSET_INDEX'
+    typeCode: MasterDataTypeCode
     displayName: string
     domain: string
     category: string
     fields: MdFieldDefinition[]
+}
+
+/** 首页只展示至少有一个成功发布批次的主数据类型。 */
+export interface PublishedMasterDataType {
+    typeCode: MasterDataTypeCode
+    displayName: string
+    datasetCode: string
+    datasetName?: string | null
+    totalCount: number
+    publishedAt?: string | null
+}
+
+export interface PublishedMasterDataTypeDetail extends PublishedMasterDataType {
+    domain: string
+    category: string
+    fields: MdFieldDefinition[]
+}
+
+export interface PublishedMasterDataRowsQuery {
+    pageNo: number
+    pageSize: number
 }
 export interface SourceFieldMapping {
     id?: number

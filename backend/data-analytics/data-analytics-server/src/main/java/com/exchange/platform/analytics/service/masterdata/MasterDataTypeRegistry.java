@@ -6,9 +6,9 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.exchange.platform.analytics.api.enums.ExchangeType;
 import com.exchange.platform.analytics.api.enums.IndexCategory;
 import com.exchange.platform.analytics.api.enums.MappingMode;
-import com.exchange.platform.analytics.api.enums.MasterDataStatus;
 import com.exchange.platform.analytics.api.enums.MasterDataType;
 import com.exchange.platform.analytics.api.enums.PublisherCode;
 import com.exchange.platform.analytics.api.enums.StockMarketType;
@@ -23,41 +23,58 @@ public class MasterDataTypeRegistry {
     private final Map<MasterDataType, MasterDataTypeDefinition> definitions = new EnumMap<>(MasterDataType.class);
 
     public MasterDataTypeRegistry() {
-        register(definition(MasterDataType.MARKET_ASSET_STOCK,
+        register(
+            definition(MasterDataType.MARKET_ASSET_STOCK,
                 List.of(field("assetCode", "资产代码", "STRING", true),
-                        field("assetName", "资产名称", "STRING", true),
-                        enumField("status", "状态", false, MasterDataStatus.class),
-                        enumField("marketType", "市场类型", false, StockMarketType.class),
-                        field("exchangeCode", "交易所", "STRING", false),
-                        field("currencyCode", "币种", "STRING", false),
-                        field("listDate", "上市日期", "DATE", false),
-                        field("delistDate", "退市日期", "DATE", false)),
+                    field("assetName", "资产名称", "STRING", true),
+                    enumField("marketType", "市场类型", false, StockMarketType.class),
+                    enumField("exchangeCode", "交易所", false, ExchangeType.class),
+                    field("currencyCode", "币种", "STRING", false),
+                    field("listDate", "上市日期", "DATE", false),
+                    field("delistDate", "退市日期", "DATE", false)
+                ),
                 new StorageDefinition("md_market_asset_stock", Map.ofEntries(
-                        Map.entry("assetCode", "asset_code"), Map.entry("assetName", "asset_name"),
-                        Map.entry("status", "status"), Map.entry("marketType", "market_type"),
-                        Map.entry("exchangeCode", "exchange_code"), Map.entry("currencyCode", "currency_code"),
-                        Map.entry("listDate", "list_date"), Map.entry("delistDate", "delist_date"))),
-                List.of(new ValidationRule("DATE_ORDER", List.of("listDate", "delistDate")))));
+                    Map.entry("assetCode", "asset_code"), 
+                    Map.entry("assetName", "asset_name"),
+                    Map.entry("marketType", "market_type"),
+                    Map.entry("exchangeCode", "exchange_code"), 
+                    Map.entry("currencyCode", "currency_code"),
+                    Map.entry("listDate", "list_date"), 
+                    Map.entry("delistDate", "delist_date"))
+                ),
+                List.of(new ValidationRule("DATE_ORDER", List.of("listDate", "delistDate")))
+            )
+        );
 
-        register(definition(MasterDataType.MARKET_ASSET_INDEX,
+        register(
+            definition(MasterDataType.MARKET_ASSET_INDEX,
                 List.of(field("assetCode", "资产代码", "STRING", true),
-                        field("assetName", "资产名称", "STRING", true),
-                        enumField("status", "状态", false, MasterDataStatus.class),
-                        enumField("publisherCode", "发布方", false, PublisherCode.class),
-                        enumField("indexCategory", "指数分类", false, IndexCategory.class),
-                        field("schemeCode", "业务体系", "STRING", false),
-                        field("level", "层级", "INTEGER", false),
-                        field("exchangeCode", "交易所", "STRING", false),
-                        field("launchDate", "发布日期", "DATE", false),
-                        field("endDate", "终止日期", "DATE", false)),
+                    field("assetName", "资产名称", "STRING", true),
+                    enumField("publisherCode", "发布方", false, PublisherCode.class),
+                    enumField("indexCategory", "指数分类", false, IndexCategory.class),
+                    field("schemeCode", "业务体系", "STRING", false),
+                    field("level", "层级", "INTEGER", false),
+                    field("exchangeCode", "交易所", "STRING", false),
+                    field("launchDate", "发布日期", "DATE", false),
+                    field("endDate", "终止日期", "DATE", false)
+                ),
                 new StorageDefinition("md_market_asset_index", Map.ofEntries(
-                        Map.entry("assetCode", "asset_code"), Map.entry("assetName", "asset_name"),
-                        Map.entry("status", "status"), Map.entry("publisherCode", "publisher_code"),
-                        Map.entry("indexCategory", "index_category"), Map.entry("schemeCode", "scheme_code"),
-                        Map.entry("level", "level"), Map.entry("exchangeCode", "exchange_code"),
-                        Map.entry("launchDate", "launch_date"), Map.entry("endDate", "end_date"))),
-                List.of(new ValidationRule("INTEGER_MIN", List.of("level", "1")),
-                        new ValidationRule("DATE_ORDER", List.of("launchDate", "endDate")))));
+                    Map.entry("assetCode", "asset_code"), 
+                    Map.entry("assetName", "asset_name"),
+                    Map.entry("publisherCode", "publisher_code"),
+                    Map.entry("indexCategory", "index_category"), 
+                    Map.entry("schemeCode", "scheme_code"),
+                    Map.entry("level", "level"), 
+                    Map.entry("exchangeCode", "exchange_code"),
+                    Map.entry("launchDate", "launch_date"), 
+                    Map.entry("endDate", "end_date"))
+                ),
+                List.of(
+                    new ValidationRule("INTEGER_MIN", List.of("level", "1")),
+                    new ValidationRule("DATE_ORDER", List.of("launchDate", "endDate"))
+                )
+            )
+        );
     }
 
     public List<MasterDataTypeDefinition> list() { return List.copyOf(definitions.values()); }
@@ -74,19 +91,17 @@ public class MasterDataTypeRegistry {
         }
     }
 
-    private MasterDataTypeDefinition definition(MasterDataType type, List<MdFieldDefinition> fields,
-            StorageDefinition storage, List<ValidationRule> rules) {
-        return new MasterDataTypeDefinition(type, type.getDisplayName(), type.getDomain(), type.getCategory(), fields,
-                List.of("assetCode"), storage, rules);
+    private MasterDataTypeDefinition definition(MasterDataType type, List<MdFieldDefinition> fields, StorageDefinition storage, List<ValidationRule> rules) {
+        return new MasterDataTypeDefinition(type, type.getDisplayName(), type.getDomain(), type.getCategory(), fields, List.of("assetCode"), storage, rules);
     }
 
     private MdFieldDefinition field(String code, String name, String valueType, boolean required) {
         return new MdFieldDefinition(code, name, valueType, required,
-                null, List.of(MappingMode.FIELD, MappingMode.CONSTANT));
+            null, List.of(MappingMode.FIELD, MappingMode.CONSTANT));
     }
 
     private MdFieldDefinition enumField(String code, String name, boolean required, Class<? extends Enum<?>> enumType) {
         return new MdFieldDefinition(code, name, "ENUM", required, enumType.getName(),
-                List.of(MappingMode.FIELD, MappingMode.CONSTANT));
+            List.of(MappingMode.FIELD, MappingMode.CONSTANT));
     }
 }

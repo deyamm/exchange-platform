@@ -48,17 +48,24 @@ public class MasterDataValueConverter {
     }
 
     private static LocalDate toDate(Object raw, String value) {
-        if (raw instanceof LocalDate d) return d;
-        if (raw instanceof LocalDateTime dt) return dt.toLocalDate();
-        if (raw instanceof Date d) return d.toLocalDate();
-        if (raw instanceof Timestamp ts) return ts.toLocalDateTime().toLocalDate();
+        if (raw instanceof LocalDate d) 
+            return d;
+        if (raw instanceof LocalDateTime dt) 
+            return dt.toLocalDate();
+        if (raw instanceof Date d) 
+            return d.toLocalDate();
+        if (raw instanceof Timestamp ts) 
+            return ts.toLocalDateTime().toLocalDate();
         return LocalDate.parse(value);
     }
 
     private static LocalDateTime toDateTime(Object raw, String value) {
-        if (raw instanceof LocalDateTime dt) return dt;
-        if (raw instanceof Timestamp ts) return ts.toLocalDateTime();
-        if (raw instanceof Date d) return d.toLocalDate().atStartOfDay();
+        if (raw instanceof LocalDateTime dt) 
+            return dt;
+        if (raw instanceof Timestamp ts) 
+            return ts.toLocalDateTime();
+        if (raw instanceof Date d) 
+            return d.toLocalDate().atStartOfDay();
         return LocalDateTime.parse(value);
     }
 
@@ -74,15 +81,19 @@ public class MasterDataValueConverter {
     }
 
     private static Object enumValue(MdFieldDefinition field, String value) {
-        if (field.enumType() == null || field.enumType().isBlank()) return value;
+        if (field.enumType() == null || field.enumType().isBlank()) 
+            return value;
         try {
             Class<?> type = Class.forName(field.enumType());
-            if (!type.isEnum()) throw new IllegalArgumentException("不是枚举类型");
+            if (!type.isEnum()) 
+                throw new IllegalArgumentException("不是枚举类型");
             for (Object constant : type.getEnumConstants()) {
-                if (value.equalsIgnoreCase(((Enum<?>) constant).name())) return constant;
+                if (value.equalsIgnoreCase(((Enum<?>) constant).name())) 
+                    return value;
                 try {
                     Object code = type.getMethod("getValue").invoke(constant);
-                    if (value.equalsIgnoreCase(String.valueOf(code))) return constant;
+                    if (value.equalsIgnoreCase(String.valueOf(code))) 
+                        return value;
                 } catch (NoSuchMethodException ignored) {
                     // Name-only enums, such as status, use the branch above.
                 }

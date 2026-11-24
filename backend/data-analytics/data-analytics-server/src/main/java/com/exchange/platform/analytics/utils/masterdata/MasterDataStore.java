@@ -1,7 +1,6 @@
 package com.exchange.platform.analytics.utils.masterdata;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,33 +22,45 @@ public class MasterDataStore {
         this.jdbc = jdbc;
     }
 
-    public Map<String, Object> findOne(MasterDataTypeDefinition definition, Map<String, Object> businessKey) {
+    /**
+     * 根据业务主键查询单条主数据记录，返回一个不可变的 Map。
+     * @param definition
+     * @param businessKey
+     * @return
+     */
+    public Map<String, Object> findByBusinessKey(MasterDataTypeDefinition definition, Map<String, Object> businessKey) {
         MasterDataTypeDefinition d = require(definition);
         Map<String, Object> key = d.businessKeyOf(businessKey);
+        
         String sql = "SELECT " + selectColumns(d) + " FROM " + d.storage().tableName() + where(d, key);
         List<Map<String, Object>> rows = jdbc.queryForList(sql, key.values().toArray());
-        return rows.isEmpty() ? null : normalize(d, rows.get(0));
+        return rows.isEmpty() ? null : new LinkedHashMap<>(rows.get(0));
     }
 
-    public List<Map<String, Object>> findByBusinessKeys(MasterDataTypeDefinition definition,
-            Collection<Map<String, Object>> businessKeys) {
+    /**
+     * 根据业务主键列表查询多条主数据记录，返回一个不可变的 List。
+     * @param definition
+     * @param businessKeys
+     * @return
+     */
+    public List<Map<String, Object>> findByBusinessKeys(MasterDataTypeDefinition definition, List<Map<String, Object>> businessKeys) {
         if (businessKeys == null || businessKeys.isEmpty())
             return List.of();
         MasterDataTypeDefinition d = require(definition);
-        List<Map<String, Object>> normalized = businessKeys.stream().map(d::businessKeyOf).toList();
+        List<Map<String, Object>> normalizedKeys = businessKeys.stream().map(d::businessKeyOf).toList();
         List<Map<String, Object>> result = new ArrayList<>();
-        for (int offset = 0; offset < normalized.size(); offset += 500) {
-            List<Map<String, Object>> chunk = normalized.subList(offset, Math.min(offset + 500, normalized.size()));
+        for (int offset = 0; offset < normalizedKeys.size(); offset += 500) {
+            List<Map<String, Object>> chunkKeys = normalizedKeys.subList(offset, Math.min(offset + 500, normalizedKeys.size()));
             List<Object> args = new ArrayList<>();
             StringJoiner predicates = new StringJoiner(" OR ");
-            for (Map<String, Object> key : chunk) {
+            for (Map<String, Object> key : chunkKeys) {
                 predicates.add(key.keySet().stream().map(field -> column(d, field) + " = ?")
                         .reduce((a, b) -> a + " AND " + b).orElseThrow());
                 args.addAll(key.values());
             }
             String sql = "SELECT " + selectColumns(d) + " FROM " + d.storage().tableName() + " WHERE (" + predicates
                     + ")";
-            result.addAll(jdbc.queryForList(sql, args.toArray()).stream().map(row -> normalize(d, row)).toList());
+            result.addAll(jdbc.queryForList(sql, args.toArray()).stream().map(row -> new LinkedHashMap<>(row)).toList());
         }
         return result;
     }
@@ -66,14 +77,14 @@ public class MasterDataStore {
         sql.append(" LIMIT ? OFFSET ?");
         args.add(query.pageSize());
         args.add((long) (query.pageNo() - 1) * query.pageSize());
-        return jdbc.queryForList(sql.toString(), args.toArray()).stream().map(row -> normalize(d, row)).toList();
+        return jdbc.queryForList(sql.toString(), args.toArray());
     }
 
     public long countAll(MasterDataTypeDefinition definition) {
         return jdbc.queryForObject("SELECT COUNT(*) FROM " + require(definition).storage().tableName(), Long.class);
     }
 
-    public long count(MasterDataTypeDefinition definition, MasterDataQuery query) {
+    public long countByQuery(MasterDataTypeDefinition definition, MasterDataQuery query) {
         MasterDataTypeDefinition d = require(definition);
         List<Object> args = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM ").append(d.storage().tableName())
@@ -102,17 +113,16 @@ public class MasterDataStore {
         }
         args.addAll(key.values());
         return jdbc.update(
-                "UPDATE " + d.storage().tableName() + " SET " + String.join(", ", assignments) + where(d, key),
-                args.toArray());
+            "UPDATE " + d.storage().tableName() + " SET " + String.join(", ", assignments) + where(d, key),
+            args.toArray());
     }
 
     public void upsert(MasterDataTypeDefinition definition, Map<String, Object> record) {
         MasterDataTypeDefinition d = require(definition);
         Map<String, Object> key = d.businessKeyOf(record);
-        Map<String, Object> existing = findOne(d, key);
+        Map<String, Object> existing = findByBusinessKey(d, key);
         if (existing == null) {
-            List<String> fields = d.fields().stream().map(MdFieldDefinition::fieldCode).filter(record::containsKey)
-                    .toList();
+            List<String> fields = d.fields().stream().map(MdFieldDefinition::fieldCode).filter(record::containsKey) .toList();
             StringJoiner columns = new StringJoiner(", ");
             StringJoiner placeholders = new StringJoiner(", ");
             List<Object> args = new ArrayList<>();
@@ -121,8 +131,13 @@ public class MasterDataStore {
                 placeholders.add("?");
                 args.add(record.get(field));
             });
-            jdbc.update("INSERT INTO " + d.storage().tableName() + " (" + columns + ") VALUES (" + placeholders + ")",
-                    args.toArray());
+            jdbc.update(
+                "INSERT INTO " 
+                + d.storage().tableName() 
+                + " (" + columns + ") " + 
+                "VALUES (" + placeholders + ")", 
+                args.toArray()
+            );
         } else {
             Map<String, Object> changes = new LinkedHashMap<>(record);
             d.businessKeyFields().forEach(changes::remove);
@@ -136,13 +151,13 @@ public class MasterDataStore {
         return jdbc.update("DELETE FROM " + d.storage().tableName() + where(d, key), key.values().toArray());
     }
 
-    private void appendFilters(MasterDataTypeDefinition d, MasterDataQuery query, StringBuilder sql,
-            List<Object> args) {
+    private void appendFilters(MasterDataTypeDefinition d, MasterDataQuery query, StringBuilder sql, List<Object> args) {
         query.equalsFilters().forEach((field, value) -> {
             sql.append(" AND ").append(column(d, field)).append(" = ?");
             args.add(value);
         });
         query.inFilters().forEach((field, values) -> {
+            // 只要有一个值为空或空集合，就直接返回 1=0
             if (values == null || values.isEmpty()) {
                 sql.append(" AND 1=0");
                 return;
@@ -181,10 +196,6 @@ public class MasterDataStore {
         if (column == null)
             throw new IllegalArgumentException("未知主数据字段: " + field);
         return column;
-    }
-
-    private Map<String, Object> normalize(MasterDataTypeDefinition d, Map<String, Object> row) {
-        return new LinkedHashMap<>(row);
     }
 
     private MasterDataTypeDefinition require(MasterDataTypeDefinition d) {

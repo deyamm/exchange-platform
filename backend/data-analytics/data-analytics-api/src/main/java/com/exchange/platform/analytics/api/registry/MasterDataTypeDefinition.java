@@ -54,6 +54,11 @@ public record MasterDataTypeDefinition(
         });
     }
 
+    /**
+     * 根据主数据记录获取业务主键字段的值，返回一个不可变的 Map。
+     * @param record
+     * @return
+     */
     public Map<String, Object> businessKeyOf(Map<String, Object> record) {
         Map<String, Object> key = new LinkedHashMap<>();
         for (String field : businessKeyFields) {

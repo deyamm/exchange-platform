@@ -4,5 +4,6 @@ package com.exchange.platform.data.client.dto;
 public record MetricFieldQuery(
         String metricCode,
         String fieldCode,
-        String physicalColumn) {
+        String physicalColumn
+    ) {
 }

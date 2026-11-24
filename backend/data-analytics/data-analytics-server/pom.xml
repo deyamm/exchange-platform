@@ -26,6 +26,10 @@
         </dependency>
         <dependency>
             <groupId>com.exchange.platform</groupId>
+            <artifactId>data-collection-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.exchange.platform</groupId>
             <artifactId>data-analytics-api</artifactId>
         </dependency>
         <dependency>

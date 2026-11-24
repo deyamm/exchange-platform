@@ -60,6 +60,10 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						meta: { title: '主数据查询', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Search' },
 					},
 					{
+						path: '/masterData/published/:typeCode', name: 'masterDataPublishedDetail', component: () => import('../views/masterdata/MasterDataTypeDetailPage.vue'),
+						meta: { title: '主数据详情', isLink: '', isHide: true, isKeepAlive: false, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Document' },
+					},
+					{
 						path: '/masterData/sources', name: 'masterDataSources', component: () => import('../views/masterdata/SourceBindingPage.vue'),
 						meta: { title: '来源管理', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Connection' },
 					},

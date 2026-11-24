@@ -8,7 +8,7 @@ from app.core.registry import registry
 from app.schemas.collection_task.task_template import ExecutionContext, OutputField, TaskRunRequest, TaskRunResult, TaskTemplateInfo
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
-from app.core.common.enum import AssetType
+from app.core.common.enum import AssetType, StockMarketType
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,15 @@ class StockBasicDataTask(BaseCollectTask):
 
         stock_basic = stock_basic.replace([np.inf, -np.inf], np.nan)
         stock_basic = stock_basic.astype(object).where(stock_basic.notnull(), None)
+
+        # 将原接口返回的 market 字段值从 "主板"/"创业板"/"科创板"/"北交所"/"其他" 转换为枚举类型 StockMarketType
+        stock_basic['market'] = stock_basic['market'].map({
+            "主板": StockMarketType.MAIN.name,
+            "创业板": StockMarketType.CYB.name,
+            "科创板": StockMarketType.KCB.name,
+            "北交所": StockMarketType.BSE.name,
+            "其他": StockMarketType.OTHER.name
+        })
 
         return cast(list[dict[str, Any]], stock_basic.rename(columns=str).to_dict("records"))
 

@@ -1,3 +1,15 @@
 package com.exchange.platform.analytics.api.enums;
 
-public enum SyncBatchStatus { CREATED, VALIDATING, PUBLISHED, FAILED }
+import com.baomidou.mybatisplus.annotation.IEnum;
+
+public enum SyncBatchStatus implements IEnum<String> { 
+    CREATED, 
+    VALIDATING, 
+    PUBLISHED, 
+    FAILED;
+
+    @Override 
+    public String getValue() {
+        return this.name();
+    }
+}

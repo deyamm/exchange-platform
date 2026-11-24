@@ -1,6 +1,6 @@
 package com.exchange.platform.collection.api.response.execution;
 
-import java.util.List;
+import java.util.Map;
 
 import com.exchange.platform.collection.api.enums.DatasetStatus;
 import com.exchange.platform.common.core.enums.MarketAssetType;
@@ -22,5 +22,5 @@ public class MetricDatasetExecutionView {
     private String tableName;
     private String targetCodeColumn;
     private String dataTimeColumn;
-    private List<MetricDatasetFieldMappingView> fields;
+    private Map<String, String> fields;
 }

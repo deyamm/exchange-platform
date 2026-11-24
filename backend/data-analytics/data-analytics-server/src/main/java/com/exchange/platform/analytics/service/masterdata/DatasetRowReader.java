@@ -9,16 +9,15 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 主数据同步读取 Dataset 的抽象边界。
+ * 主数据同步过程的数据集读取接口。
  *
  * <p>
- * 上层只声明逻辑 Dataset、需要读取的字段、筛选条件和分页信息， 不直接依赖物理表、数据库连接或采集服务的实现细节。 具体实现负责解析 Dataset
- * 元数据并完成实际 I/O。
+ * 上游只传入 Dataset、需要读取的字段、筛选条件和分页信息， 不直接依赖物理表、数据库连接或采集服务的实现细节。 
+ * 具体实现负责解析 Dataset 元数据并完成实际 I/O。
  * </p>
  *
  * <p>
- * 发布场景通常需要读取完整 Dataset，因此接口额外提供 {@link #readAll(DatasetReadRequest)}。该方法基于
- * pageNo/pageSize 自动翻页，避免固定只读取前 2000 条数据。
+ * 接口额外提供 {@link #readAll(DatasetReadRequest)}。该方法基于 pageNo/pageSize 自动翻页，避免固定只读取前 2000 条数据。
  * </p>
  */
 public interface DatasetRowReader {
@@ -79,7 +78,17 @@ public interface DatasetRowReader {
     /**
      * 一次 Dataset 行读取的完整参数。
      */
-    record DatasetReadRequest(String datasetCode, List<String> fieldCodes, Map<String, Object> filters, List<String> assetCodes, LocalDateTime from, LocalDateTime to, String orderBy, int pageNo, int pageSize) {
+    record DatasetReadRequest(
+        String datasetCode, 
+        List<String> fieldCodes, 
+        Map<String, Object> filters, 
+        List<String> assetCodes, 
+        LocalDateTime from, 
+        LocalDateTime to, 
+        String orderBy, 
+        int pageNo, 
+        int pageSize
+    ) {
 
         public DatasetReadRequest {
             fieldCodes = fieldCodes == null ? List.of() : List.copyOf(fieldCodes);
@@ -92,8 +101,7 @@ public interface DatasetRowReader {
 
         /** 基于当前请求创建指定页请求，其他条件保持不变。 */
         public DatasetReadRequest withPage(int newPageNo) {
-            return new DatasetReadRequest(datasetCode, fieldCodes, filters, assetCodes, from, to, orderBy, newPageNo,
-                    pageSize);
+            return new DatasetReadRequest(datasetCode, fieldCodes, filters, assetCodes, from, to, orderBy, newPageNo, pageSize);
         }
 
         private static Map<String, Object> immutableMapAllowingNullValues(Map<String, Object> source) {

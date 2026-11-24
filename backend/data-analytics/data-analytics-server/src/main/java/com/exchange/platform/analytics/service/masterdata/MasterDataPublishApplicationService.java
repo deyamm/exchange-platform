@@ -44,7 +44,7 @@ public class MasterDataPublishApplicationService {
         this.executor = executor;
     }
 
-    /** 使用标准字段 Dataset 直接发布股票/指数主数据。 */
+    /** 使用标准字段 Dataset 直接发布主数据。 */
     public SyncBatchView publish(MasterDataType masterDataType, String sourceCode, String taskRunId, String datasetCode, String syncType) {
 
         return publishDirect(masterDataType, sourceCode, taskRunId, datasetCode, syncType, TriggerType.MANUAL);

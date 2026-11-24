@@ -47,27 +47,21 @@ class PricePeriodType(str, Enum):
     def em_period_chg(self) -> str:
         return {'daily': '日k', 'weekly': '周k', 'monthly': '月k'}[self.value]
 
-
 class StockMarketType(str, Enum):
-    """
-    股票所上市的市场
-    """
-    # 上交所主板A股
-    SSE_A = "SSE_A"
-    # 上证B股
-    SSE_B = "SSE_B"
-    # 深交所主板
-    SZSE_A = "SZSE_A"
-    # 深交所B股
-    SZSE_B = "SZSE_B"
-    # 深交所创业板
-    SZSE_CY = "SZSE_CY"
-    # 上交所科创板
-    SSE_KC = "SSE_KC"
-    # 北交所
-    BSE = "BSE"
-    # 其他市场，包含未上市的股票、港股、美股等
-    OTHER = "OTHER"
+    """参考 Tushare 股票基础信息接口返回的 market 字段，设置市场类型枚举"""
+    MAIN = "主板"  # 主板
+    CYB = "创业板"  # 创业板
+    KCB = "科创板"  # 科创板
+    BSE = "北交所"  # 北京证券交易所
+    OTHER = "其他"  # 其他市场
+
+
+class ExchangeType(str, Enum):
+    """参考 Tushare 股票基础信息接口返回的 exchange 字段，设置交易所类型枚举"""
+    SSE = "上交所"  # 上海证券交易所
+    SZSE = "深交所"  # 深圳证券交易所
+    BSE = "北交所"  # 北京证券交易所
+    OTHER = "其他"  # 其他交易所
 
 
 class PublisherCode(str, Enum):

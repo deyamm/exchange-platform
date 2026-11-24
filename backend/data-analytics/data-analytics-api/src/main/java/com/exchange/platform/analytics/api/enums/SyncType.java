@@ -4,9 +4,10 @@ import java.util.Locale;
 
 import org.springframework.util.StringUtils;
 
+import com.baomidou.mybatisplus.annotation.IEnum;
 import com.exchange.platform.common.core.exception.BusinessException;
 
-public enum SyncType { 
+public enum SyncType implements IEnum<String> { 
     INIT, 
     FULL, 
     INCREMENTAL;
@@ -23,5 +24,8 @@ public enum SyncType {
         }
     }
 
-
+    @Override
+    public String getValue() {
+        return this.name();
+    }
 }

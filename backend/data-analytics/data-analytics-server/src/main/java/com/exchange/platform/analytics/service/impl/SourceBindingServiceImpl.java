@@ -113,10 +113,13 @@ public class SourceBindingServiceImpl implements SourceBindingService {
             throw new BusinessException(40001, "不支持的触发方式");
         }
 
-        entity.setBindingCode(request.bindingCode().trim()).setBindingName(request.bindingName().trim())
-                .setMasterDataType(request.masterDataType()).setDatasetCode(request.datasetCode().trim())
-                .setTriggerMode(triggerMode).setEnabled(request.enabled() == null || request.enabled())
-                .setDescription(request.description());
+        entity.setBindingCode(request.bindingCode().trim())
+            .setBindingName(request.bindingName().trim())
+            .setMasterDataType(request.masterDataType())
+            .setDatasetCode(request.datasetCode().trim())
+            .setTriggerMode(triggerMode)
+            .setEnabled(request.enabled() == null || request.enabled())
+            .setDescription(request.description());
 
         if (id == null) {
             bindingMapper.insert(entity);

@@ -20,6 +20,8 @@ import com.exchange.platform.analytics.entity.masterdata.MdSourceFieldMapping;
 import com.exchange.platform.analytics.mapper.masterdata.MdSourceBindingMapper;
 import com.exchange.platform.analytics.mapper.masterdata.MdSourceFieldMappingMapper;
 import com.exchange.platform.analytics.service.support.CollectionDatasetMetadataClient;
+import com.exchange.platform.collection.api.response.dataType.DataTypeFieldView;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetConfigView;
 import com.exchange.platform.common.core.exception.BusinessException;
 
 /**
@@ -98,7 +100,7 @@ public class SourceBindingResolver {
             return List.copyOf(errors);
         }
 
-        CollectionDatasetMetadataClient.DatasetBinding dataset = loadDataset(binding.getDatasetCode(), errors);
+        MetricDatasetConfigView dataset = loadDataset(binding.getDatasetCode(), errors);
 
         Set<String> datasetFields = datasetFieldCodes(dataset);
         List<MdSourceFieldMapping> safeMappings = mappings == null ? List.of() : mappings;
@@ -126,7 +128,7 @@ public class SourceBindingResolver {
                 .eq(MdSourceFieldMapping::getBindingId, bindingId).orderByAsc(MdSourceFieldMapping::getTargetField));
     }
 
-    private CollectionDatasetMetadataClient.DatasetBinding loadDataset(String datasetCode, List<String> errors) {
+    private MetricDatasetConfigView loadDataset(String datasetCode, List<String> errors) {
 
         if (!StringUtils.hasText(datasetCode)) {
             errors.add("datasetCode 不能为空");
@@ -134,7 +136,7 @@ public class SourceBindingResolver {
         }
 
         try {
-            CollectionDatasetMetadataClient.DatasetBinding dataset = metadataClient
+            MetricDatasetConfigView dataset = metadataClient
                     .getDatasetsForMetricConfiguration(List.of(datasetCode)).get(datasetCode);
 
             if (dataset == null) {
@@ -148,17 +150,17 @@ public class SourceBindingResolver {
         }
     }
 
-    private Set<String> datasetFieldCodes(CollectionDatasetMetadataClient.DatasetBinding dataset) {
+    private Set<String> datasetFieldCodes(MetricDatasetConfigView dataset) {
 
-        if (dataset == null || dataset.fields() == null) {
+        if (dataset == null || dataset.getFields() == null) {
             return Set.of();
         }
 
         Set<String> fields = new LinkedHashSet<>();
 
-        for (CollectionDatasetMetadataClient.FieldDefinition field : dataset.fields()) {
-            if (field != null && StringUtils.hasText(field.fieldCode())) {
-                fields.add(field.fieldCode());
+        for (DataTypeFieldView field : dataset.getFields()) {
+            if (field != null && StringUtils.hasText(field.getFieldCode())) {
+                fields.add(field.getFieldCode());
             }
         }
 

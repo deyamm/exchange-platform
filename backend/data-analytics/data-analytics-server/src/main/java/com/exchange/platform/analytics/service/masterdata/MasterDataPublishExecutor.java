@@ -27,9 +27,7 @@ public class MasterDataPublishExecutor {
     private final MasterDataTypeRegistry registry;
     private final MasterDataStore store;
 
-    public MasterDataPublishExecutor(MdSyncBatchMapper batchMapper, DatasetRowReader rowReader,
-            MasterDataTypeRegistry registry, 
-            MasterDataStore store) {
+    public MasterDataPublishExecutor(MdSyncBatchMapper batchMapper, DatasetRowReader rowReader, MasterDataTypeRegistry registry,  MasterDataStore store) {
         this.batchMapper = batchMapper;
         this.rowReader = rowReader;
         this.registry = registry;
@@ -55,7 +53,7 @@ public class MasterDataPublishExecutor {
         int added = 0, updated = 0;
         for (Map<String, Object> candidate : candidates) {
             Map<String, Object> key = definition.businessKeyOf(candidate);
-            if (store.findOne(definition, key) == null)
+            if (store.findByBusinessKey(definition, key) == null)
                 added++;
             else
                 updated++;
@@ -77,10 +75,14 @@ public class MasterDataPublishExecutor {
         return values;
     }
 
+    /**
+     * 调用数据集读取器读取指定 PublishPlan 的所有数据，并映射为主数据字段。
+     * @param plan
+     * @return
+     */
     private List<Map<String, Object>> readAndMapRows(PublishPlan plan) {
         DatasetRowReader.DatasetReadRequest request = new DatasetRowReader.DatasetReadRequest(plan.datasetCode(),
-                plan.datasetFieldCodes(), Map.of(), List.of(), null, null, plan.orderByFieldCode(), 1,
-                DATASET_PAGE_SIZE);
+            plan.datasetFieldCodes(), Map.of(), List.of(), null, null, plan.orderByFieldCode(), 1, DATASET_PAGE_SIZE);
         return rowReader.readAll(request).stream().map(plan::mapRow).toList();
     }
 

@@ -24,7 +24,8 @@ import com.exchange.platform.analytics.mapper.AlertRuleMapper;
 import com.exchange.platform.analytics.mapper.MetricMapper;
 import com.exchange.platform.analytics.service.AppMetricService;
 import com.exchange.platform.analytics.service.support.CollectionDatasetMetadataClient;
-import com.exchange.platform.analytics.service.support.CollectionDatasetMetadataClient.DatasetBinding;
+import com.exchange.platform.collection.api.enums.DatasetStatus;
+import com.exchange.platform.collection.api.response.execution.MetricDatasetConfigView;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.enums.MarketAssetType;
@@ -63,7 +64,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
             .eq(status != null, AppMetric::getStatus, status);
 
         Page<AppMetric> page = this.page(new Page<>(safePageNo, safePageSize), wrapper);
-        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
+        Map<String, MetricDatasetConfigView> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
                 page.getRecords().stream().map(AppMetric::getDatasetCode).collect(Collectors.toSet()));
         List<AppMetricView> viewList = page.getRecords().stream()
             .map(metric -> toView(metric, bindings.get(metric.getDatasetCode())))
@@ -107,7 +108,7 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
         }
 
         this.saveOrUpdate(entity);
-        DatasetBinding binding = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(List.of(entity.getDatasetCode()))
+        MetricDatasetConfigView binding = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(List.of(entity.getDatasetCode()))
                 .get(entity.getDatasetCode());
         return toView(entity, binding);
     }
@@ -155,28 +156,23 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
         if (!ALLOWED_CATEGORIES.contains(request.metricCategory())) {
             throw new BusinessException(40001, "指标分类不合法");
         }
-        Map<String, DatasetBinding> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
+        Map<String, MetricDatasetConfigView> bindings = collectionDatasetMetadataClient.getDatasetsForMetricConfiguration(
                 Collections.singletonList(request.datasetCode()));
-        DatasetBinding dataset = bindings.get(request.datasetCode());
+        MetricDatasetConfigView dataset = bindings.get(request.datasetCode());
         if (dataset == null) {
             throw new BusinessException(40001, "来源数据集不存在");
         }
-        if (!isDatasetEnabled(dataset.datasetStatus())) {
+        if (dataset.getDatasetStatus() != null && dataset.getDatasetStatus() != DatasetStatus.ENABLED) {
             throw new BusinessException(40001, "来源数据集未启用，不能保存指标绑定");
         }
-        if (!request.targetType().name().equals(dataset.assetType())) {
+        if (!request.targetType().name().equals(dataset.getAssetType().name())) {
             throw new BusinessException(40001, "指标标的类型与来源数据集标的类型不一致");
         }
-        boolean fieldBelongsToDataset = dataset.fields().stream()
-                .anyMatch(field -> request.fieldCode().equals(field.fieldCode()));
+        boolean fieldBelongsToDataset = dataset.getFields() != null ? dataset.getFields().stream()
+                .anyMatch(field -> request.fieldCode().equals(field.getFieldCode())) : false;
         if (!fieldBelongsToDataset) {
             throw new BusinessException(40001, "来源字段不属于数据集当前数据类型版本");
         }
-    }
-
-    /** 同时兼容 DatasetStatus 被 JSON 序列化为枚举名称或底层数值的部署配置。 */
-    private boolean isDatasetEnabled(String datasetStatus) {
-        return "ENABLED".equals(datasetStatus) || "1".equals(datasetStatus);
     }
 
     /**
@@ -192,16 +188,16 @@ public class AppMetricServiceImpl extends ServiceImpl<MetricMapper, AppMetric> i
     }
 
     /** 组装列表展示 DTO；字段名称、类型只从当前 Dataset 版本快照派生，永不反写主档。 */
-    private AppMetricView toView(AppMetric metric, DatasetBinding dataset) {
+    private AppMetricView toView(AppMetric metric, MetricDatasetConfigView dataset) {
         AppMetricView view = MetricConverter.toMetricView(metric);
         if (dataset == null) {
             return view;
         }
-        view.setDatasetName(dataset.datasetName());
-        dataset.fields().stream().filter(field -> metric.getFieldCode() != null
-                && metric.getFieldCode().equals(field.fieldCode())).findFirst().ifPresent(field -> {
-                    view.setFieldName(field.fieldName());
-                    view.setFieldType(field.fieldType());
+        view.setDatasetName(dataset.getDatasetName());
+        dataset.getFields().stream().filter(field -> metric.getFieldCode() != null
+                && metric.getFieldCode().equals(field.getFieldCode())).findFirst().ifPresent(field -> {
+                    view.setFieldName(field.getFieldName());
+                    view.setFieldType(field.getFieldType());
                 });
         return view;
     }

@@ -9,6 +9,7 @@ _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 
 
 class DatasetRowService:
+
     async def query_rows(self, query: DatasetRowsQuery) -> list[DatasetRow]:
         self._validate(query)
         table = f"{self._quote(query.schema_name)}.{self._quote(query.table_name)}"
@@ -21,6 +22,8 @@ class DatasetRowService:
         predicates: list[str] = []
         params: dict[str, Any] = {}
         if query.asset_codes:
+            if not query.target_code_column:
+                raise ValueError("targetCodeColumn is required when assetCodes are specified")
             placeholders = []
             for index, code in enumerate(query.asset_codes):
                 key = f"asset_code_{index}"
@@ -28,9 +31,13 @@ class DatasetRowService:
                 params[key] = code
             predicates.append(f"source.{self._quote(query.target_code_column)} IN ({', '.join(placeholders)})")
         if query.from_time is not None:
+            if not query.data_time_column:
+                raise ValueError("dataTimeColumn is required when from is specified")
             predicates.append(f"source.{self._quote(query.data_time_column)} >= :from_time")
             params["from_time"] = query.from_time
         if query.to_time is not None:
+            if not query.data_time_column:
+                raise ValueError("dataTimeColumn is required when to is specified")
             predicates.append(f"source.{self._quote(query.data_time_column)} <= :to_time")
             params["to_time"] = query.to_time
         # filters 只接受 fieldCode -> scalar，字段映射仍由 Java 侧解析为物理列。
@@ -42,7 +49,13 @@ class DatasetRowService:
             predicates.append(f"source.{self._quote(physical)} = :{key}")
             params[key] = value
         where = f" WHERE {' AND '.join(predicates)}" if predicates else ""
-        order = self._quote(query.order_by) if query.order_by else self._quote(query.data_time_column)
+        # 对于排序字段，优先使用 orderBy，其次使用 dataTimeColumn，最后使用第一个 fieldCode。
+        if query.order_by:
+            order = self._quote(query.order_by) 
+        elif query.data_time_column:
+            order = self._quote(query.data_time_column)
+        else:
+            order = self._quote(query.field_codes[0])
         limit = min(max(query.page_size, 1), 2000)
         offset = max(query.page_no - 1, 0) * limit
         sql = f"SELECT {', '.join(selected)} FROM {table} source{where} ORDER BY source.{order} DESC LIMIT :limit OFFSET :offset"
