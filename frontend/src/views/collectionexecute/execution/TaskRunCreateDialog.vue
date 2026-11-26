@@ -183,9 +183,9 @@
                             v-if="isTsCodesField(field)"
                             type="primary"
                             plain
-                            @click="openTargetGroupDialog(field)"
+                            @click="openMasterDataDialog(field)"
                         >
-                            自选分组列表
+                            主数据列表
                         </el-button>
                     </div>
                 </el-form-item>
@@ -200,44 +200,42 @@
     </el-dialog>
 
     <el-dialog
-        v-model="targetGroupDialogVisible"
-        title="自选分组列表"
+        v-model="masterDataDialogVisible"
+        title="主数据列表"
         width="620px"
         append-to-body
         destroy-on-close
     >
         <el-table
-            v-loading="targetGroupLoading"
-            :data="targetGroupRecords"
-            row-key="groupCode"
+            v-loading="masterDataLoading"
+            :data="masterDataRecords"
+            row-key="typeCode"
             border
             height="420px"
         >
             <el-table-column label="选择" width="80" align="center">
                 <template #default="{ row }">
                     <el-checkbox
-                        :model-value="isTargetGroupSelected(row.groupCode)"
-                        @change="(checked: boolean | string | number) => handleTargetGroupCheck(row.groupCode, checked)"
+                        :model-value="selectedMasterTypeCode === row.typeCode"
+                        @change="() => handleMasterTypeCheck(row.typeCode)"
                     />
                 </template>
             </el-table-column>
-            <el-table-column prop="groupName" label="groupName" min-width="260" />
+            <el-table-column prop="displayName" label="主数据类型" min-width="220" />
+            <el-table-column prop="typeCode" label="类型编码" min-width="220" />
+            <el-table-column prop="totalCount" label="数据量" width="100" />
         </el-table>
 
-        <div class="target-group-pagination">
-            <el-pagination
-                background
-                layout="total, prev, next"
-                :current-page="targetGroupPage.pageNo"
-                :page-size="targetGroupPage.pageSize"
-                :total="targetGroupPage.total"
-                @current-change="handleTargetGroupPageChange"
-            />
+        <div class="master-data-field-picker">
+            <span class="master-data-field-label">选择逻辑字段</span>
+            <el-select v-model="selectedMasterField" :disabled="!selectedMasterTypeCode || masterDataDetailLoading" placeholder="请选择字段" style="width: 320px">
+                <el-option v-for="field in masterDataFields" :key="field.fieldCode" :label="`${field.fieldName}（${field.fieldCode}）`" :value="field.fieldCode" />
+            </el-select>
         </div>
 
         <template #footer>
-            <el-button :disabled="targetCodesLoading" @click="targetGroupDialogVisible = false">取消</el-button>
-            <el-button type="primary" :loading="targetCodesLoading" @click="confirmTargetGroups">
+            <el-button :disabled="masterDataLoading || masterDataDetailLoading" @click="masterDataDialogVisible = false">取消</el-button>
+            <el-button type="primary" :loading="masterDataConfirmLoading" @click="confirmMasterData">
                 确定
             </el-button>
         </template>
@@ -249,11 +247,11 @@ import { computed, reactive, ref, watch, withDefaults } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createTaskRun } from '/@/api/execution/executionApi'
 import { queryTaskList, getTaskDetail } from '/@/api/collectiontask/collectionTaskApi'
-import { queryTargetGroupPage, queryWatchTargetPage } from '/@/api/watchtarget/watchTargetApi'
+import { queryPublishedMasterDataTypes, getPublishedMasterDataType } from '/@/api/masterdata/masterDataApi'
 import type { TaskRunCreateRequest, TriggerType } from '/@/types/execution/constants'
 import type { TaskTemplate, TaskDetail } from '/@/types/collectiontask/entity'
 import type { ParamField } from '/@/types/collectiontask/view'
-import type { TargetGroup as WatchGroup, WatchTarget } from '/@/types/watchtarget/entity'
+import type { MdFieldDefinition, PublishedMasterDataType, MasterDataTypeCode } from '/@/types/masterdata'
 import { WEEKDAY_MAP } from '/@/types/execution/view'
 import { parseParamFields, generateRequestId, resolveTokenValue } from '/@/utils/utils'
 import { buildScheduleContent, getScheduleTextFromCron } from '/@/utils/schedule'
@@ -281,17 +279,15 @@ const syncedTasks = ref<TaskTemplate[]>([])
 const selectedTaskDetail = ref<TaskDetail | null>(null)
 const paramFields = ref<ParamField[]>([])
 
-const targetGroupDialogVisible = ref(false)
-const targetGroupLoading = ref(false)
-const targetCodesLoading = ref(false)
-const targetGroupRecords = ref<WatchGroup[]>([])
-const selectedTargetGroupCodes = reactive(new Set<string>())
+const masterDataDialogVisible = ref(false)
+const masterDataLoading = ref(false)
+const masterDataDetailLoading = ref(false)
+const masterDataConfirmLoading = ref(false)
+const masterDataRecords = ref<PublishedMasterDataType[]>([])
+const selectedMasterTypeCode = ref<MasterDataTypeCode | ''>('')
+const selectedMasterField = ref('')
+const masterDataFields = ref<MdFieldDefinition[]>([])
 const activeTsCodeField = ref<ParamField | null>(null)
-const targetGroupPage = reactive({
-    pageNo: 1,
-    pageSize: 10,
-    total: 0
-})
 
 const createForm = reactive({
     taskCode: '',
@@ -347,12 +343,12 @@ function resetCreateForm(): void {
     selectedTaskDetail.value = null
     paramFields.value = []
 
-    targetGroupDialogVisible.value = false
-    targetGroupRecords.value = []
-    selectedTargetGroupCodes.clear()
+    masterDataDialogVisible.value = false
+    masterDataRecords.value = []
+    selectedMasterTypeCode.value = ''
+    selectedMasterField.value = ''
+    masterDataFields.value = []
     activeTsCodeField.value = null
-    targetGroupPage.pageNo = 1
-    targetGroupPage.total = 0
 }
 
 function isNumberField(fieldType?: string): boolean {
@@ -383,80 +379,49 @@ function isTsCodesField(field: ParamField): boolean {
     return paramName.includes('ts_codes')
 }
 
-async function openTargetGroupDialog(field: ParamField): Promise<void> {
+async function openMasterDataDialog(field: ParamField): Promise<void> {
     activeTsCodeField.value = field
-    selectedTargetGroupCodes.clear()
-    targetGroupPage.pageNo = 1
-    targetGroupDialogVisible.value = true
-    await loadTargetGroupPage()
+    selectedMasterTypeCode.value = ''
+    selectedMasterField.value = ''
+    masterDataFields.value = []
+    masterDataDialogVisible.value = true
+    await loadMasterDataTypes()
 }
 
-async function loadTargetGroupPage(): Promise<void> {
-    targetGroupLoading.value = true
+async function loadMasterDataTypes(): Promise<void> {
+    masterDataLoading.value = true
     try {
-        const result = await queryTargetGroupPage({
-            pageNo: targetGroupPage.pageNo,
-            pageSize: targetGroupPage.pageSize
-        })
-        targetGroupRecords.value = result.records || []
-        targetGroupPage.total = result.total || 0
+        masterDataRecords.value = await queryPublishedMasterDataTypes()
     } finally {
-        targetGroupLoading.value = false
+        masterDataLoading.value = false
     }
 }
 
-async function handleTargetGroupPageChange(pageNo: number): Promise<void> {
-    targetGroupPage.pageNo = pageNo
-    await loadTargetGroupPage()
-}
-
-function isTargetGroupSelected(groupCode: string): boolean {
-    return selectedTargetGroupCodes.has(groupCode)
-}
-
-function handleTargetGroupCheck(groupCode: string, checked: boolean | string | number): void {
-    if (Boolean(checked)) {
-        selectedTargetGroupCodes.add(groupCode)
-    } else {
-        selectedTargetGroupCodes.delete(groupCode)
+async function handleMasterTypeCheck(typeCode: MasterDataTypeCode): Promise<void> {
+    selectedMasterTypeCode.value = typeCode
+    selectedMasterField.value = ''
+    masterDataFields.value = []
+    masterDataDetailLoading.value = true
+    try {
+        const detail = await getPublishedMasterDataType(typeCode)
+        masterDataFields.value = detail.fields || []
+    } finally {
+        masterDataDetailLoading.value = false
     }
 }
 
-async function confirmTargetGroups(): Promise<void> {
+async function confirmMasterData(): Promise<void> {
     if (!activeTsCodeField.value) {
-        targetGroupDialogVisible.value = false
+        masterDataDialogVisible.value = false
         return
     }
-
-    const groupCodes = Array.from(selectedTargetGroupCodes)
-    targetCodesLoading.value = true
-    try {
-        const pageResults = await Promise.all(
-            groupCodes.map((groupCode) =>
-                queryWatchTargetPage({
-                    groupCode,
-                    pageNo: 1,
-                    pageSize: 200
-                })
-            )
-        )
-
-        const targetCodes = Array.from(
-            new Set(
-                pageResults.flatMap((result) =>
-                    (result.records || [])
-                        .map((target: WatchTarget) => target.targetCode)
-                        .filter((targetCode: string) => Boolean(targetCode))
-                )
-            )
-        )
-
-        createForm.params[activeTsCodeField.value.fieldCode] = targetCodes.join(',')
-        targetGroupDialogVisible.value = false
-        ElMessage.success(`已选择 ${groupCodes.length} 个分组，共填入 ${targetCodes.length} 个标的`)
-    } finally {
-        targetCodesLoading.value = false
+    if (!selectedMasterTypeCode.value || !selectedMasterField.value) {
+        ElMessage.warning('请选择主数据类型和逻辑字段')
+        return
     }
+    createForm.params[activeTsCodeField.value.fieldCode] = `{MASTER:${selectedMasterTypeCode.value}:${selectedMasterField.value}}`
+    masterDataDialogVisible.value = false
+    ElMessage.success('已填入主数据字段参数')
 }
 
 /**
@@ -767,10 +732,16 @@ function applyParamToken(
     flex: 1;
 }
 
-.target-group-pagination {
+.master-data-field-picker {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
     margin-top: 16px;
+}
+
+.master-data-field-label {
+    color: #606266;
+    white-space: nowrap;
 }
 
 .param-token-row {

@@ -1,9 +1,7 @@
 import { CommonStatus } from "../appscene/constants";
+import { AssetType } from "../asset";
 
 export type WatchStatus = 'WATCHING' | 'FOCUS' | 'PAUSED' | 'CLOSED';
-
-/** 与数据集、应用指标共用的跨服务标的类型协议。 */
-export type AssetType = 'STOCK' | 'INDEX' | 'FUTURE' | 'FUND' | 'BOND';
 
 export interface WatchTargetQueryParams {
     keyword?: string;

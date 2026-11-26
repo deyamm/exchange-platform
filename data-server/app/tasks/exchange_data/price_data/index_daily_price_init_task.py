@@ -30,10 +30,12 @@ class IndexDailyPriceInitTask(BaseCollectTask):
     async def collect_batches(self, params: dict[str, Any], ctx: ExecutionContext) -> AsyncIterator[list[dict[str, Any]]]:
         """
             批量初始化指数日线行情数据：
-            1）从参数ts_codes读取需要初始化的指数代码列表，多个指数代码用英文逗号分隔；
-            2）然后对每一个指数代码ts_code，读取该指数的历史日线行情数据；
-            3）每个指数的日线行情数据作为一个批次yield出去，后续由基类自动执行标准化、清洗、字段映射和入库；
-            4）相邻两次读取指数日线行情之间暂停5秒。
+            1）从参数ts_codes读取需要初始化的指数代码列表，并排除以.SI结尾的申万行业指数；
+            2）对剩余市场指数逐个调用index_daily读取历史日线行情数据；
+            3）调用index_classify(src="SW2021")获取L1/L2/L3三个等级的申万行业指数代码，
+               再逐个调用sw_daily读取历史日线行情数据；
+            4）将index_daily和sw_daily统一整理为TaskTemplateInfo中output_fields定义的字段；
+            5）每个指数的日线行情数据作为一个批次yield出去，后续由基类自动执行标准化、清洗、字段映射和入库。
         """
 
         ts_codes = params.get("ts_codes", None)
@@ -48,8 +50,30 @@ class IndexDailyPriceInitTask(BaseCollectTask):
         if len(ts_code_list) == 0:
             raise ValueError("ts_codes参数不能为空")
 
-        for index, ts_code in enumerate(ts_code_list):
-            logger.info(f"开始采集指数日线行情初始化数据，ts_code={ts_code}")
+        output_fields = [
+            "ts_code",
+            "trade_date",
+            "close",
+            "open",
+            "high",
+            "low",
+            "pre_close",
+            "change",
+            "pct_chg",
+            "vol",
+            "amount",
+        ]
+
+        # 原始ts_codes只保留市场指数，传入的申万行业指数统一排除
+        market_ts_code_list = [
+            ts_code
+            for ts_code in ts_code_list
+            if not str(ts_code).strip().upper().endswith(".SI")
+        ]
+
+        # 先采集市场指数行情
+        for index, ts_code in enumerate(market_ts_code_list):
+            logger.info(f"开始采集市场指数日线行情初始化数据，ts_code={ts_code}")
 
             index_daily = await self.ts.index_daily(ts_code=ts_code)
 
@@ -60,13 +84,68 @@ class IndexDailyPriceInitTask(BaseCollectTask):
             # 交易量单位为手，转换为股
             if 'vol' in index_daily.columns:
                 index_daily['vol'] = index_daily['vol'] * 100
-            
+
+            # 统一为TaskTemplateInfo中output_fields定义的字段
+            index_daily = index_daily.reindex(columns=output_fields)
             index_daily = index_daily.replace([np.inf, -np.inf], np.nan)
             index_daily = index_daily.astype(object).where(index_daily.notnull(), None)
 
             yield cast(list[dict[str, Any]], index_daily.rename(columns=str).to_dict("records"))
 
-            if index < len(ts_code_list) - 1:
+            if index < len(market_ts_code_list) - 1:
+                await asyncio.sleep(2)
+
+        # 获取申万2021版L1/L2/L3三个等级的行业指数代码
+        sw_classify = await self.ts.index_classify(src="SW2021")
+
+        sw_ts_code_list: list[str] = []
+        if sw_classify is not None and not sw_classify.empty and 'index_code' in sw_classify.columns:
+            if 'level' in sw_classify.columns:
+                sw_classify = sw_classify[sw_classify['level'].astype(str).isin(["L1", "L2", "L3"])]
+
+            for index_code in sw_classify['index_code'].dropna().tolist():
+                index_code = str(index_code).strip()
+                if not index_code:
+                    continue
+
+                ts_code = index_code if index_code.upper().endswith(".SI") else f"{index_code}.SI"
+                if ts_code not in sw_ts_code_list:
+                    sw_ts_code_list.append(ts_code)
+
+        # 再逐个采集申万行业指数行情
+        for index, ts_code in enumerate(sw_ts_code_list):
+            logger.info(f"开始采集申万行业指数日线行情初始化数据，ts_code={ts_code}")
+
+            # sw_daily只传入指数代码，获取该指数全部历史行情
+            sw_daily = await self.ts.sw_daily(ts_code=ts_code)
+
+            # sw_daily的涨跌幅字段名为pct_change，统一为index_daily的pct_chg
+            if 'pct_change' in sw_daily.columns:
+                sw_daily = sw_daily.rename(columns={'pct_change': 'pct_chg'})
+
+            # sw_daily不返回pre_close，根据close和change还原昨收点位
+            if 'pre_close' not in sw_daily.columns:
+                if 'close' in sw_daily.columns and 'change' in sw_daily.columns:
+                    sw_daily['pre_close'] = sw_daily['close'] - sw_daily['change']
+                else:
+                    sw_daily['pre_close'] = np.nan
+
+            # sw_daily成交额单位为万元，转换为元
+            if 'amount' in sw_daily.columns:
+                sw_daily['amount'] = sw_daily['amount'] * 10000
+
+            # sw_daily成交量单位为万股，转换为股
+            if 'vol' in sw_daily.columns:
+                sw_daily['vol'] = sw_daily['vol'] * 10000
+
+            # 统一为TaskTemplateInfo中output_fields定义的字段，并去除sw_daily额外字段
+            sw_daily = sw_daily.reindex(columns=output_fields)
+            sw_daily = sw_daily.replace([np.inf, -np.inf], np.nan)
+            sw_daily = sw_daily.astype(object).where(sw_daily.notnull(), None)
+
+            yield cast(list[dict[str, Any]], sw_daily.rename(columns=str).to_dict("records"))
+
+            if index < len(sw_ts_code_list) - 1:
                 await asyncio.sleep(2)
 
 

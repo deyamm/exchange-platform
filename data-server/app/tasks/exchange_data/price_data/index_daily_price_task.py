@@ -28,17 +28,23 @@ class IndexDailyPriceTask(BaseCollectTask):
         self.ts = ts_provider
 
     async def collect(self, params: dict[str, Any], ctx: ExecutionContext) -> list[dict[str, Any]]:
-        '''
-            采集指定指数的日线价格，包含两种场景：
-            1）传入交易日期，获取指定指数在该交易日的日线价格数据，此时start_date和end_date不需要传入；
-            2）传入开始日期和结束日期，获取指定指数在该日期范围内的日线价格数据，用于历史数据采集。如果没有传入开始和结束日期，则默认采集指定指数的所有历史日线价格数据（最大8000条）。
-        '''
+        """
+            采集指定指数的日线价格：
+            1）原始ts_codes中同时包含市场指数和申万指数，调用index_daily前排除以.SI结尾的申万指数；
+            2）市场指数逐个调用index_daily，相邻两次index_daily调用之间暂停0.5秒；
+            3）通过index_classify(src="SW2021")获取L1/L2/L3三个等级的申万行业指数代码；
+            4）传入trade_date时，通过sw_daily(trade_date=trade_date)一次获取当日申万指数行情，
+               再仅保留index_classify返回的行业指数行情；
+            5）未传入trade_date时，保留原有日期区间采集能力，按申万行业指数代码逐个调用sw_daily；
+            6）最终统一整理为TaskTemplateInfo中output_fields定义的字段。
+        """
+        import asyncio
 
         # 读取参数，指数代码必填
         ts_codes = params.get("ts_codes", None)
         if ts_codes == None or ts_codes == "":
             raise ValueError("ts_codes参数不能为空")
-        
+
         if isinstance(ts_codes, str):
             ts_code_list = [item.strip() for item in ts_codes.split(",") if item.strip()]
         else:
@@ -46,30 +52,189 @@ class IndexDailyPriceTask(BaseCollectTask):
 
         if len(ts_code_list) == 0:
             raise ValueError("ts_codes参数不能为空")
-        
+
+        output_fields = [
+            "ts_code",
+            "trade_date",
+            "close",
+            "open",
+            "high",
+            "low",
+            "pre_close",
+            "change",
+            "pct_chg",
+            "vol",
+            "amount",
+        ]
+
+        # index_daily不采集申万行业指数，先从原始ts_codes中排除.SI结尾的指数
+        market_ts_code_list = [
+            str(ts_code).strip()
+            for ts_code in ts_code_list
+            if str(ts_code).strip() and not str(ts_code).strip().upper().endswith(".SI")
+        ]
+
+        def normalize_index_daily(index_daily: pd.DataFrame) -> pd.DataFrame:
+            """将index_daily结果统一为任务输出字段及单位。"""
+            index_daily = index_daily.copy()
+
+            # index_daily交易额单位为千元，转换为元
+            if 'amount' in index_daily.columns:
+                index_daily['amount'] = index_daily['amount'] * 1000
+
+            # index_daily交易量单位为手，转换为股
+            if 'vol' in index_daily.columns:
+                index_daily['vol'] = index_daily['vol'] * 100
+
+            return index_daily.reindex(columns=output_fields)
+
+        def normalize_sw_daily(sw_daily: pd.DataFrame) -> pd.DataFrame:
+            """将sw_daily结果统一为index_daily的任务输出字段及单位。"""
+            sw_daily = sw_daily.copy()
+
+            # sw_daily涨跌幅字段为pct_change，统一为pct_chg
+            if 'pct_change' in sw_daily.columns:
+                sw_daily = sw_daily.rename(columns={'pct_change': 'pct_chg'})
+
+            # sw_daily不返回pre_close，根据close和change还原昨收点位
+            if 'pre_close' not in sw_daily.columns:
+                if 'close' in sw_daily.columns and 'change' in sw_daily.columns:
+                    sw_daily['pre_close'] = sw_daily['close'] - sw_daily['change']
+                else:
+                    sw_daily['pre_close'] = np.nan
+
+            # sw_daily成交额单位为万元，转换为元
+            if 'amount' in sw_daily.columns:
+                sw_daily['amount'] = sw_daily['amount'] * 10000
+
+            # sw_daily成交量单位为万股，转换为股
+            if 'vol' in sw_daily.columns:
+                sw_daily['vol'] = sw_daily['vol'] * 10000
+
+            return sw_daily.reindex(columns=output_fields)
+
+        result_list: list[pd.DataFrame] = []
         trade_date = params.get("trade_date", None)
-        index_daily_list = []
+
+        # 采集市场指数
         if trade_date != None:
-            for index_code in ts_code_list:
-                index_daily = await self.ts.index_daily(ts_code=index_code, trade_date=trade_date)
-                index_daily_list.append(index_daily)
-            index_daily = pd.concat(index_daily_list, ignore_index=True)
+            for index, index_code in enumerate(market_ts_code_list):
+                logger.info(
+                    f"开始采集市场指数日线价格数据，ts_code={index_code}, trade_date={trade_date}"
+                )
+                index_daily = await self.ts.index_daily(
+                    ts_code=index_code,
+                    trade_date=trade_date,
+                )
+                if index_daily is not None and not index_daily.empty:
+                    result_list.append(normalize_index_daily(index_daily))
+
+                # 相邻两次index_daily调用之间暂停0.5秒，防止超过接口频率限制
+                if index < len(market_ts_code_list) - 1:
+                    await asyncio.sleep(0.5)
         else:
             start_date = params.get("start_date", '')
             end_date = params.get("end_date", '')
-            for index_code in ts_code_list:
-                index_daily = await self.ts.index_daily(ts_code=index_code, start_date=start_date, end_date=end_date)
-                index_daily_list.append(index_daily)
-            index_daily = pd.concat(index_daily_list, ignore_index=True)
 
-        # 交易额单位为千元，转换为元
-        index_daily['amount'] = index_daily['amount'] * 1000
-        # 将交易量单位为手，转换为股
-        index_daily['vol'] = index_daily['vol'] * 100
-        
+            for index, index_code in enumerate(market_ts_code_list):
+                logger.info(
+                    f"开始采集市场指数日线价格数据，ts_code={index_code}, "
+                    f"start_date={start_date}, end_date={end_date}"
+                )
+                index_daily = await self.ts.index_daily(
+                    ts_code=index_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                if index_daily is not None and not index_daily.empty:
+                    result_list.append(normalize_index_daily(index_daily))
+
+                # 相邻两次index_daily调用之间暂停0.5秒，防止超过接口频率限制
+                if index < len(market_ts_code_list) - 1:
+                    await asyncio.sleep(0.5)
+
+        # 获取申万2021版L1/L2/L3三个等级的行业指数代码
+        sw_classify = await self.ts.index_classify(src="SW2021")
+
+        sw_ts_code_list: list[str] = []
+        if (
+            sw_classify is not None
+            and not sw_classify.empty
+            and 'index_code' in sw_classify.columns
+        ):
+            if 'level' in sw_classify.columns:
+                sw_classify = sw_classify[
+                    sw_classify['level'].astype(str).isin(["L1", "L2", "L3"])
+                ]
+
+            for index_code in sw_classify['index_code'].dropna().tolist():
+                index_code = str(index_code).strip()
+                if not index_code:
+                    continue
+
+                ts_code = (
+                    index_code
+                    if index_code.upper().endswith(".SI")
+                    else f"{index_code}.SI"
+                )
+                if ts_code not in sw_ts_code_list:
+                    sw_ts_code_list.append(ts_code)
+
+        if trade_date != None:
+            # 每日更新时一次获取当日所有申万指数行情，再过滤出三级行业分类中的指数
+            logger.info(f"开始采集申万行业指数日线价格数据，trade_date={trade_date}")
+            sw_daily = await self.ts.sw_daily(trade_date=trade_date)
+
+            if (
+                sw_daily is not None
+                and not sw_daily.empty
+                and 'ts_code' in sw_daily.columns
+                and len(sw_ts_code_list) > 0
+            ):
+                sw_ts_code_set = {ts_code.upper() for ts_code in sw_ts_code_list}
+                sw_daily = sw_daily[
+                    sw_daily['ts_code']
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                    .isin(sw_ts_code_set)
+                ]
+
+                if not sw_daily.empty:
+                    result_list.append(normalize_sw_daily(sw_daily))
+        else:
+            # 保留原有日期区间采集场景；为避免sw_daily全市场区间查询超过单次行数限制，
+            # 按行业指数代码逐个提取
+            start_date = params.get("start_date", '')
+            end_date = params.get("end_date", '')
+
+            for index_code in sw_ts_code_list:
+                logger.info(
+                    f"开始采集申万行业指数日线价格数据，ts_code={index_code}, "
+                    f"start_date={start_date}, end_date={end_date}"
+                )
+                sw_daily = await self.ts.sw_daily(
+                    ts_code=index_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+                if sw_daily is not None and not sw_daily.empty:
+                    result_list.append(normalize_sw_daily(sw_daily))
+                await asyncio.sleep(1)
+
+        if len(result_list) > 0:
+            index_daily = pd.concat(result_list, ignore_index=True)
+        else:
+            index_daily = pd.DataFrame(columns=output_fields)
+
+        index_daily = index_daily.reindex(columns=output_fields)
         index_daily = index_daily.replace([np.inf, -np.inf], np.nan)
         index_daily = index_daily.astype(object).where(index_daily.notnull(), None)
-        return cast(list[dict[str, Any]], index_daily.rename(columns=str).to_dict("records"))
+
+        return cast(
+            list[dict[str, Any]],
+            index_daily.rename(columns=str).to_dict("records"),
+        )
 
 
 async def index_daily_price_handler(request: TaskRunRequest) -> TaskRunResult:

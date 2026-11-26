@@ -1,12 +1,16 @@
 package com.exchange.platform.analytics.api.enums;
 
 public enum IndexCategory {
-    BROAD("BROAD"), 
-    INDUSTRY("INDUSTRY"), 
-    CONCEPT("CONCEPT"), 
-    THEME("THEME"), 
+    // 与 data-server/app/core/common/enum.py 中的 IndexCategory 保持一致
+    COMPOSITE("COMPOSITE"),
+    SIZE("SIZE"),
     STYLE("STYLE"), 
+    THEMATIC("THEMATIC"),
+    INDUSTRY("INDUSTRY"), 
     STRATEGY("STRATEGY"),
+    GROWTH("GROWTH"),
+    VALUE("VALUE"),
+    CONCEPT("CONCEPT"), 
     OTHER("OTHER");
 
     private final String value;

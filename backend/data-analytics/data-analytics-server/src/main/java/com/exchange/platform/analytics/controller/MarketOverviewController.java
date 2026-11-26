@@ -43,8 +43,8 @@ public class MarketOverviewController {
     @Operation(summary = "查询市场概览", description = "通过feign调用fastapi接口，查询指定日期的市场行情概览、指数概览、板块概览和涨跌分布")
     @GetMapping("/market-overview")
     public ApiResponse<Map<String, Object>> getMarketOverview(
-            @RequestParam(required = false) String tradeDate,
-            HttpServletRequest request) {
+        @RequestParam(required = false) String tradeDate,
+        HttpServletRequest request) {
 
         String requestId = RequestIdHolder.getRequestId(request);
 
@@ -57,14 +57,14 @@ public class MarketOverviewController {
     @Operation(summary = "查询自选标的概览", description = "查询关注标的分组、重点标记和关键指标概览")
     @GetMapping("/watch-targets/overview")
     public ApiResponse<PageResult<WatchTargetView>> getWatchOverview(
-            @RequestParam(required = false) String targetName,
-            @RequestParam(required = false) String targetType,
-            @RequestParam(required = false) String marketCode,
-            @RequestParam(required = false) String groupCode,
-            @RequestParam(required = false) WatchStatus watchStatus,
-            @RequestParam(defaultValue = "1") Integer pageNo,
-            @RequestParam(defaultValue = "20") Integer pageSize,
-            HttpServletRequest request) {
+        @RequestParam(required = false) String targetName,
+        @RequestParam(required = false) String targetType,
+        @RequestParam(required = false) String marketCode,
+        @RequestParam(required = false) String groupCode,
+        @RequestParam(required = false) WatchStatus watchStatus,
+        @RequestParam(defaultValue = "1") Integer pageNo,
+        @RequestParam(defaultValue = "20") Integer pageSize,
+        HttpServletRequest request) {
 
         String requestId = RequestIdHolder.getRequestId(request);
 
@@ -77,12 +77,13 @@ public class MarketOverviewController {
     @Operation(summary = "查询指数基本信息", description = "查询指数基本信息，支持按市场、指数类别等维度过滤")
     @GetMapping("/market/index-basic")
     public ApiResponse<List<Map<String, Object>>> getIndexBasic(
+            @RequestParam String indexBasicDatasetCode,
             HttpServletRequest request) {
         String requestId = RequestIdHolder.getRequestId(request);
         
         log.info("[{}] [Controller] getIndexBasic ", requestId);
         
-        return ApiResponse.success(marketOverviewService.getIndexBasic(), requestId);
+        return ApiResponse.success(marketOverviewService.getIndexBasic(indexBasicDatasetCode), requestId);
     }
 
 }

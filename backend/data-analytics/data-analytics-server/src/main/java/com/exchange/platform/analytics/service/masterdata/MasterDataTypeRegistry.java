@@ -50,11 +50,8 @@ public class MasterDataTypeRegistry {
             definition(MasterDataType.MARKET_ASSET_INDEX,
                 List.of(field("assetCode", "资产代码", "STRING", true),
                     field("assetName", "资产名称", "STRING", true),
-                    enumField("publisherCode", "发布方", false, PublisherCode.class),
+                    enumField("publisherCode", "发布方代码", false, PublisherCode.class),
                     enumField("indexCategory", "指数分类", false, IndexCategory.class),
-                    field("schemeCode", "业务体系", "STRING", false),
-                    field("level", "层级", "INTEGER", false),
-                    field("exchangeCode", "交易所", "STRING", false),
                     field("launchDate", "发布日期", "DATE", false),
                     field("endDate", "终止日期", "DATE", false)
                 ),
@@ -63,14 +60,10 @@ public class MasterDataTypeRegistry {
                     Map.entry("assetName", "asset_name"),
                     Map.entry("publisherCode", "publisher_code"),
                     Map.entry("indexCategory", "index_category"), 
-                    Map.entry("schemeCode", "scheme_code"),
-                    Map.entry("level", "level"), 
-                    Map.entry("exchangeCode", "exchange_code"),
                     Map.entry("launchDate", "launch_date"), 
                     Map.entry("endDate", "end_date"))
                 ),
                 List.of(
-                    new ValidationRule("INTEGER_MIN", List.of("level", "1")),
                     new ValidationRule("DATE_ORDER", List.of("launchDate", "endDate"))
                 )
             )

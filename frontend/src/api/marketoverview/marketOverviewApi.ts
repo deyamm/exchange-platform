@@ -17,10 +17,10 @@ export function queryWatchOverview(params: WatchOverviewQueryParams): Promise<Wa
 /**
  * 查询指数基本信息
  */
-export function getIndexBasic(params: MarketOverviewQueryParams): Promise<any[]> | any {
+export function getIndexBasic(datasetCode: string): Promise<any[]> | any {
     return http.get<any[]>(
         '/api/v1/analytics/market/index-basic', 
-        { params }
+        { params: { indexBasicDatasetCode: datasetCode } }
     );
 }
 

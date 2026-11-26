@@ -78,6 +78,7 @@ public class ExecutionSchedulerJob {
         ZoneId zoneId = resolveZoneId(scheduler.getTimeZone());
         LocalDateTime fireTime = scheduler.getNextFireTime() != null ? scheduler.getNextFireTime() : now;
         LocalDateTime nextFireTime = computeNextFireTime(scheduler.getCronExpression(), zoneId, fireTime);
+        
         if (nextFireTime == null) {
             log.warn("Scheduler cron has no next fire time, pausing schedulerId={}", scheduler.getSchedulerId());
             schedulerMapper.update(null, new UpdateWrapper<ExecutionScheduler>()

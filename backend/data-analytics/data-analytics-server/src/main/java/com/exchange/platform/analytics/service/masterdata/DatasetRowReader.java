@@ -80,6 +80,7 @@ public interface DatasetRowReader {
      */
     record DatasetReadRequest(
         String datasetCode, 
+        // 此处应该是数据集的逻辑字段，即数据类型字段
         List<String> fieldCodes, 
         Map<String, Object> filters, 
         List<String> assetCodes, 

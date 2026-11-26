@@ -107,7 +107,6 @@ class IndexConstituentDataTask(BaseCollectTask):
             yield cast(list[dict[str, Any]], index_constituent.rename(columns=str).to_dict("records"))
 
             await asyncio.sleep(1)
-        
 
 
 async def index_constituent_data_handler(request: TaskRunRequest) -> TaskRunResult:

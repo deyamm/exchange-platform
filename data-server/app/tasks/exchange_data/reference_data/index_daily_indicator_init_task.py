@@ -47,29 +47,135 @@ class IndexDailyIndicatorInitDataTask(BaseCollectTask):
 
     async def collect_batches(self, params: dict[str, Any], ctx: ExecutionContext) -> AsyncIterator[list[dict[str, Any]]]:
         """
-            批量初始化采集大盘指数每日指标数据：
-            1）从参数ts_codes中读取需要初始化的指数代码列表；
-            2）对每个指数代码，采集该指数全部历史每日指标数据；
-            3）每个指数的数据作为一批yield出去，由基类自动完成后续标准化、清洗、字段映射和入库；
-            4）相邻两次读取指数每日指标之间暂停5秒。
+            批量初始化采集指数每日指标数据：
+            1）从参数ts_codes读取指数代码列表，并排除以.SI结尾的申万指数；
+            2）对剩余市场指数逐个调用index_daily_indicator获取全部历史每日指标；
+            3）调用index_classify(src="SW2021")获取L1/L2/L3三个等级的申万行业指数代码；
+            4）对每个申万行业指数代码调用sw_daily，仅传入ts_code获取历史数据；
+            5）将sw_daily能够语义对应的字段映射到index_dailybasic标准字段，其余字段为空；
+            6）每个指数的数据作为一批yield出去，由基类完成后续标准化、清洗、字段映射和入库。
         """
 
         ts_codes = self.parse_ts_codes(params)
 
-        for index, ts_code in enumerate(ts_codes):
-            logger.info(f"开始采集指数{ts_code}的历史每日指标数据")
+        output_fields = [
+            "ts_code",
+            "trade_date",
+            "total_mv",
+            "float_mv",
+            "total_share",
+            "float_share",
+            "free_share",
+            "turnover_rate",
+            "turnover_rate_f",
+            "pe",
+            "pe_ttm",
+            "pb",
+        ]
+
+        def normalize_index_daily_basic(index_daily_basic):
+            """统一为index_dailybasic标准输出字段。"""
+            index_daily_basic = index_daily_basic.copy()
+            return index_daily_basic.reindex(columns=output_fields)
+
+        def normalize_sw_daily(sw_daily):
+            """
+            将sw_daily能够可靠对应的字段映射为index_dailybasic标准字段：
+            ts_code、trade_date、total_mv、float_mv、pe、pb。
+            其余字段在sw_daily中没有同语义字段，统一留空。
+            """
+            sw_daily = sw_daily.copy()
+
+            # sw_daily的市值单位为万元，index_dailybasic标准字段单位为元
+            if 'total_mv' in sw_daily.columns:
+                sw_daily['total_mv'] = sw_daily['total_mv'] * 10000
+
+            if 'float_mv' in sw_daily.columns:
+                sw_daily['float_mv'] = sw_daily['float_mv'] * 10000
+
+            return sw_daily.reindex(columns=output_fields)
+
+        # 原始ts_codes中的.SI申万指数不直接使用，市场指数仍按传入列表采集
+        market_ts_codes = [
+            str(ts_code).strip()
+            for ts_code in ts_codes
+            if str(ts_code).strip()
+            and not str(ts_code).strip().upper().endswith(".SI")
+        ]
+
+        # 先初始化市场指数每日指标
+        for index, ts_code in enumerate(market_ts_codes):
+            logger.info(f"开始采集市场指数{ts_code}的历史每日指标数据")
+
             index_daily_basic = await self.ts.index_daily_indicator(ts_code=ts_code)
-            
-            index_daily_basic = index_daily_basic.replace([np.inf, -np.inf], np.nan)
-            index_daily_basic = index_daily_basic.astype(object).where(index_daily_basic.notnull(), None)
 
-            records = cast(list[dict[str, Any]], index_daily_basic.rename(columns=str).to_dict("records"))
-            if len(records) > 0:
-                yield records
+            if index_daily_basic is not None and not index_daily_basic.empty:
+                index_daily_basic = normalize_index_daily_basic(index_daily_basic)
+                index_daily_basic = index_daily_basic.replace([np.inf, -np.inf], np.nan)
+                index_daily_basic = index_daily_basic.astype(object).where(index_daily_basic.notnull(), None)
+
+                records = cast(
+                    list[dict[str, Any]],
+                    index_daily_basic.rename(columns=str).to_dict("records"),
+                )
+                if len(records) > 0:
+                    yield records
             else:
-                logger.info(f"指数{ts_code}没有获取到历史每日指标数据")
+                logger.info(f"市场指数{ts_code}没有获取到历史每日指标数据")
 
-            if index < len(ts_codes) - 1:
+            if index < len(market_ts_codes) - 1:
+                await asyncio.sleep(1)
+
+        # 获取申万2021版L1/L2/L3三个等级的行业指数代码
+        sw_classify = await self.ts.index_classify(src="SW2021")
+
+        sw_ts_codes: list[str] = []
+        if (
+            sw_classify is not None
+            and not sw_classify.empty
+            and 'index_code' in sw_classify.columns
+        ):
+            if 'level' in sw_classify.columns:
+                sw_classify = sw_classify[
+                    sw_classify['level'].astype(str).isin(["L1", "L2", "L3"])
+                ]
+
+            for index_code in sw_classify['index_code'].dropna().tolist():
+                index_code = str(index_code).strip()
+                if not index_code:
+                    continue
+
+                ts_code = (
+                    index_code
+                    if index_code.upper().endswith(".SI")
+                    else f"{index_code}.SI"
+                )
+
+                if ts_code not in sw_ts_codes:
+                    sw_ts_codes.append(ts_code)
+
+        # 再初始化申万行业指数每日指标
+        for index, ts_code in enumerate(sw_ts_codes):
+            logger.info(f"开始采集申万行业指数{ts_code}的历史每日指标数据")
+
+            # 初始化任务按行业指数逐个采集，sw_daily只传入指数代码
+            sw_daily = await self.ts.sw_daily(ts_code=ts_code)
+
+            if sw_daily is not None and not sw_daily.empty:
+                sw_daily = normalize_sw_daily(sw_daily)
+                sw_daily = sw_daily.replace([np.inf, -np.inf], np.nan)
+                sw_daily = sw_daily.astype(object).where(sw_daily.notnull(), None)
+
+                records = cast(
+                    list[dict[str, Any]],
+                    sw_daily.rename(columns=str).to_dict("records"),
+                )
+                if len(records) > 0:
+                    yield records
+            else:
+                logger.info(f"申万行业指数{ts_code}没有获取到历史每日指标数据")
+
+            if index < len(sw_ts_codes) - 1:
                 await asyncio.sleep(1)
 
 

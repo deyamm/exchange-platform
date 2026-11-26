@@ -38,22 +38,17 @@ public class UnifiedDatasetRowReader implements DatasetRowReader {
         MetricDatasetExecutionView binding = metadataClient.getDatasetForMetricExecution(request.datasetCode());
 
         if (binding == null || binding.getFields() == null || binding.getFields().isEmpty()) {
-
             throw new IllegalArgumentException("Dataset 缺少完整 StorageMapping：" + request.datasetCode());
         }
 
-        /*
-         * 不使用 Collectors.toMap(code -> binding.fieldColumns().get(code))。
-         * 如果某字段没有物理列映射，toMap 会因 null value 提前抛异常。 逐个校验可以返回准确的缺失字段信息。
-         */
+        // 构建逻辑字段 → 物理列映射，用于 DatasetRowsQuery
         Map<String, String> columns = new LinkedHashMap<>();
-
         for (String fieldCode : request.fieldCodes()) {
             String physicalColumn = binding.getFields().get(fieldCode);
 
             if (!StringUtils.hasText(physicalColumn)) {
                 throw new IllegalArgumentException(
-                        "Dataset 缺少所需字段映射：" + fieldCode + "，dataset=" + request.datasetCode());
+                    "Dataset 缺少所需字段映射：" + fieldCode + "，dataset=" + request.datasetCode());
             }
 
             columns.put(fieldCode, physicalColumn);

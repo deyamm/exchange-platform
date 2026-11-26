@@ -22,5 +22,6 @@ public class MetricDatasetExecutionView {
     private String tableName;
     private String targetCodeColumn;
     private String dataTimeColumn;
+    // 逻辑字段 → 物理列映射
     private Map<String, String> fields;
 }

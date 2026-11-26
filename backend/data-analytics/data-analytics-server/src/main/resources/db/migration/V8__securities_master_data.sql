@@ -18,16 +18,12 @@ CREATE TABLE IF NOT EXISTS md_market_asset_index (
     asset_name VARCHAR(64) NOT NULL,
     publisher_code VARCHAR(32) NULL,
     index_category VARCHAR(32) NULL,
-    scheme_code VARCHAR(64) NULL,
-    level INT NULL,
-    exchange_code VARCHAR(64) NULL,
     launch_date DATE NULL,
     end_date DATE NULL,
     created_at DATETIME NULL,
     updated_at DATETIME NULL,
-    KEY idx_md_market_asset_index_filter (publisher_code, index_category, scheme_code, level),
+    KEY idx_md_market_asset_index_filter (publisher_code, index_category),
     UNIQUE KEY uk_md_stock_business_key (asset_code),
-    CONSTRAINT ck_md_market_asset_index_level CHECK (level IS NULL OR level >= 1),
     CONSTRAINT ck_md_market_asset_index_dates CHECK (launch_date IS NULL OR end_date IS NULL OR launch_date <= end_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='指数及广义组合主数据扩展';
 

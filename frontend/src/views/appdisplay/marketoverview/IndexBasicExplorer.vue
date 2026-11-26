@@ -293,6 +293,7 @@ import AddTargetFormDialog from '/@/components/common/AddTargetFormDialog.vue'
 import { saveOrUpdateWatchTarget } from '/@/api/watchtarget/watchTargetApi'
 import type { WatchTargetSaveRequest } from '/@/types/watchtarget/constants'
 import { ElMessage } from 'element-plus'
+import { AssetType } from '/@/types/asset'
 
 
 const marketNameMap: Record<string, string> = {
@@ -320,7 +321,7 @@ const optionalDialogVisible = ref(false)
 const activeOptionalIndex = ref<IndexBasic>({} as IndexBasic)
 
 async function loadData() {
-    indexBasicData.value = await getIndexBasic({})
+    indexBasicData.value = await getIndexBasic("DS_INDEX_BASIC")
 }
 
 // 构建市场 × 类别矩阵数据，每个单元格统计对应市场和类别的指数数量
@@ -432,7 +433,7 @@ function openOptionalDialog(row: IndexBasic) {
 
 async function handleAddOptionalConfirm(payload: {
     targetCode: string
-    targetType: string
+    targetType: AssetType
     groupCodes: string[]
 }) {
     const { targetCode, targetType, groupCodes } = payload

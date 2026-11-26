@@ -7,7 +7,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -25,19 +24,11 @@ public class MarketOverviewServiceImpl extends ServiceImpl<AppResultMapper, AppR
     private static final Logger log = LoggerFactory.getLogger(MarketOverviewServiceImpl.class);
 
     private final DataServiceClient dataServiceClient;
-
-    private static final List<String> INDEX_BASIC_FIELDS = List.of("full_symbol", "name", "fullname", "market",
-            "publisher", "index_type", "category", "base_date", "base_point", "list_date", "weight_rule",
-            "description", "exp_date");
-
     private final DatasetRowReader datasetRowReader;
-    private final String indexBasicDatasetCode;
 
-    public MarketOverviewServiceImpl(DatasetRowReader datasetRowReader, DataServiceClient dataServiceClient,
-            @Value("${analytics.reference-datasets.index-basic-code:index_basic_data}") String indexBasicDatasetCode) {
+    public MarketOverviewServiceImpl(DatasetRowReader datasetRowReader, DataServiceClient dataServiceClient) {
         this.datasetRowReader = datasetRowReader;
         this.dataServiceClient = dataServiceClient;
-        this.indexBasicDatasetCode = indexBasicDatasetCode;
     }
 
     /**
@@ -56,10 +47,20 @@ public class MarketOverviewServiceImpl extends ServiceImpl<AppResultMapper, AppR
      */
     @Override
     @Cacheable(cacheNames = "typeBasicDataCache", key = "'indexBasic'")
-    public List<Map<String, Object>> getIndexBasic() {
-        return datasetRowReader.read(new DatasetRowReader.DatasetReadRequest(indexBasicDatasetCode,
-                INDEX_BASIC_FIELDS, Map.of(), List.of(), null, null, "full_symbol", 1, 2000)).stream()
-                .map(this::toLegacyIndexBasicRow).toList();
+    public List<Map<String, Object>> getIndexBasic(String indexBasicDatasetCode) {
+        return datasetRowReader.readAll(
+            new DatasetRowReader.DatasetReadRequest(
+                indexBasicDatasetCode,
+                List.of("full_symbol", "name", "fullname", "market", "publisher", "index_type", "category", "base_date", "base_point", "list_date", "weight_rule", "desc", "exp_date"), 
+                Map.of(), 
+                List.of(), 
+                null, 
+                null, 
+                "full_symbol", 
+                1, 
+                2000)
+            ).stream()
+            .map(this::toLegacyIndexBasicRow).toList();
     }
 
     /** 仅保留既有 HTTP 返回字段的 camelCase 兼容层；读取字段仍是 Dataset fieldCode。 */

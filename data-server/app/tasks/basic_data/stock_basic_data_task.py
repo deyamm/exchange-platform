@@ -1,4 +1,3 @@
-
 import logging
 from typing import Any, cast
 
@@ -9,6 +8,7 @@ from app.schemas.collection_task.task_template import ExecutionContext, OutputFi
 from app.tasks.pipeline import BaseCollectTask
 from app.core.providers import ts_provider
 from app.core.common.enum import AssetType, StockMarketType
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,6 @@ class StockBasicDataTask(BaseCollectTask):
         self.task_code = 'stock_basic_data'
 
         self.ts = ts_provider
-
 
     async def collect(self, params: dict[str, Any], ctx: ExecutionContext) -> list[dict[str, Any]]:
 

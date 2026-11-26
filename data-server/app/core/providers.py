@@ -239,13 +239,17 @@ class TuShareProviderAsync:
         """个股财务指标数据，季度数据，传入公告日期，获取特征公告期的财务指标数据，或者只传入股票代码，获取该股票所有公告期的财务指标数据，此处update_flag需要为1来过滤掉重复数据"""
         return settings.TU_PRO.fina_indicator(ts_code=ts_code, ann_date=ann_date, start_date=start_date, end_date=end_date)
     
-    async def index_classify(self, src: str = 'SW2021') -> pd.DataFrame:
+    async def index_classify(self, level: str = '', src: str = 'SW2021') -> pd.DataFrame:
         """申万行业分类数据"""
-        return settings.TU_PRO.index_classify(src=src)
+        return settings.TU_PRO.index_classify(level=level, src=src)
     
     async def index_member_all(self, l3_code: str = '', is_new: str = 'Y') -> pd.DataFrame:
         """申万行业成分构成（分级）数据"""
         return settings.TU_PRO.index_member_all(l3_code=l3_code, is_new=is_new)
+
+    async def sw_daily(self, ts_code: str = '', trade_date: str = '', start_date: str = '', end_date: str = '') -> pd.DataFrame:
+        """申万行业日线行情数据"""
+        return settings.TU_PRO.sw_daily(ts_code=ts_code, trade_date=trade_date, start_date=start_date, end_date=end_date)
     
 
 ts_provider = TuShareProviderAsync()

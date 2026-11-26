@@ -58,6 +58,7 @@ import com.exchange.platform.collection.mapper.execution.ExecutionConfigSnapshot
 import com.exchange.platform.collection.mapper.execution.ExecutionSchedulerMapper;
 import com.exchange.platform.collection.mapper.execution.ResultSummaryMapper;
 import com.exchange.platform.collection.service.DatasetExecutionService;
+import com.exchange.platform.collection.service.MasterDataTokenResolver;
 import com.exchange.platform.collection.utils.JdbcUtils;
 
 
@@ -78,8 +79,9 @@ public class ExecutionServiceImpl extends ServiceImpl<TaskRunMapper, TaskRun> im
     private final ProblemRecordMapper problemRecordMapper;
     private final ExceptionRecordMapper exceptionRecordMapper;
     private final DatasetExecutionService datasetService;
+    private final MasterDataTokenResolver masterDataTokenResolver;
 
-    public ExecutionServiceImpl(TaskConfigMapper taskConfigMapper, ExecutionConfigSnapshotMapper snapshotMapper, StorageMappingMapper storageMappingMapper, StorageColumnMappingMapper storageColumnMapper, TaskTemplateVersionMapper taskTemplateVersionMapper, ResultSummaryMapper resultSummaryMapper, DataServiceClient dataServiceClient, ExecutionSchedulerMapper schedulerMapper, RunLogMapper runLogMapper, ProblemRecordMapper problemRecordMapper, ExceptionRecordMapper exceptionRecordMapper, DatasetExecutionService datasetService) {
+    public ExecutionServiceImpl(TaskConfigMapper taskConfigMapper, ExecutionConfigSnapshotMapper snapshotMapper, StorageMappingMapper storageMappingMapper, StorageColumnMappingMapper storageColumnMapper, TaskTemplateVersionMapper taskTemplateVersionMapper, ResultSummaryMapper resultSummaryMapper, DataServiceClient dataServiceClient, ExecutionSchedulerMapper schedulerMapper, RunLogMapper runLogMapper, ProblemRecordMapper problemRecordMapper, ExceptionRecordMapper exceptionRecordMapper, DatasetExecutionService datasetService, MasterDataTokenResolver masterDataTokenResolver) {
         this.taskConfigMapper = taskConfigMapper;
         this.snapshotMapper = snapshotMapper;
         this.storageMappingMapper = storageMappingMapper;
@@ -92,6 +94,7 @@ public class ExecutionServiceImpl extends ServiceImpl<TaskRunMapper, TaskRun> im
         this.problemRecordMapper = problemRecordMapper;
         this.exceptionRecordMapper = exceptionRecordMapper;
         this.datasetService = datasetService;
+        this.masterDataTokenResolver = masterDataTokenResolver;
     }
 
 
@@ -552,12 +555,14 @@ public class ExecutionServiceImpl extends ServiceImpl<TaskRunMapper, TaskRun> im
         @SuppressWarnings("unchecked")
         Map<String, Object> snapshotContent = JSON.parseObject(snapshot.getSnapshotContent(), Map.class);
 
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resolvedContext = (Map<String, Object>) masterDataTokenResolver.resolve(snapshotContent);
         return new TaskRunExecuteRequest(
             taskRun.getRunId(),
             taskRun.getTaskCode(),
             snapshot.getTaskTemplateVersion(),
             snapshot.getHandlerName(),
-            snapshotContent
+            resolvedContext
         );
     }
 

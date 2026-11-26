@@ -71,6 +71,7 @@ import { ElMessage } from 'element-plus'
 import type { TargetGroupQueryParams } from '/@/types/watchtarget/constants'
 import { getWatchTargetGroups, queryTargetGroupPage } from '/@/api/watchtarget/watchTargetApi'
 import type { TargetGroup, WatchTarget } from '/@/types/watchtarget/entity'
+import { AssetType } from '/@/types/asset'
 
 
 const PAGE_SIZE = 10
@@ -79,13 +80,13 @@ const props = defineProps<{
     modelValue: boolean
     targetCode: string
     targetName?: string
-    targetType: string
+    targetType: AssetType
     title: string
 }>()
 
 const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void
-    (event: 'confirm', payload: { targetCode: string; targetType: string; groupCodes: string[] }): void
+    (event: 'confirm', payload: { targetCode: string; targetType: AssetType; groupCodes: string[] }): void
 }>()
 
 const groupLoading = ref(false)

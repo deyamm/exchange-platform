@@ -11,6 +11,6 @@ public interface MarketOverviewService extends IService<AppResult> {
     
     Map<String, Object> getMarketOverview(String tradeDate);
 
-    List<Map<String, Object>> getIndexBasic();
+    List<Map<String, Object>> getIndexBasic(String indexBasicDatasetCode);
 
 }

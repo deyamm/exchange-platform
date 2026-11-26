@@ -2,9 +2,6 @@ import type { SelectOption } from '/@/types/common';
 import type { CommonStatus } from '../appscene/constants';
 import type { AssetType } from '/@/types/asset';
 
-export type { AssetType } from '/@/types/asset';
-export { ASSET_TYPE_OPTIONS, ASSET_TYPE_TEXT } from '/@/types/asset';
-
 /** ALL 仅是页面筛选条件，不能作为 AppMetric.metricCategory 保存。 */
 export type MetricCategoryFilter = 'ALL' | 'MARKET' | 'VALUATION' | 'FINANCE' | 'GROWTH' | 'RISK' | 'OTHER';
 export type MetricCategory = Exclude<MetricCategoryFilter, 'ALL'>;
