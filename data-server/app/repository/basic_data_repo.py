@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
@@ -227,7 +228,7 @@ class BasicDataRepo:
     async def get_index_components_by_indices(
         self,
         index_codes: List[str],
-        trade_date: str | None = None,
+        trade_date: date,
     ) -> List[Dict[str, Any]]:
         """批量查询多个指数各自最新成分股。
 
@@ -239,10 +240,9 @@ class BasicDataRepo:
             return []
 
         in_sql, params = clause_params("index", codes)
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date.isoformat()
 
         result = await self.conn.execute(
             text(

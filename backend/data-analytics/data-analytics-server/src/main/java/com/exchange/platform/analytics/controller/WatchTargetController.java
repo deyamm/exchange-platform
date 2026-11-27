@@ -149,17 +149,16 @@ public class WatchTargetController {
     public ApiResponse<Map<String, Object>> getTargetValuationSummary(
         @PathVariable String targetCode,
         @RequestParam(required = false) String tradeDate,
-        @RequestParam(required = false) Integer historyLimit,
         @RequestParam(required = false) String rangeCode,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info(
-            "[{}] [Controller] getTargetValuationSummary: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
-            requestId, targetCode, tradeDate, historyLimit, rangeCode
+            "[{}] [Controller] getTargetValuationSummary: targetCode={}, tradeDate={}, rangeCode={}",
+            requestId, targetCode, tradeDate, rangeCode
         );
         return ApiResponse.success(
-            watchTargetService.getTargetValuationSummary(targetCode, tradeDate, historyLimit, rangeCode),
+            watchTargetService.getTargetValuationSummary(targetCode, tradeDate, rangeCode),
             requestId
         );
     }
@@ -170,17 +169,16 @@ public class WatchTargetController {
         @PathVariable String targetCode,
         @RequestParam(required = false) String tradeDate,
         @RequestParam(required = false, defaultValue = "PE_TTM") String metricCode,
-        @RequestParam(required = false) Integer historyLimit,
         @RequestParam(required = false) String rangeCode,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info(
-            "[{}] [Controller] getTargetValuationChannel: targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
-            requestId, targetCode, tradeDate, metricCode, historyLimit, rangeCode
+            "[{}] [Controller] getTargetValuationChannel: targetCode={}, tradeDate={}, metricCode={}, rangeCode={}",
+            requestId, targetCode, tradeDate, metricCode, rangeCode
         );
         return ApiResponse.success(
-            watchTargetService.getTargetValuationChannel(targetCode, tradeDate, metricCode, historyLimit, rangeCode),
+            watchTargetService.getTargetValuationChannel(targetCode, tradeDate, metricCode, rangeCode),
             requestId
         );
     }
@@ -191,17 +189,16 @@ public class WatchTargetController {
         @PathVariable String targetCode,
         @RequestParam(required = false) String tradeDate,
         @RequestParam(required = false, defaultValue = "PE_TTM") String metricCode,
-        @RequestParam(required = false) Integer historyLimit,
         @RequestParam(required = false) String rangeCode,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info(
-            "[{}] [Controller] getTargetValuationTrend: targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
-            requestId, targetCode, tradeDate, metricCode, historyLimit, rangeCode
+            "[{}] [Controller] getTargetValuationTrend: targetCode={}, tradeDate={}, metricCode={}, rangeCode={}",
+            requestId, targetCode, tradeDate, metricCode, rangeCode
         );
         return ApiResponse.success(
-            watchTargetService.getTargetValuationTrend(targetCode, tradeDate, metricCode, historyLimit, rangeCode),
+            watchTargetService.getTargetValuationTrend(targetCode, tradeDate, metricCode, rangeCode),
             requestId
         );
     }
@@ -211,17 +208,16 @@ public class WatchTargetController {
     public ApiResponse<Map<String, Object>> getTargetDividendTrend(
         @PathVariable String targetCode,
         @RequestParam(required = false) String tradeDate,
-        @RequestParam(required = false) Integer historyLimit,
         @RequestParam(required = false) String rangeCode,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info(
-            "[{}] [Controller] getTargetDividendTrend: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
-            requestId, targetCode, tradeDate, historyLimit, rangeCode
+            "[{}] [Controller] getTargetDividendTrend: targetCode={}, tradeDate={}, rangeCode={}",
+            requestId, targetCode, tradeDate, rangeCode
         );
         return ApiResponse.success(
-            watchTargetService.getTargetDividendTrend(targetCode, tradeDate, historyLimit, rangeCode),
+            watchTargetService.getTargetDividendTrend(targetCode, tradeDate, rangeCode),
             requestId
         );
     }
@@ -246,18 +242,17 @@ public class WatchTargetController {
     public ApiResponse<Map<String, Object>> getTargetCapitalFlowDetail(
         @PathVariable String targetCode,
         @RequestParam(required = false) String tradeDate,
-        @RequestParam(required = false) Integer historyLimit,
         @RequestParam(required = false) String rangeCode,
         @RequestParam(required = false, defaultValue = "true") boolean includeQuoteRows,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
         log.info(
-            "[{}] [Controller] getTargetCapitalFlowDetail: targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}, includeQuoteRows={}",
-            requestId, targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows
+            "[{}] [Controller] getTargetCapitalFlowDetail: targetCode={}, tradeDate={}, rangeCode={}, includeQuoteRows={}",
+            requestId, targetCode, tradeDate, rangeCode, includeQuoteRows
         );
         return ApiResponse.success(
-            watchTargetService.getTargetCapitalFlowDetail(targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows),
+            watchTargetService.getTargetCapitalFlowDetail(targetCode, tradeDate, rangeCode, includeQuoteRows),
             requestId
         );
     }
@@ -294,12 +289,12 @@ public class WatchTargetController {
     public ApiResponse<Map<String, Object>> getIndexMarket(
         @PathVariable String targetCode,
         @RequestParam String tradeDate,
-        @RequestParam(defaultValue = "250") int historyLimit,
+        @RequestParam(required = false) String rangeCode,
         HttpServletRequest request
     ) {
         String requestId = RequestIdHolder.getRequestId(request);
-        log.info("[{}] [Controller] getIndexMarket: targetCode={}, tradeDate={}, historyLimit={}", requestId, targetCode, tradeDate, historyLimit);
-        return ApiResponse.success(watchTargetService.getIndexMarket(targetCode, tradeDate, historyLimit), requestId);
+        log.info("[{}] [Controller] getIndexMarket: targetCode={}, tradeDate={}, rangeCode={}", requestId, targetCode, tradeDate, rangeCode);
+        return ApiResponse.success(watchTargetService.getIndexMarket(targetCode, tradeDate, rangeCode), requestId);
     }
 
     @Operation(summary = "查询指数成分股", description = "根据指数完整代码查询指数的成分股数据，包括成分股列表、权重、行业分布等")

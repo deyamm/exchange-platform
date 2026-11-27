@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -82,17 +83,15 @@ class ExchangeDataRepo:
     async def get_stock_latest_snapshot(
         self,
         full_symbol: str,
-        trade_date: str | None = None,
+        trade_date: date,
     ) -> Optional[Dict[str, Any]]:
         """查询单只股票等于指定日期的最新行情、估值和资金流快照。"""
         if not full_symbol:
             return None
 
         params: Dict[str, Any] = {"full_symbol": full_symbol}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND k.trade_date = :trade_date"
-            params["trade_date"] = trade_date
+        date_sql = "AND k.trade_date = :trade_date"
+        params["trade_date"] = trade_date.isoformat()
 
         result = await self.conn.execute(
             text(
@@ -163,7 +162,7 @@ class ExchangeDataRepo:
     async def get_stock_latest_snapshots_by_codes(
         self,
         stock_codes: List[str],
-        trade_date: str | None = None,
+        trade_date: date,
     ) -> List[Dict[str, Any]]:
         """批量查询一组股票等于指定日期的最新快照。
 
@@ -175,10 +174,9 @@ class ExchangeDataRepo:
             return []
 
         in_sql, params = clause_params("stock", codes)
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND k.trade_date = :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND k.trade_date = :trade_date"
+        params["trade_date"] = trade_date.isoformat()
         
         result = await self.conn.execute(
             text(
@@ -277,7 +275,7 @@ class ExchangeDataRepo:
     async def get_stock_history(
         self,
         full_symbol: str,
-        trade_date: str | None = None,
+        trade_date: date,
         limit: int = 520,
         adj: str | None = None,
     ) -> List[Dict[str, Any]]:
@@ -289,10 +287,9 @@ class ExchangeDataRepo:
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""
@@ -322,17 +319,15 @@ class ExchangeDataRepo:
     async def get_stock_indicator_history(
         self,
         full_symbol: str,
-        trade_date: str | None = None,
+        trade_date: date,
         limit: int = 1250,
     ) -> List[Dict[str, Any]]:
         """查询股票估值指标历史，按时间倒序排列。"""
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date
         result = await self.conn.execute(
             text(
                 f"""
@@ -369,7 +364,7 @@ class ExchangeDataRepo:
     async def get_stock_indicator_rows_by_codes(
         self,
         stock_codes: List[str],
-        trade_date: str | None = None,
+        trade_date: date,
         limit_trade_dates: int = 260,
     ) -> List[Dict[str, Any]]:
         """批量查询多个股票最近若干交易日的估值指标。
@@ -382,10 +377,9 @@ class ExchangeDataRepo:
             return []
         in_sql, params = clause_params("stock", codes)
         limit_trade_dates = max(1, int(limit_trade_dates))
-        date_sql = ""
-        if trade_date:
-            date_sql = "WHERE trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "WHERE trade_date <= :trade_date"
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""
@@ -428,17 +422,16 @@ class ExchangeDataRepo:
     async def get_stock_moneyflow_history(
         self,
         full_symbol: str,
-        trade_date: str | None = None,
+        trade_date: date,
         limit: int = 60,
     ) -> List[Dict[str, Any]]:
         """查询股票资金流历史，返回 trade_date DESC。"""
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""
@@ -474,25 +467,18 @@ class ExchangeDataRepo:
         )
         return [dict(row._mapping) for row in result]
 
-    async def get_index_latest_snapshot(self, full_symbol: str, trade_date: str | None = None) -> Optional[Dict[str, Any]]:
-        """查询单个指数小于等于指定日期的最新行情与指标快照。"""
-        rows = await self.get_index_latest_snapshots_by_codes([full_symbol], trade_date)
-        return rows[0] if rows else None
-
     async def get_index_latest_snapshots_by_codes(
         self,
         index_codes: List[str],
-        trade_date: str | None = None,
+        trade_date: date,
     ) -> List[Dict[str, Any]]:
         """批量查询指数等于指定日期的最新行情和估值规模快照。"""
         codes = [code for code in index_codes if code]
         if not codes:
             return []
         in_sql, params = clause_params("index", codes)
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND k.trade_date = :trade_date"
-            params["trade_date"] = trade_date
+        date_sql = "AND k.trade_date = :trade_date"
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""
@@ -574,17 +560,16 @@ class ExchangeDataRepo:
     async def get_index_indicator_history(
         self,
         full_symbol: str,
-        trade_date: str | None = None,
+        trade_date: date,
         limit: int = 1250,
     ) -> List[Dict[str, Any]]:
         """查询指数估值规模指标历史。"""
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date
         result = await self.conn.execute(
             text(
                 f"""
@@ -612,15 +597,14 @@ class ExchangeDataRepo:
         )
         return [dict(row._mapping) for row in result]
 
-    async def get_index_history(self, full_symbol: str, trade_date: str | None = None, limit: int = 520) -> List[Dict[str, Any]]:
+    async def get_index_history(self, full_symbol: str, trade_date: date, limit: int = 520) -> List[Dict[str, Any]]:
         """查询指数历史行情，返回 trade_date DESC。"""
         if not full_symbol or limit <= 0:
             return []
         params: Dict[str, Any] = {"full_symbol": full_symbol, "limit": max(1, int(limit))}
-        date_sql = ""
-        if trade_date:
-            date_sql = "AND trade_date <= :trade_date"
-            params["trade_date"] = trade_date
+
+        date_sql = "AND trade_date <= :trade_date"
+        params["trade_date"] = trade_date
         result = await self.conn.execute(
             text(
                 f"""
@@ -708,41 +692,6 @@ class ExchangeDataRepo:
             params,
         )
         return [dict(row._mapping) for row in result]
-
-    async def get_target_history(
-        self,
-        full_symbol: str,
-        target_type: str = "STOCK",
-        trade_date: str | None = None,
-        limit: int = 520,
-    ) -> List[Dict[str, Any]]:
-        """按标的类型读取 K 线历史，repo 只做物理表分发。"""
-        if (target_type or "STOCK").upper() == "INDEX":
-            return await self.get_index_history(full_symbol, trade_date=trade_date, limit=limit)
-        return await self.get_stock_history(full_symbol, trade_date=trade_date, limit=limit)
-
-    async def get_target_indicator_history(
-        self,
-        full_symbol: str,
-        target_type: str = "STOCK",
-        trade_date: str | None = None,
-        limit: int = 1250,
-    ) -> List[Dict[str, Any]]:
-        """按标的类型读取估值/规模指标历史。"""
-        if (target_type or "STOCK").upper() == "INDEX":
-            return await self.get_index_indicator_history(full_symbol, trade_date=trade_date, limit=limit)
-        return await self.get_stock_indicator_history(full_symbol, trade_date=trade_date, limit=limit)
-
-    async def get_target_latest_snapshot(
-        self,
-        full_symbol: str,
-        target_type: str = "STOCK",
-        trade_date: str | None = None,
-    ) -> Optional[Dict[str, Any]]:
-        """按标的类型读取最新快照。"""
-        if (target_type or "STOCK").upper() == "INDEX":
-            return await self.get_index_latest_snapshot(full_symbol, trade_date=trade_date)
-        return await self.get_stock_latest_snapshot(full_symbol, trade_date=trade_date)
 
     async def get_total_stock_amount(self, trade_date: str) -> float:
         """查询指定交易日全市场股票总成交额。"""

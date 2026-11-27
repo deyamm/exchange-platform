@@ -30,6 +30,6 @@ export function queryTargetCapitalFlowDetail(
     const { fullSymbol, tradeDate, historyLimit, rangeCode, includeQuoteRows } = params
     return http.get<TargetCapitalFlowDetail>(
         `/api/v1/analytics/watch-targets/${fullSymbol}/capital-flow-detail`,
-        { params: { tradeDate, historyLimit, rangeCode, includeQuoteRows } }
+        { params: { tradeDate, rangeCode, includeQuoteRows } }
     )
 }

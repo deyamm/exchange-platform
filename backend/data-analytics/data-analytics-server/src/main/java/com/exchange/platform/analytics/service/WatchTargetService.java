@@ -46,7 +46,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
     public Map<String, Object> getTargetValuationSummary(
         String targetCode,
         String tradeDate,
-        Integer historyLimit,
         String rangeCode
     );
 
@@ -55,7 +54,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
         String targetCode,
         String tradeDate,
         String metricCode,
-        Integer historyLimit,
         String rangeCode
     );
 
@@ -64,7 +62,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
         String targetCode,
         String tradeDate,
         String metricCode,
-        Integer historyLimit,
         String rangeCode
     );
 
@@ -72,7 +69,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
     public Map<String, Object> getTargetDividendTrend(
         String targetCode,
         String tradeDate,
-        Integer historyLimit,
         String rangeCode
     );
 
@@ -83,7 +79,6 @@ public interface WatchTargetService extends IService<WatchTarget> {
     public Map<String, Object> getTargetCapitalFlowDetail(
         String targetCode,
         String tradeDate,
-        Integer historyLimit,
         String rangeCode,
         boolean includeQuoteRows
     );
@@ -94,7 +89,7 @@ public interface WatchTargetService extends IService<WatchTarget> {
     /** 查询指数详细信息 */
     public Map<String, Object> getIndexDetails(String targetCode, String tradeDate);
 
-    public Map<String, Object> getIndexMarket(String targetCode, String tradeDate, int historyLimit);
+    public Map<String, Object> getIndexMarket(String targetCode, String tradeDate, String rangeCode);
 
     public Map<String, Object> getIndexConstituents(String targetCode, String tradeDate);
 

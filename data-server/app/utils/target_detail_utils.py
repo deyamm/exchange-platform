@@ -1,10 +1,11 @@
+from datetime import date
 import math
 from numbers import Number
 import statistics
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from app.utils.datetime_utils import current_market_status, get_current_datetime
-from app.utils.typing_utils import pct, to_float, to_str_date
+from app.utils.typing_utils import pct, to_float
 
 
 # 详情页通用表现周期，StockService 和 IndexService 使用同一组展示口径。
@@ -174,7 +175,7 @@ def build_market_quote(
 
     result = {
         "fullSymbol": row.get("full_symbol") if include_full_symbol else None,
-        "tradeDate": to_str_date(row.get("trade_date")),
+        "tradeDate": row.get("trade_date"),
         "tradeTime": trade_time,
         "close": round_optional(row.get("close")),
         "preClose": round_optional(row.get("pre_close")),
@@ -331,9 +332,9 @@ def build_analysis_history(
             continue
         source_data_time = (
             source.get("tradeDate")
-            or to_str_date(source.get("trade_date"))
+            or source.get("trade_date")
             or source.get("endDate")
-            or to_str_date(source.get("end_date"))
+            or source.get("end_date")
         )
         if source_data_time:
             break
@@ -450,3 +451,17 @@ def volatility(pct_values: List[float]) -> Optional[float]:
 def strip_exchange(full_symbol: str) -> str:
     """去除 full_symbol 的交易所/市场后缀，例如 000001.SZ -> 000001。"""
     return full_symbol.split(".")[0] if full_symbol else ""
+
+
+def build_meta(data_version: date | None, warnings: Optional[List[str]] = None) -> Dict[str, Any]:
+    warning_list = [item for item in (warnings or []) if item]
+    meta = {
+        "dataSource": "type_basic_data,type_exchange_data,type_finance_data",
+        "dataVersion": data_version.isoformat() if data_version else None,
+        "generatedAt": get_current_datetime().isoformat(),
+        "partialData": bool(warning_list),
+    }
+    if warning_list:
+        meta["warnings"] = warning_list
+    return meta
+

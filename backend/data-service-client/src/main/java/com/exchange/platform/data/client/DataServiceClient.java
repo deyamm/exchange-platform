@@ -109,7 +109,6 @@ public interface DataServiceClient {
     Map<String, Object> getTargetValuationSummary(
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
-        @RequestParam(value = "historyLimit", required = false) Integer historyLimit,
         @RequestParam(value = "rangeCode", required = false) String rangeCode
     );
 
@@ -123,7 +122,6 @@ public interface DataServiceClient {
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
         @RequestParam(value = "metricCode", required = false, defaultValue = "PE_TTM") String metricCode,
-        @RequestParam(value = "historyLimit", required = false) Integer historyLimit,
         @RequestParam(value = "rangeCode", required = false) String rangeCode
     );
 
@@ -137,7 +135,6 @@ public interface DataServiceClient {
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
         @RequestParam(value = "metricCode", required = false, defaultValue = "PE_TTM") String metricCode,
-        @RequestParam(value = "historyLimit", required = false) Integer historyLimit,
         @RequestParam(value = "rangeCode", required = false) String rangeCode
     );
 
@@ -150,7 +147,6 @@ public interface DataServiceClient {
     Map<String, Object> getTargetDividendTrend(
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
-        @RequestParam(value = "historyLimit", required = false) Integer historyLimit,
         @RequestParam(value = "rangeCode", required = false) String rangeCode
     );
 
@@ -174,7 +170,6 @@ public interface DataServiceClient {
     Map<String, Object> getTargetCapitalFlowDetail(
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
-        @RequestParam(value = "historyLimit", required = false) Integer historyLimit,
         @RequestParam(value = "rangeCode", required = false) String rangeCode,
         @RequestParam(value = "includeQuoteRows", required = false, defaultValue = "true") boolean includeQuoteRows
     );
@@ -206,7 +201,7 @@ public interface DataServiceClient {
     Map<String, Object> getIndexDetailMarket(
         @RequestParam(value = "fullSymbol") String fullSymbol,
         @RequestParam(value = "tradeDate", required = false) String tradeDate,
-        @RequestParam(value = "historyLimit", required = false, defaultValue = "250") int historyLimit
+        @RequestParam(value = "rangeCode", required = false) String rangeCode
     );
 
     /**

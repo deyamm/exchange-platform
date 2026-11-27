@@ -116,7 +116,6 @@ async def get_target_quote_detail(
     adjust_type: str = Query("NONE", alias="adjustType", description="复权类型：NONE/FORWARD/BACKWARD，默认 NONE"),
     benchmark_code: Optional[str] = Query(None, alias="benchmarkCode", description="对比基准代码，为空时使用沪深300"),
     industry_code: Optional[str] = Query(None, alias="industryCode", description="行业代码，用于行业超额收益和排名预留"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     service: StockService = Depends(get_stock_service)
 ):
     """
@@ -125,14 +124,13 @@ async def get_target_quote_detail(
     K 线先按复权口径处理，再统一计算技术指标，保证图表、技术分析和区间统计使用同一批行情。
     """
     logger.info(
-        "get_target_quote_detail called, full_symbol=%s, trade_date=%s, range_code=%s, adjust_type=%s, history_limit=%s",
-        full_symbol, trade_date, range_code, adjust_type, history_limit
+        "get_target_quote_detail called, full_symbol=%s, trade_date=%s, range_code=%s, adjust_type=%s",
+        full_symbol, trade_date, range_code, adjust_type
     )
 
     return await service.get_target_quote_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
-        history_limit=history_limit,
         adjust_type=adjust_type,
         benchmark_code=benchmark_code,
         range_code=range_code,
@@ -150,7 +148,6 @@ async def get_target_quote_detail(
 async def get_target_valuation_summary_detail(
     full_symbol: str = Query(..., alias="fullSymbol", description="股票完整代码，例如 '000001.SZ'"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     range_code: Optional[str] = Query(None, alias="rangeCode", description="估值时间范围：1Y/3Y/5Y/10Y，默认 1Y"),
     service: StockService = Depends(get_stock_service)
 ):
@@ -160,14 +157,13 @@ async def get_target_valuation_summary_detail(
     只返回最新估值指标和分位状态，估值通道、估值走势、分红走势由其他子接口提供。
     """
     logger.info(
-        "get_target_valuation_summary_detail called, full_symbol=%s, trade_date=%s, history_limit=%s, range_code=%s",
-        full_symbol, trade_date, history_limit, range_code
+        "get_target_valuation_summary_detail called, full_symbol=%s, trade_date=%s, range_code=%s",
+        full_symbol, trade_date, range_code
     )
 
     return await service.get_target_valuation_summary_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
-        history_limit=history_limit,
         range_code=range_code,
     )
 
@@ -183,7 +179,6 @@ async def get_target_valuation_channel_detail(
     full_symbol: str = Query(..., alias="fullSymbol", description="股票完整代码，例如 '000001.SZ'"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
     metric_code: str = Query("PE_TTM", alias="metricCode", description="估值指标：PE_TTM/PB/PS_TTM，默认 PE_TTM"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     range_code: Optional[str] = Query(None, alias="rangeCode", description="估值时间范围：1Y/3Y/5Y/10Y，默认 1Y"),
     service: StockService = Depends(get_stock_service)
 ):
@@ -197,7 +192,6 @@ async def get_target_valuation_channel_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
         metric_code=metric_code,
-        history_limit=history_limit,
         range_code=range_code,
     )
 
@@ -213,7 +207,6 @@ async def get_target_valuation_trend_detail(
     full_symbol: str = Query(..., alias="fullSymbol", description="股票完整代码，例如 '000001.SZ'"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
     metric_code: str = Query("PE_TTM", alias="metricCode", description="估值指标：PE_TTM/PB/PS_TTM，默认 PE_TTM"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     range_code: Optional[str] = Query(None, alias="rangeCode", description="估值时间范围：1Y/3Y/5Y/10Y，默认 1Y"),
     service: StockService = Depends(get_stock_service)
 ):
@@ -227,7 +220,6 @@ async def get_target_valuation_trend_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
         metric_code=metric_code,
-        history_limit=history_limit,
         range_code=range_code,
     )
 
@@ -242,21 +234,19 @@ async def get_target_valuation_trend_detail(
 async def get_target_dividend_trend_detail(
     full_symbol: str = Query(..., alias="fullSymbol", description="股票完整代码，例如 '000001.SZ'"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     range_code: Optional[str] = Query(None, alias="rangeCode", description="估值时间范围：1Y/3Y/5Y/10Y，默认 1Y"),
     service: StockService = Depends(get_stock_service)
 ):
     """获取分红 TTM 走势。"""
     logger.info(
-        "get_target_dividend_trend_detail called, full_symbol=%s, trade_date=%s, history_limit=%s, range_code=%s",
-        full_symbol, trade_date, history_limit, range_code
+        "get_target_dividend_trend_detail called, full_symbol=%s, trade_date=%s, range_code=%s",
+        full_symbol, trade_date, range_code
     )
 
     return await service.get_target_dividend_trend_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
         range_code=range_code,
-        history_limit=history_limit,
     )
 
 
@@ -292,7 +282,6 @@ async def get_target_financial_detail(
 async def get_target_capital_flow_detail(
     full_symbol: str = Query(..., alias="fullSymbol", description="股票完整代码，例如 '000001.SZ'"),
     trade_date: Optional[str] = Query(None, alias="tradeDate", description="指定交易日期，格式 YYYY-MM-DD；为空时返回最新数据"),
-    history_limit: Optional[int] = Query(None, alias="historyLimit", description="历史数据条数；传入时优先于 rangeCode"),
     range_code: Optional[str] = Query(None, alias="rangeCode", description="时间范围编码：1M/3M/6M/1Y/2Y，默认 3M"),
     include_quote_rows: bool = Query(True, alias="includeQuoteRows", description="是否返回价格联动所需的收盘价序列，默认 True"),
     service: StockService = Depends(get_stock_service)
@@ -306,7 +295,6 @@ async def get_target_capital_flow_detail(
     return await service.get_target_capital_flow_detail(
         full_symbol=full_symbol,
         trade_date=trade_date,
-        history_limit=history_limit,
         range_code=range_code,
         include_quote_rows=include_quote_rows,
     )

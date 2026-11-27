@@ -1,6 +1,8 @@
 from datetime import date, datetime, time, timedelta
 import calendar
+from typing import Any, Optional
 from zoneinfo import ZoneInfo
+from app.core.common.enum import QuarterType
 
 time_zone = ZoneInfo("Asia/Shanghai")
 
@@ -69,7 +71,7 @@ def current_market_status() -> str:
     return "已收盘"
 
 
-def resolve_trade_date(trade_date: str | None = None) -> str:
+def resolve_trade_date(trade_date: str | None = None) -> date:
     """
     统一 service 层的交易日期解析口径。
 
@@ -78,5 +80,45 @@ def resolve_trade_date(trade_date: str | None = None) -> str:
     - 返回值固定为 YYYY-MM-DD 字符串，便于 repo 查询参数和 meta.dataVersion 复用。
     """
     if trade_date and trade_date.strip():
-        return trade_date.strip()
-    return get_latest_trade_date(None).strftime("%Y-%m-%d")
+        return to_date(trade_date.strip())
+    return get_latest_trade_date(None)
+
+
+def resolve_quarter_type(end_date: date) -> Optional[QuarterType]:
+    """根据报告期截止日期解析自然季度。"""
+    return QuarterType.from_date(end_date)
+
+
+def to_date(value: Any) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    if not isinstance(value, str):
+        raise TypeError(
+            f"Unsupported date type: {type(value).__name__}"
+        )
+
+    text = value.strip()
+    if not text:
+        raise ValueError("Date string is empty")
+
+    formats = (
+        "%Y-%m-%d",
+        "%Y/%m/%d",
+        "%Y%m%d",
+        "%Y.%m.%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+    )
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unsupported date format: {value!r}")

@@ -20,7 +20,7 @@ export function queryTargetValuationSummary(
     const { fullSymbol, tradeDate, historyLimit, rangeCode } = params
     return http.get<TargetValuationSummaryDetail>(
         `/api/v1/analytics/watch-targets/${fullSymbol}/valuation-summary`,
-        { params: { tradeDate, historyLimit, rangeCode } }
+        { params: { tradeDate, rangeCode } }
     )
 }
 
@@ -35,7 +35,7 @@ export function queryTargetValuationChannel(
     const { fullSymbol, tradeDate, metricCode, historyLimit, rangeCode } = params
     return http.get<TargetValuationChannelDetail>(
         `/api/v1/analytics/watch-targets/${fullSymbol}/valuation-channel`,
-        { params: { tradeDate, metricCode, historyLimit, rangeCode } }
+        { params: { tradeDate, metricCode, rangeCode } }
     )
 }
 
@@ -50,7 +50,7 @@ export function queryTargetValuationTrend(
     const { fullSymbol, tradeDate, metricCode, historyLimit, rangeCode } = params
     return http.get<TargetValuationTrendDetail>(
         `/api/v1/analytics/watch-targets/${fullSymbol}/valuation-trend`,
-        { params: { tradeDate, metricCode, historyLimit, rangeCode } }
+        { params: { tradeDate, metricCode, rangeCode } }
     )
 }
 
@@ -65,6 +65,6 @@ export function queryTargetDividendTrend(
     const { fullSymbol, tradeDate, historyLimit, rangeCode } = params
     return http.get<TargetDividendTrendDetail>(
         `/api/v1/analytics/watch-targets/${fullSymbol}/dividend-trend`,
-        { params: { tradeDate, historyLimit, rangeCode } }
+        { params: { tradeDate, rangeCode } }
     )
 }

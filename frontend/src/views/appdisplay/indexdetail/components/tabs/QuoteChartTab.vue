@@ -207,7 +207,7 @@ import TargetEcharts from '/@/components/common/TargetEcharts.vue'
 import { formatAmount, formatDateTime, formatNumber, formatPercent, signedClass } from '/@/utils/marketUtils'
 import { ChartGroup, ChartSeries, MarketQuote, OHLCData } from '/@/types/marketoverview/view'
 import { queryIndexMarket } from '/@/api/indexdetail/indexMarketApi'
-import { rangeSizeMap, rangeOptions, RangeCode, mainIndicatorOptions, subIndicatorOptions, MainIndicatorCode, SubIndicatorCode } from '/@/types/marketoverview/constants'
+import { rangeOptions, RangeCode, mainIndicatorOptions, subIndicatorOptions, MainIndicatorCode, SubIndicatorCode } from '/@/types/marketoverview/constants'
 import { ElMessage } from 'element-plus'
 
 
@@ -367,7 +367,7 @@ async function loadMarketData(): Promise<void> {
         const marketData = await queryIndexMarket(
             resolvedFullSymbol.value,
             resolvedTradeDate.value,
-            selectedRange.value === 'CUSTOM' ? undefined : rangeSizeMap[selectedRange.value] || 250
+            selectedRange.value === 'CUSTOM' ? undefined : selectedRange.value || '1Y'
         )
         if (marketData) {
             localProps.charts = marketData.marketCharts || []

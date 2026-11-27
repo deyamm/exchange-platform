@@ -63,22 +63,6 @@ export interface WatchOverviewQueryParams {
     pageSize?: number;
 }
 
-export const rangeSizeMap: Record<Exclude<RangeCode, 'CUSTOM'>, number> = {
-    '1M': 22,
-    '3M': 66,
-    '6M': 132,
-    '1Y': 250,
-    '2Y': 500
-}
-
-/** 固定估值期限到历史查询条数的映射。 */
-export const valuationRangeSizeMap: Record<ValuationTimeRangeCode, number> = {
-    '1Y': 250,
-    '3Y': 750,
-    '5Y': 1250,
-    '10Y': 2500
-}
-
 export const rangeOptions: Array<{ label: string; value: RangeCode }> = [
     { label: '1月', value: '1M' },
     { label: '3月', value: '3M' },

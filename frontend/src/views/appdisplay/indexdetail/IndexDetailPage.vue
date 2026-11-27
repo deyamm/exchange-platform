@@ -77,6 +77,7 @@ import IndexOverviewPanel from './components/IndexOverviewPanel.vue'
 import IndexMainTabs from './components/IndexMainTabs.vue'
 import IndexSidePanel from './components/IndexSidePanel.vue'
 import { formatDateTime } from '/@/utils/marketUtils'
+import { AssetType } from '/@/types/asset.js'
 
 const queryForm = reactive({
     fullSymbol: '000001.SH',
@@ -147,7 +148,7 @@ async function handleAddWatchConfirm(payload: {
     const request: WatchTargetSaveRequest = {
         targetCode: payload.targetCode,
         targetName: index.name,
-        targetType: payload.targetType,
+        targetType: payload.targetType as AssetType,
         marketCode: index.market || '',
         groupCodes: payload.groupCodes,
         sortNo: 1,

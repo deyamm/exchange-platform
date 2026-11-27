@@ -208,17 +208,12 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
      * 查询估值摘要。
      */
     @Override
-    public Map<String, Object> getTargetValuationSummary(
-        String targetCode,
-        String tradeDate,
-        Integer historyLimit,
-        String rangeCode
-    ) {
+    public Map<String, Object> getTargetValuationSummary(String targetCode, String tradeDate, String rangeCode) {
         log.info(
-            "[Service] getTargetValuationSummary targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
-            targetCode, tradeDate, historyLimit, rangeCode
+            "[Service] getTargetValuationSummary targetCode={}, tradeDate={}, rangeCode={}",
+            targetCode, tradeDate, rangeCode
         );
-        return dataServiceClient.getTargetValuationSummary(targetCode, tradeDate, historyLimit, rangeCode);
+        return dataServiceClient.getTargetValuationSummary(targetCode, tradeDate, rangeCode);
     }
 
     /**
@@ -229,14 +224,13 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
         String targetCode,
         String tradeDate,
         String metricCode,
-        Integer historyLimit,
         String rangeCode
     ) {
         log.info(
-            "[Service] getTargetValuationChannel targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
-            targetCode, tradeDate, metricCode, historyLimit, rangeCode
+            "[Service] getTargetValuationChannel targetCode={}, tradeDate={}, metricCode={}, rangeCode={}",
+            targetCode, tradeDate, metricCode, rangeCode
         );
-        return dataServiceClient.getTargetValuationChannel(targetCode, tradeDate, metricCode, historyLimit, rangeCode);
+        return dataServiceClient.getTargetValuationChannel(targetCode, tradeDate, metricCode, rangeCode);
     }
 
     /**
@@ -247,14 +241,13 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
         String targetCode,
         String tradeDate,
         String metricCode,
-        Integer historyLimit,
         String rangeCode
     ) {
         log.info(
-            "[Service] getTargetValuationTrend targetCode={}, tradeDate={}, metricCode={}, historyLimit={}, rangeCode={}",
-            targetCode, tradeDate, metricCode, historyLimit, rangeCode
+            "[Service] getTargetValuationTrend targetCode={}, tradeDate={}, metricCode={}, rangeCode={}",
+            targetCode, tradeDate, metricCode, rangeCode
         );
-        return dataServiceClient.getTargetValuationTrend(targetCode, tradeDate, metricCode, historyLimit, rangeCode);
+        return dataServiceClient.getTargetValuationTrend(targetCode, tradeDate, metricCode, rangeCode);
     }
 
     /**
@@ -264,14 +257,13 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     public Map<String, Object> getTargetDividendTrend(
         String targetCode,
         String tradeDate,
-        Integer historyLimit,
         String rangeCode
     ) {
         log.info(
-            "[Service] getTargetDividendTrend targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}",
-            targetCode, tradeDate, historyLimit, rangeCode
+            "[Service] getTargetDividendTrend targetCode={}, tradeDate={}, rangeCode={}",
+            targetCode, tradeDate, rangeCode
         );
-        return dataServiceClient.getTargetDividendTrend(targetCode, tradeDate, historyLimit, rangeCode);
+        return dataServiceClient.getTargetDividendTrend(targetCode, tradeDate, rangeCode);
     }
 
     /**
@@ -290,15 +282,14 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     public Map<String, Object> getTargetCapitalFlowDetail(
         String targetCode,
         String tradeDate,
-        Integer historyLimit,
         String rangeCode,
         boolean includeQuoteRows
     ) {
         log.info(
-            "[Service] getTargetCapitalFlowDetail targetCode={}, tradeDate={}, historyLimit={}, rangeCode={}, includeQuoteRows={}",
-            targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows
+            "[Service] getTargetCapitalFlowDetail targetCode={}, tradeDate={}, rangeCode={}, includeQuoteRows={}",
+            targetCode, tradeDate, rangeCode, includeQuoteRows
         );
-        return dataServiceClient.getTargetCapitalFlowDetail(targetCode, tradeDate, historyLimit, rangeCode, includeQuoteRows);
+        return dataServiceClient.getTargetCapitalFlowDetail(targetCode, tradeDate, rangeCode, includeQuoteRows);
     }
 
     /**
@@ -318,9 +309,9 @@ public class WatchTargetServiceImpl extends ServiceImpl<WatchTargetMapper, Watch
     }
 
     @Override
-    public Map<String, Object> getIndexMarket(String targetCode, String tradeDate, int historyLimit) {
-        log.info("[Service] getIndexMarket targetCode={}, tradeDate={}, historyLimit={}", targetCode, tradeDate, historyLimit);
-        return dataServiceClient.getIndexDetailMarket(targetCode, tradeDate, historyLimit);
+    public Map<String, Object> getIndexMarket(String targetCode, String tradeDate, String rangeCode) {
+        log.info("[Service] getIndexMarket targetCode={}, tradeDate={}, rangeCode={}", targetCode, tradeDate, rangeCode);
+        return dataServiceClient.getIndexDetailMarket(targetCode, tradeDate, rangeCode);
     }
 
     @Override
