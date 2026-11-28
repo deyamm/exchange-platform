@@ -3,6 +3,7 @@ package com.exchange.platform.analytics.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -98,8 +99,11 @@ public class ScreeningServiceImpl implements ScreeningService {
             matrix.put(targetCode, values);
         });
         if (!targets.isEmpty()) {
-            List<MetricValueView> metricValues = metricValueQueryService.queryMetricValues(new MetricQueryRequest(
-                    request.targetType(), new ArrayList<>(targets.keySet()), metricCodes, request.asOfTime()));
+            List<MetricValueView> metricValues = metricValueQueryService.queryMetricValues(
+                new MetricQueryRequest(
+                    request.targetType(), new ArrayList<>(targets.keySet()), metricCodes, request.asOfTime()
+                )
+            );
             for (MetricValueView metricValue : metricValues) {
                 Map<String, Object> targetValues = matrix.get(metricValue.getTargetCode());
                 if (targetValues != null && targetValues.containsKey(metricValue.getMetricCode())) {
@@ -131,24 +135,36 @@ public class ScreeningServiceImpl implements ScreeningService {
     @Transactional(readOnly = true)
     public TargetScopeOptionsView getScopeOptions(MarketAssetType targetType) {
         log.info("[Service] getScopeOptions targetType={}", targetType);
+
         assertSupportedTargetType(targetType);
         TargetScopeOptionsView view = new TargetScopeOptionsView();
-        view.setWatchGroup(targetGroupMapper.selectList(new LambdaQueryWrapper<TargetGroup>()
-                .eq(TargetGroup::getStatus, CommonStatus.ENABLED)
-                .orderByAsc(TargetGroup::getSortNo)).stream()
+        // 关注分组，直接从数据库读取
+        view.setWatchGroup(
+            targetGroupMapper.selectList(
+                new LambdaQueryWrapper<TargetGroup>()
+                    .eq(TargetGroup::getStatus, CommonStatus.ENABLED)
+                    .orderByAsc(TargetGroup::getSortNo)
+            ).stream()
                 .map(group -> new TargetScopeOptionView(group.getGroupCode(), group.getGroupName()))
                 .collect(Collectors.toList()));
         if (targetType == MarketAssetType.STOCK) {
-            // TODO: setBoard还需要改
-            view.setBoard(List.of());
+            // Board 现在只读取申万一级行业（存于指数主数据中，publisherCode = SW）
+            view.setBoard(
+                List.of()
+            );
+            // Stock 下不区分指数类型和发布方
             view.setIndexType(List.of());
             view.setMarket(List.of());
         } else {
+            // Index 下不区分板块
             view.setBoard(List.of());
-            view.setIndexType(java.util.Arrays.stream(IndexCategory.values())
-                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getValue())).toList());
-            view.setMarket(java.util.Arrays.stream(PublisherCode.values())
-                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getValue())).toList());
+            // 指数类型和发布方直接从枚举读取，不依赖主数据表
+            view.setIndexType(
+                Arrays.stream(IndexCategory.values())
+                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getName())).toList());
+            view.setMarket(
+                Arrays.stream(PublisherCode.values())
+                    .map(item -> new TargetScopeOptionView(item.getValue(), item.getName())).toList());
         }
         return view;
     }
@@ -419,9 +435,11 @@ public class ScreeningServiceImpl implements ScreeningService {
     }
 
     private void requireScopeValues(List<String> values, String scopeType) {
-        if (values.isEmpty()) throw new BusinessException(40001, scopeType + " 至少需要一个范围值");
+        if (values.isEmpty()) 
+            throw new BusinessException(40001, scopeType + " 至少需要一个范围值");
     }
 
+    /** 判断是否是支持的标的类型 */
     private void assertSupportedTargetType(MarketAssetType targetType) {
         if (targetType != MarketAssetType.STOCK && targetType != MarketAssetType.INDEX) {
             throw new BusinessException(40001, "条件筛选当前仅支持股票和指数");

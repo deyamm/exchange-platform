@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,11 +12,11 @@ import org.springframework.util.StringUtils;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.exchange.platform.analytics.api.enums.IndexCategory;
 import com.exchange.platform.analytics.api.enums.MasterDataType;
 import com.exchange.platform.analytics.api.enums.SyncBatchStatus;
-import com.exchange.platform.analytics.api.enums.StockMarketType;
 import com.exchange.platform.analytics.api.enums.TriggerType;
+import com.exchange.platform.analytics.api.registry.MdFieldDefinition;
+import com.exchange.platform.analytics.api.request.PublishedMasterDataQueryRequest;
 import com.exchange.platform.analytics.api.response.PublishedMasterDataTypeDetailView;
 import com.exchange.platform.analytics.api.response.PublishedMasterDataTypeView;
 import com.exchange.platform.analytics.api.response.SyncBatchView;
@@ -33,7 +34,7 @@ import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
 
-/** Type-scoped query facade backed by MasterDataStore. */
+/** Published master-data query facade backed by MasterDataStore. */
 @Service
 public class MasterDataServiceImpl implements MasterDataService {
 
@@ -98,67 +99,28 @@ public class MasterDataServiceImpl implements MasterDataService {
         );
     }
 
-    /**
-     * 通过主数据统一读取 Store 分页查询指定 type 的具体主数据
-     */
     @Override
     @Transactional(readOnly = true)
-    public PageResult<Map<String, Object>> publishedRows(MasterDataType type, int pageNo, int pageSize) {
+    public PageResult<Map<String, Object>> queryPublished(PublishedMasterDataQueryRequest request) {
+        MasterDataType type = request.typeCode();
         requireLatestPublishedBatch(type);
         MasterDataTypeDefinition definition = registry.require(type);
-        MasterDataQuery query = new MasterDataQuery(Map.of(), Map.of(), null, List.of(),
-            definition.businessKeyFields().get(0), true, pageNo, pageSize);
-
+        Map<String, Object> equalsFilters = normalizeEqualsFilters(request.equalsFilters());
+        Map<String, List<Object>> inFilters = normalizeInFilters(request.inFilters());
+        validateFields(definition, equalsFilters.keySet());
+        validateFields(definition, inFilters.keySet());
+        List<String> keywordFields = keywordFields(definition, request.keywordFields());
+        validateFields(definition, keywordFields);
+        String orderBy = request.orderBy();
+        if (!StringUtils.hasText(orderBy)) {
+            orderBy = definition.businessKeyFields().get(0);
+        }
+        validateFields(definition, List.of(orderBy));
+        MasterDataQuery query = new MasterDataQuery(equalsFilters, inFilters, request.keywords(), keywordFields,
+            orderBy, request.ascending() == null || request.ascending(),
+            request.pageNo() == null ? 1 : request.pageNo(), request.pageSize() == null ? 20 : request.pageSize());
         List<Map<String, Object>> records = store.query(definition, query);
         return new PageResult<>(query.pageNo(), query.pageSize(), store.countByQuery(definition, query), records);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> search(String keyword, MarketAssetType type, int limit) {
-        if (!StringUtils.hasText(keyword))
-            return List.of();
-        MasterDataTypeDefinition definition = definition(type);
-        MasterDataQuery query = new MasterDataQuery(Map.of(), Map.of(), keyword, List.of("assetCode", "assetName"),
-                "assetCode", true, 1, Math.min(Math.max(limit, 1), 200));
-        return store.query(definition, query);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public PageResult<Map<String, Object>> list(String keyword, MarketAssetType marketAssetType,
-            StockMarketType marketType, String exchangeCode, String publisherCode, IndexCategory indexCategory,
-            String schemeCode, Integer level, int pageNo, int pageSize) {
-        MasterDataTypeDefinition definition = definition(marketAssetType);
-        Map<String, Object> equals = new LinkedHashMap<>();
-        if (marketType != null && StringUtils.hasText(marketType.getValue()))
-            equals.put("marketType", marketType.getValue());
-        if (exchangeCode != null && StringUtils.hasText(exchangeCode))
-            equals.put("exchangeCode", exchangeCode);
-        if (publisherCode != null && StringUtils.hasText(publisherCode))
-            equals.put("publisherCode", publisherCode);
-        if (indexCategory != null && StringUtils.hasText(indexCategory.getValue()))
-            equals.put("indexCategory", indexCategory.getValue());
-        if (schemeCode != null && StringUtils.hasText(schemeCode))
-            equals.put("schemeCode", schemeCode);
-        if (level != null)
-            equals.put("level", level);
-        MasterDataQuery query = new MasterDataQuery(equals, Map.of(), keyword, List.of(),
-                "assetCode", true, pageNo, pageSize);
-        List<Map<String, Object>> rows = store.query(definition, query);
-        long total = store.countByQuery(definition, query);
-        return new PageResult<>(pageNo, pageSize, total, rows);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Map<String, Object> detail(MarketAssetType type, String assetCode) {
-        if (type == null || !StringUtils.hasText(assetCode))
-            throw new BusinessException(40004, "业务主键不能为空");
-        Map<String, Object> row = store.findByBusinessKey(definition(type), Map.of("assetCode", assetCode.trim()));
-        if (row == null)
-            throw new BusinessException(40004, "主数据不存在：" + type + "/" + assetCode);
-        return row;
     }
 
     @Override
@@ -246,6 +208,56 @@ public class MasterDataServiceImpl implements MasterDataService {
     private MasterDataTypeDefinition definition(MarketAssetType type) {
         return registry.require(
             type == MarketAssetType.INDEX ? MasterDataType.MARKET_ASSET_INDEX : MasterDataType.MARKET_ASSET_STOCK);
+    }
+
+    private Map<String, Object> normalizeEqualsFilters(Map<String, Object> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        filters.forEach((field, value) -> {
+            if (!StringUtils.hasText(field) || value == null) {
+                throw new BusinessException(40001, "等值筛选字段和值不能为空");
+            }
+            normalized.put(field.trim(), value);
+        });
+        return normalized;
+    }
+
+    private Map<String, List<Object>> normalizeInFilters(Map<String, List<Object>> filters) {
+        if (filters == null || filters.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<Object>> normalized = new LinkedHashMap<>();
+        filters.forEach((field, values) -> {
+            if (!StringUtils.hasText(field) || values == null || values.isEmpty() || values.stream().anyMatch(value -> value == null)) {
+                throw new BusinessException(40001, "集合筛选字段和值不能为空");
+            }
+            normalized.put(field.trim(), List.copyOf(values));
+        });
+        return normalized;
+    }
+
+    private List<String> keywordFields(MasterDataTypeDefinition definition, List<String> fields) {
+        if (fields == null || fields.isEmpty()) {
+            return definition.fields().stream().map(MdFieldDefinition::fieldCode).toList();
+        }
+        return fields.stream().map(field -> {
+            if (!StringUtils.hasText(field)) {
+                throw new BusinessException(40001, "关键词筛选字段不能为空");
+            }
+            return field.trim();
+        }).toList();
+    }
+
+    private void validateFields(MasterDataTypeDefinition definition, Collection<String> fields) {
+        Set<String> definedFields = definition.fields().stream().map(MdFieldDefinition::fieldCode)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        fields.forEach(field -> {
+            if (!definedFields.contains(field)) {
+                throw new BusinessException(40001, "主数据类型 " + definition.typeCode() + " 不包含字段：" + field);
+            }
+        });
     }
 
     /**

@@ -22,7 +22,6 @@
                 <section class="configuration-section">
                     <div class="section-title">截至时间</div>
                     <AsOfTimePicker v-model="asOfTime" label="" />
-                    <p class="section-hint">最新表示每项指标各自最新的有效值。</p>
                 </section>
                 <section class="configuration-section">
                     <div class="conditions-heading">
@@ -109,15 +108,27 @@
                         </template>
                     </el-table-column>
                 </el-table>
-                <p v-if="hasExecuted" class="result-note">指标来源时间已保留在后台结果中，按要求不在此表展示。</p>
             </el-card>
         </div>
-        <TargetScopeSelector :open="scopeDialogVisible" :target-type="targetType" :value="scope"
-            :board-options="scopeOptions.board" :watch-group-options="scopeOptions.watchGroup"
-            :index-type-options="scopeOptions.indexType" :index-market-options="scopeOptions.market"
-            @confirm="confirmScope" @cancel="scopeDialogVisible = false" />
-        <MetricSelector :open="metricDialogVisible" :target-type="targetType" selection-mode="MULTIPLE"
-            :selected-metric-codes="usedMetricCodes" @confirm="addMetrics" @cancel="metricDialogVisible = false" />
+        <TargetScopeSelector 
+            :open="scopeDialogVisible" 
+            :target-type="targetType" 
+            :value="scope"
+            :board-options="scopeOptions.board" 
+            :watch-group-options="scopeOptions.watchGroup"
+            :index-type-options="scopeOptions.indexType" 
+            :index-market-options="scopeOptions.market"
+            @confirm="confirmScope" 
+            @cancel="scopeDialogVisible = false" 
+        />
+        <MetricSelector 
+            :open="metricDialogVisible" 
+            :target-type="targetType" 
+            selection-mode="MULTIPLE"
+            :selected-metric-codes="usedMetricCodes" 
+            @confirm="addMetrics" 
+            @cancel="metricDialogVisible = false" 
+        />
     </div>
 </template>
 
@@ -495,7 +506,7 @@ async function goCompare() {
 
 .page-heading {
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 }
 
 .page-heading h2 {
@@ -511,34 +522,74 @@ async function goCompare() {
     font-size: 13px;
 }
 
+/* 页面主体：左侧筛选配置保持紧凑，右侧结果区域占据主要空间 */
 .screening-layout {
     display: grid;
-    grid-template-columns: minmax(380px, .9fr) minmax(520px, 1.5fr);
-    gap: 16px;
+    grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+    gap: 20px;
     align-items: start;
 }
 
-.configuration-section {
-    padding: 16px 0;
+.configuration-card,
+.result-card {
+    min-width: 0;
+    border: 1px solid var(--el-border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.configuration-card :deep(.el-card__header),
+.result-card :deep(.el-card__header) {
+    padding: 14px 16px;
     border-bottom: 1px solid var(--el-border-color-lighter);
+    background: var(--el-fill-color-lighter);
+}
+
+.configuration-card :deep(.el-card__body),
+.result-card :deep(.el-card__body) {
+    padding: 16px;
+}
+
+/* 左侧各配置区域独立成块，增强组件之间的边界和留白 */
+.configuration-section {
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 6px;
+    background: var(--el-bg-color);
+}
+
+.configuration-section:last-of-type {
+    margin-bottom: 0;
 }
 
 .scope-section {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
     cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.scope-section:hover {
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
 }
 
 .section-title {
-    font-weight: 600;
     margin-bottom: 12px;
+    font-weight: 600;
 }
 
 .conditions-heading,
 .group-toolbar,
 .result-header {
     justify-content: space-between;
+}
+
+.conditions-heading {
+    gap: 10px;
 }
 
 .conditions-heading .section-title {
@@ -548,14 +599,19 @@ async function goCompare() {
 .condition-group {
     margin-top: 12px;
     padding: 12px;
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 4px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 6px;
+    background: var(--el-fill-color-extra-light);
 }
 
 .group-toolbar {
     margin-bottom: 10px;
     font-size: 13px;
     font-weight: 600;
+}
+
+.group-actions {
+    gap: 6px;
 }
 
 .logic-select {
@@ -577,9 +633,9 @@ async function goCompare() {
 
 .metric-name {
     display: flex;
-    flex: 1 1 145px;
+    flex: 1 1 128px;
     flex-direction: column;
-    min-width: 145px;
+    min-width: 128px;
 }
 
 .metric-name small {
@@ -587,11 +643,11 @@ async function goCompare() {
 }
 
 .operator-select {
-    width: 116px;
+    width: 108px;
 }
 
 .value-input {
-    width: 118px;
+    width: 112px;
 }
 
 .between-separator,
@@ -602,19 +658,37 @@ async function goCompare() {
 }
 
 .empty-group {
+    padding: 6px 0;
     color: var(--el-text-color-secondary);
     font-size: 13px;
-    padding: 6px 0;
 }
 
 .condition-actions {
     gap: 8px;
     margin-top: 14px;
+    flex-wrap: wrap;
 }
 
 .configuration-footer {
+    margin-top: 16px;
     padding-top: 16px;
+    border-top: 1px solid var(--el-border-color-lighter);
     text-align: right;
+}
+
+.result-header {
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.result-header > span:last-child {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.result-header > span:last-child :deep(.el-button + .el-button) {
+    margin-left: 0;
 }
 
 .result-header em {
@@ -625,6 +699,7 @@ async function goCompare() {
 }
 
 .result-table {
+    width: 100%;
     margin-top: 14px;
 }
 
@@ -632,7 +707,7 @@ async function goCompare() {
     margin-top: 10px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1024px) {
     .screening-layout {
         grid-template-columns: 1fr;
     }
@@ -647,6 +722,16 @@ async function goCompare() {
 
     .screening-layout {
         grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .configuration-card :deep(.el-card__body),
+    .result-card :deep(.el-card__body) {
+        padding: 12px;
+    }
+
+    .configuration-section {
+        padding: 12px;
     }
 
     .condition-row {
@@ -655,7 +740,7 @@ async function goCompare() {
 
     .operator-select,
     .value-input {
-        flex: 1;
+        flex: 1 1 120px;
         width: auto;
     }
 }

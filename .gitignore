@@ -10,6 +10,7 @@ Desktop.ini
 # VSCode
 .vscode/
 .history/
+.claude/
 
 # Logs
 *.log

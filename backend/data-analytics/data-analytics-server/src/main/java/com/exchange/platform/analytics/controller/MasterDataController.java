@@ -12,14 +12,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.exchange.platform.analytics.api.request.*;
 import com.exchange.platform.analytics.api.response.*;
-import com.exchange.platform.analytics.api.enums.IndexCategory;
-import com.exchange.platform.analytics.api.enums.StockMarketType;
 import com.exchange.platform.analytics.api.enums.MasterDataType;
 import com.exchange.platform.analytics.api.enums.TriggerType;
 import com.exchange.platform.analytics.service.MasterDataService;
 import com.exchange.platform.analytics.service.SourceBindingService;
 import com.exchange.platform.analytics.service.masterdata.MasterDataTypeRegistry;
-import com.exchange.platform.common.core.enums.MarketAssetType;
 import com.exchange.platform.common.core.page.PageResult;
 import com.exchange.platform.common.core.result.ApiResponse;
 import com.exchange.platform.common.server.support.RequestIdHolder;
@@ -72,15 +69,6 @@ public class MasterDataController {
             HttpServletRequest request) {
         log.info("[Controller] Fetching published master data type detail: {}", typeCode);
         return ApiResponse.success(service.publishedTypeDetail(typeCode), requestId(request));
-    }
-
-    @GetMapping("/published-types/{typeCode}/records")
-    public ApiResponse<PageResult<Map<String, Object>>> publishedRows(@PathVariable MasterDataType typeCode,
-            @RequestParam(defaultValue = "1") int pageNo, @RequestParam(defaultValue = "20") int pageSize,
-            HttpServletRequest request) {
-        log.info("[Controller] Listing published master data rows: type={}, pageNo={}, pageSize={}", typeCode,
-                pageNo, pageSize);
-        return ApiResponse.success(service.publishedRows(typeCode, pageNo, pageSize), requestId(request));
     }
 
     @GetMapping("/sources")
@@ -143,33 +131,14 @@ public class MasterDataController {
         return ApiResponse.success(service.publishBinding(id, body.taskRunId(), body.syncType(), TriggerType.MANUAL), requestId(request));
     }
 
-    @GetMapping("/search")
-    public ApiResponse<List<Map<String, Object>>> search(@RequestParam String keyword,
-            @RequestParam(required = false) MarketAssetType marketAssetType,
-            @RequestParam(defaultValue = "20") int limit, HttpServletRequest request) {
-        log.info("[Controller] Searching master data with keyword: {}, marketAssetType: {}, limit: {}", keyword, marketAssetType, limit);
-        return ApiResponse.success(service.search(keyword, marketAssetType, limit), requestId(request));
-    }
-
-    @GetMapping
-    public ApiResponse<PageResult<Map<String, Object>>> list(@RequestParam(required = false) String keyword,
-            @RequestParam(required = false) MarketAssetType marketAssetType,
-            @RequestParam(required = false) StockMarketType marketType,
-            @RequestParam(required = false) String exchangeCode, @RequestParam(required = false) String publisherCode,
-            @RequestParam(required = false) IndexCategory indexCategory,
-            @RequestParam(required = false) String schemeCode, @RequestParam(required = false) Integer level,
-            @RequestParam(defaultValue = "1") Integer pageNo, @RequestParam(defaultValue = "20") Integer pageSize,
-            HttpServletRequest request) {
-        log.info("[Controller] Listing master data with filters - keyword: {}, marketAssetType: {}, marketType: {}, exchangeCode: {}, publisherCode: {}, indexCategory: {}, schemeCode: {}, level: {}, pageNo: {}, pageSize: {}",
-                keyword, marketAssetType, marketType, exchangeCode, publisherCode, indexCategory, schemeCode, level, pageNo, pageSize);
-        return ApiResponse.success(service.list(keyword, marketAssetType, marketType, exchangeCode, publisherCode, indexCategory, schemeCode, level, pageNo, pageSize), requestId(request));
-    }
-
-    @GetMapping("/{marketAssetType}/{assetCode}")
-    public ApiResponse<Map<String, Object>> detail(@PathVariable MarketAssetType marketAssetType,
-            @PathVariable String assetCode, HttpServletRequest request) {
-        log.info("[Controller] Fetching master data detail for marketAssetType: {}, assetCode: {}", marketAssetType, assetCode);
-        return ApiResponse.success(service.detail(marketAssetType, assetCode), requestId(request));
+    @PostMapping("/search")
+    public ApiResponse<PageResult<Map<String, Object>>> search(
+        @RequestBody @javax.validation.Valid PublishedMasterDataQueryRequest body, 
+        HttpServletRequest request
+    ) {
+        log.info("[Controller] Searching published master data: type={}, keywords={}, equalsFilters={}, inFilters={}, pageNo={}, pageSize={}",
+                body.typeCode(), body.keywords(), body.equalsFilters(), body.inFilters(), body.pageNo(), body.pageSize());
+        return ApiResponse.success(service.queryPublished(body), requestId(request));
     }
 
     @GetMapping("/sync-batches")

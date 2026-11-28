@@ -49,8 +49,10 @@ export const INDEX_SCOPE_TYPE_OPTIONS: Array<{ label: string; value: IndexScopeT
 ];
 
 export function scopeTypeOptions(targetType: TargetType) {
-    if (targetType === 'STOCK') return STOCK_SCOPE_TYPE_OPTIONS;
-    if (targetType === 'INDEX') return INDEX_SCOPE_TYPE_OPTIONS;
+    if (targetType === 'STOCK') 
+        return STOCK_SCOPE_TYPE_OPTIONS;
+    if (targetType === 'INDEX') 
+        return INDEX_SCOPE_TYPE_OPTIONS;
     return [];
 }
 

@@ -47,6 +47,17 @@ export interface PublishedMasterDataRowsQuery {
     pageNo: number
     pageSize: number
 }
+
+/** 与已发布主数据通用查询接口对应；字段名必须来自该 typeCode 的注册表定义。 */
+export interface PublishedMasterDataQuery extends PublishedMasterDataRowsQuery {
+    typeCode: MasterDataTypeCode
+    keywords?: string
+    equalsFilters?: Record<string, unknown>
+    inFilters?: Record<string, unknown[]>
+    keywordFields?: string[]
+    orderBy?: string
+    ascending?: boolean
+}
 export interface SourceFieldMapping {
     id?: number
     targetField: string

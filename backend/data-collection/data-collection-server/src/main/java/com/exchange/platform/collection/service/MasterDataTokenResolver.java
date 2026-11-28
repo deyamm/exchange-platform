@@ -9,6 +9,8 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 import com.exchange.platform.analytics.client.MasterDataClient;
+import com.exchange.platform.analytics.api.enums.MasterDataType;
+import com.exchange.platform.analytics.api.request.PublishedMasterDataQueryRequest;
 import com.exchange.platform.analytics.api.response.PublishedMasterDataTypeDetailView;
 import com.exchange.platform.common.core.exception.BusinessException;
 import com.exchange.platform.common.core.page.PageResult;
@@ -54,7 +56,9 @@ public class MasterDataTokenResolver {
         final int pageSize = 500;
         long total;
         do {
-            ApiResponse<PageResult<Map<String, Object>>> rowsResponse = client.publishedRows(type, pageNo, pageSize);
+            MasterDataType masterDataType = MasterDataType.valueOf(type);
+            ApiResponse<PageResult<Map<String, Object>>> rowsResponse = client.publishedRows(new PublishedMasterDataQueryRequest(masterDataType, null, null, null, null, null, null, pageNo, pageSize));
+            
             if (rowsResponse == null || rowsResponse.code() != 0 || rowsResponse.data() == null) {
                 throw new BusinessException(40004, "读取主数据失败：" + type);
             }

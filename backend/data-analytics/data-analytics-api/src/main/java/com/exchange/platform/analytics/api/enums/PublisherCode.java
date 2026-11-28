@@ -1,25 +1,31 @@
 package com.exchange.platform.analytics.api.enums;
 
 public enum PublisherCode {
-    SSE("SSE"),
-    SZSE("SZSE"),
-    CSI("CSI"), 
-    CNI("CNI"),
-    CICC("CICC"),
-    SW("SW"), 
-    MSCI("MSCI"),
-    THS("THS"), 
-    EM("EM"), 
-    OTHER("OTHER");
+    SSE("SSE", "上交所"),
+    SZSE("SZSE", "深交所"),
+    CSI("CSI", "中证"),
+    CNI("CNI", "国证"),
+    CICC("CICC", "中金"),
+    SW("SW", "申万"), 
+    MSCI("MSCI", "明晟"),
+    THS("THS", "同花顺"),
+    EM("EM", "东方财富"),
+    OTHER("OTHER", "其他");
 
     private final String value;
+    private final String name;
 
-    PublisherCode(String value) {
+    PublisherCode(String value, String name) {
         this.value = value;
+        this.name = name;
     }
 
     public String getValue() {
         return value;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public static PublisherCode fromCode(String value) {

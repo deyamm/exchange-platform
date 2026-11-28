@@ -56,30 +56,66 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				meta: { title: '证券主数据', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Collection' },
 				children: [
 					{
-						path: '/masterData/assets', name: 'masterDataAssets', component: () => import('../views/masterdata/MasterDataPage.vue'),
-						meta: { title: '主数据查询', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Search' },
+						path: '/masterData/assets', 
+						name: 'masterDataAssets', 
+						component: () => import('../views/masterdata/MasterDataPage.vue'),
+						meta: { 
+							title: '主数据查询', 
+							isLink: '', 
+							isHide: false, 
+							isKeepAlive: true, 
+							isAffix: false, 
+							isIframe: false, 
+							roles: ['admin', 'common'], 
+							icon: 'ele-Search' 
+						},
 					},
 					{
-						path: '/masterData/published/:typeCode', name: 'masterDataPublishedDetail', component: () => import('../views/masterdata/MasterDataTypeDetailPage.vue'),
-						meta: { title: '主数据详情', isLink: '', isHide: true, isKeepAlive: false, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Document' },
+						path: '/masterData/published/:typeCode', 
+						name: 'masterDataPublishedDetail', 
+						component: () => import('../views/masterdata/MasterDataTypeDetailPage.vue'),
+						meta: { 
+							title: '主数据详情', 
+							isLink: '', 
+							isHide: true, 
+							isKeepAlive: false, 
+							isAffix: false, 
+							isIframe: false, 
+							roles: ['admin', 'common'], 
+							icon: 'ele-Document' 
+						},
 					},
 					{
-						path: '/masterData/sources', name: 'masterDataSources', component: () => import('../views/masterdata/SourceBindingPage.vue'),
-						meta: { title: '来源管理', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Connection' },
+						path: '/masterData/sources', 
+						name: 'masterDataSources', 
+						component: () => import('../views/masterdata/SourceBindingPage.vue'),
+						meta: { 
+							title: '来源管理', 
+							isLink: '', 
+							isHide: false, 
+							isKeepAlive: true, 
+							isAffix: false, 
+							isIframe: false, 
+							roles: ['admin', 'common'], 
+							icon: 'ele-Connection' 
+						},
 					},
 					{
-						path: '/masterData/syncBatches', name: 'masterDataSyncBatches', component: () => import('../views/masterdata/SyncBatchPage.vue'),
-						meta: { title: '同步记录', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-Document' },
+						path: '/masterData/syncBatches', 
+						name: 'masterDataSyncBatches', 
+						component: () => import('../views/masterdata/SyncBatchPage.vue'),
+						meta: { 
+							title: '同步记录', 
+							isLink: '', 
+							isHide: false, 
+							isKeepAlive: true, 
+							isAffix: false, 
+							isIframe: false, 
+							roles: ['admin', 'common'], 
+							icon: 'ele-Document' 
+						},
 					},
 				],
-			},
-			{
-				path: '/app/ranking', name: 'ranking', component: () => import('../views/appconfig/ranking/index.vue'),
-				meta: { title: '指标排行', isLink: '', isHide: false, isKeepAlive: true, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-DataAnalysis' },
-			},
-			{
-				path: '/app/ranking-compare', name: 'rankingCompare', component: () => import('../views/appconfig/ranking/compare.vue'),
-				meta: { title: '标的对比', isLink: '', isHide: true, isKeepAlive: false, isAffix: false, isIframe: false, roles: ['admin', 'common'], icon: 'ele-DataAnalysis' },
 			},
 			{
 				path: '/home',
@@ -259,7 +295,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						},
 					},
 				]
-			},	
+			},
 			{
 				path: '/collectionMonitor',
 				name: 'collectionMonitor',

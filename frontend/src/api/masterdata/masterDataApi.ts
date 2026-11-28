@@ -1,26 +1,35 @@
 import http from '/@/utils/http'
 import type { PageResult } from '/@/types/common'
 import type {
-    MasterDataAsset, MasterDataAssetQuery, MasterDataAssetType, SyncBatch, SyncBatchQuery,
+    MasterDataAsset, SyncBatch, SyncBatchQuery,
     MasterDataTypeDefinition, SourceBinding, SourceFieldMapping, TriggerType, MarketAssetType,
-    SyncType, MasterDataTypeCode, PublishedMasterDataRowsQuery,
+    SyncType, MasterDataTypeCode, PublishedMasterDataQuery,
     PublishedMasterDataType, PublishedMasterDataTypeDetail,
 } from '/@/types/masterdata'
 
 const BASE_URL = '/api/v1/analytics/master-data'
 
-/** 所有页面请求只访问已发布的主数据域接口，不触碰 Dataset 读取能力或物理存储。 */
-export function queryMasterDataAssets(params: MasterDataAssetQuery): Promise<PageResult<MasterDataAsset>> | any {
-    return http.get<PageResult<MasterDataAsset>>(BASE_URL, { params })
+
+/** 仅查询服务端已发布的主数据；筛选字段使用对应 typeCode 的逻辑字段名。 */
+export function queryPublishedMasterData(params: PublishedMasterDataQuery): Promise<PageResult<Record<string, any>>> | any {
+    return http.post<PageResult<Record<string, any>>>(`${BASE_URL}/search`, params)
 }
 
-/** 通用 Asset 搜索仅返回已发布主数据，绝不复用关注标的业务实体。 */
-export function searchMasterDataAssets(keyword: string, marketAssetType?: MarketAssetType, limit = 10): Promise<MasterDataAsset[]> | any {
-    return http.get<MasterDataAsset[]>(`${BASE_URL}/search`, { params: { keyword, marketAssetType, limit } })
-}
-
-export function getMasterDataAsset(marketAssetType: MasterDataAssetType, assetCode: string): Promise<MasterDataAsset> | any {
-    return http.get<MasterDataAsset>(`${BASE_URL}/${marketAssetType}/${encodeURIComponent(assetCode)}`)
+/** 关注标的选择器的兼容包装；其他资产类型尚无已发布的主数据类型时返回空结果。 */
+export async function searchMasterDataAssets(keyword: string, marketAssetType?: MarketAssetType, limit = 10): Promise<MasterDataAsset[]> {
+    const typeCode = marketAssetType === 'INDEX' ? 'MARKET_ASSET_INDEX'
+        : marketAssetType === 'STOCK' ? 'MARKET_ASSET_STOCK' : undefined
+    if (!typeCode) return []
+    const result = await queryPublishedMasterData({
+        typeCode,
+        keywords: keyword,
+        keywordFields: ['assetCode', 'assetName'],
+        orderBy: 'assetCode',
+        ascending: true,
+        pageNo: 1,
+        pageSize: limit,
+    })
+    return result.records as MasterDataAsset[]
 }
 
 export function querySyncBatches(params: SyncBatchQuery): Promise<PageResult<SyncBatch>> | any {
@@ -45,8 +54,8 @@ export function getPublishedMasterDataType(typeCode: MasterDataTypeCode): Promis
 }
 
 export function queryPublishedMasterDataRows(typeCode: MasterDataTypeCode,
-    params: PublishedMasterDataRowsQuery): Promise<PageResult<Record<string, any>>> | any {
-    return http.get<PageResult<Record<string, any>>>(`${BASE_URL}/published-types/${typeCode}/records`, { params })
+    params: Omit<PublishedMasterDataQuery, 'typeCode'>): Promise<PageResult<Record<string, any>>> | any {
+    return queryPublishedMasterData({ typeCode, ...params })
 }
 
 export function querySourceBindings(params: { keyword?: string; datasetCode?: string; masterDataType?: string; triggerMode?: string; enabled?: boolean; readiness?: string; pageNo: number; pageSize: number }): Promise<PageResult<SourceBinding>> | any {

@@ -12,15 +12,19 @@
             <template v-if="draft.scopeType !== 'ALL'">
                 <template v-if="draft.scopeType === 'BOARD'">
                     <el-form-item label="行业发布方">
-                        <el-select v-model="draft.industryPublisherCode" placeholder="请选择发布方" @change="handleIndustryDimensionChange">
+                        <el-select v-model="draft.industryPublisherCode" placeholder="请选择发布方"
+                            @change="handleIndustryDimensionChange">
                             <el-option label="申万" value="SW" />
-                            <el-option label="东方财富" value="EM" />
-                            <el-option label="同花顺" value="THS" />
+                            <!-- 暂时不支持 -->
+                            <!--el-option label="东方财富" value="EM" /-->
+                            <!--el-option label="同花顺" value="THS" /-->
                         </el-select>
                     </el-form-item>
                     <el-form-item label="行业层级">
-                        <el-select v-model="draft.industryLevel" placeholder="请选择层级" :disabled="!draft.industryPublisherCode" @change="handleIndustryDimensionChange">
-                            <el-option v-for="level in industryLevels" :key="level" :label="`Level ${level}`" :value="level" />
+                        <el-select v-model="draft.industryLevel" placeholder="请选择层级"
+                            :disabled="!draft.industryPublisherCode" @change="handleIndustryDimensionChange">
+                            <el-option v-for="level in industryLevels" :key="level" :label="`Level ${level}`"
+                                :value="level" />
                         </el-select>
                     </el-form-item>
                 </template>
@@ -90,40 +94,58 @@ const emit = defineEmits<{
 const draft = reactive<TargetScope>(emptyTargetScope(props.targetType));
 const keyword = ref('');
 const loading = ref(false);
-const loadedOptions = reactive<TargetScopeOptions>({ board: [], watchGroup: [], indexType: [], market: [] });
+const loadedOptions = reactive<TargetScopeOptions>({
+    board: [],
+    watchGroup: [],
+    indexType: [],
+    market: []
+});
 
 const dialogTitle = computed(() => props.targetType === 'STOCK' ? '选择股票范围' : '选择指数范围');
 const availableScopeTypes = computed(() => scopeTypeOptions(props.targetType));
 const optionKey = computed<keyof TargetScopeOptions | undefined>(() => {
-    if (draft.scopeType === 'BOARD') return 'board';
-    if (draft.scopeType === 'WATCH_GROUP') return 'watchGroup';
-    if (draft.scopeType === 'INDEX_TYPE') return 'indexType';
+    if (draft.scopeType === 'BOARD') 
+        return 'board';
+    if (draft.scopeType === 'WATCH_GROUP') 
+        return 'watchGroup';
+    if (draft.scopeType === 'INDEX_TYPE') 
+        return 'indexType';
     // 后端为兼容历史响应字段仍使用 market 承载指数发布方枚举。
-    if (draft.scopeType === 'PUBLISHER' || draft.scopeType === 'MARKET') return 'market';
+    if (draft.scopeType === 'PUBLISHER' || draft.scopeType === 'MARKET') 
+        return 'market';
     return undefined;
 });
 const optionLabel = computed(() => ({
+    ALL: '全部',
     BOARD: '行业指数',
     WATCH_GROUP: '关注分组',
     INDEX_TYPE: '指数类型',
     PUBLISHER: '发布方',
     MARKET: '发布方',
 }[draft.scopeType] || '选项'));
+
 const activeOptions = computed<TargetScopeOption[]>(() => {
     switch (optionKey.value) {
-        case 'board': return props.boardOptions.length ? props.boardOptions : loadedOptions.board;
-        case 'watchGroup': return props.watchGroupOptions.length ? props.watchGroupOptions : loadedOptions.watchGroup;
-        case 'indexType': return props.indexTypeOptions.length ? props.indexTypeOptions : loadedOptions.indexType;
-        case 'market': return props.indexMarketOptions.length ? props.indexMarketOptions : loadedOptions.market;
-        default: return [];
+        case 'board':
+            return props.boardOptions.length ? props.boardOptions : loadedOptions.board;
+        case 'watchGroup':
+            return props.watchGroupOptions.length ? props.watchGroupOptions : loadedOptions.watchGroup;
+        case 'indexType':
+            return props.indexTypeOptions.length ? props.indexTypeOptions : loadedOptions.indexType;
+        case 'market':
+            return props.indexMarketOptions.length ? props.indexMarketOptions : loadedOptions.market;
+        default:
+            return [];
     }
 });
-const industryLevels = computed(() => Array.from(new Set(
-    (props.boardOptions.length ? props.boardOptions : loadedOptions.board)
-        .filter(item => item.publisherCode === draft.industryPublisherCode)
-        .map(item => item.level)
-        .filter((level): level is number => typeof level === 'number'),
-)).sort((left, right) => left - right));
+const industryLevels = computed(
+    () => Array.from(
+        new Set((props.boardOptions.length ? props.boardOptions : loadedOptions.board)
+            .filter(item => item.publisherCode === draft.industryPublisherCode)
+            .map(item => item.level)
+            .filter((level): level is number => typeof level === 'number'),
+        )
+    ).sort((left, right) => left - right));
 const filteredOptions = computed(() => {
     const normalizedKeyword = keyword.value.trim().toLowerCase();
     return activeOptions.value.filter((item) => {
@@ -157,7 +179,11 @@ async function loadOptions() {
     try {
         const loads: Promise<void>[] = [];
         if (!props.watchGroupOptions.length) {
-            loads.push(queryEnabledTargetScopeGroups().then((options) => { loadedOptions.watchGroup = options; }));
+            loads.push(
+                queryEnabledTargetScopeGroups().then((options) => {
+                    loadedOptions.watchGroup = options;
+                })
+            );
         }
         await Promise.all(loads);
     } finally {

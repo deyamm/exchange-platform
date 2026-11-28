@@ -4,10 +4,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import com.exchange.platform.analytics.api.enums.IndexCategory;
 import com.exchange.platform.analytics.api.enums.MasterDataType;
-import com.exchange.platform.analytics.api.enums.StockMarketType;
 import com.exchange.platform.analytics.api.enums.TriggerType;
+import com.exchange.platform.analytics.api.request.PublishedMasterDataQueryRequest;
 import com.exchange.platform.analytics.api.response.PublishedMasterDataTypeDetailView;
 import com.exchange.platform.analytics.api.response.PublishedMasterDataTypeView;
 import com.exchange.platform.analytics.api.response.SyncBatchView;
@@ -29,19 +28,8 @@ public interface MasterDataService {
     /** 查询已发布主数据类型的页面基础信息。 */
     PublishedMasterDataTypeDetailView publishedTypeDetail(MasterDataType type);
 
-    /** 分页读取已发布类型的正式主数据记录。 */
-    PageResult<Map<String, Object>> publishedRows(MasterDataType type, int pageNo, int pageSize);
-
-    /** 按代码或名称搜索资产，结果数量由 limit 限制。 */
-    List<Map<String, Object>> search(String keyword, MarketAssetType marketAssetType, int limit);
-
-    /** 分页查询资产主数据。 */
-    PageResult<Map<String, Object>> list(String keyword, MarketAssetType marketAssetType,
-        StockMarketType marketType, String exchangeCode, String publisherCode,
-        IndexCategory indexCategory, String schemeCode, Integer level, int pageNo, int pageSize);
-
-    /** 查询单个资产及其股票/指数扩展属性。 */
-    Map<String, Object> detail(MarketAssetType marketAssetType, String assetCode);
+    /** 按注册表逻辑字段分页查询已发布主数据。 */
+    PageResult<Map<String, Object>> queryPublished(PublishedMasterDataQueryRequest request);
 
     /** 按资产代码批量查询主数据。 */
     List<Map<String, Object>> findByCodes(MarketAssetType marketAssetType, Collection<String> assetCodes);

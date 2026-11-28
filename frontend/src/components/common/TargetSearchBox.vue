@@ -42,7 +42,6 @@
             </div>
 
             <template v-else>
-    <!-- 一条已发布 Asset；关注状态等业务字段不属于搜索结果。 -->
                 <button
                     v-for="(target, index) in candidates"
                     :key="`${target.assetType}-${target.assetCode}`"
