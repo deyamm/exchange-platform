@@ -14,21 +14,14 @@ from app.repository.exchange_data_repo import ExchangeDataRepo
 from app.repository.finance_data_repo import FinanceDataRepo
 
 from app.utils.datetime_utils import current_market_status, get_current_datetime, resolve_trade_date, resolve_quarter_type, to_date
-from app.utils.indicator_utils import (
-    annualized_volatility_from_pct,
-    calculate_alpha_beta_placeholder,
-    calculate_technical_indicator_rows,
-    estimate_risk_level_placeholder,
-    max_drawdown_from_rows,
-    percentile_rank,
-    percentile_value,
-    round_or_none,
-    to_float_or_none,
-    build_technical_charts,
-)
+from app.utils.indicator_utils import calculate_alpha_beta_placeholder, calculate_technical_indicator_rows, estimate_risk_level_placeholder
 from app.utils.target_detail_utils import build_default_watch_info, compact_dict, metric_card, net_flow, strip_exchange, build_meta
+from app.utils.number_utils import round_optional, to_float_or_none
+from app.utils.chart_utils import build_technical_charts
+from app.utils.performance_utils import annualized_volatility_from_pct, max_drawdown_from_rows, percentile_rank, percentile_value
+from app.utils.db_utils import camelize_row
+
 from app.utils.decorators import stock_response_cache
-from app.utils.typing_utils import camelize_row
 
 logger = logging.getLogger(__name__)
 
@@ -413,7 +406,7 @@ class StockService:
         moneyflow_history = await self.exchange_repo.get_stock_moneyflow_history(resolved_full_symbol, resolved_trade_date, limit=limit)
         money_flow_rows = self.build_money_flow_rows(moneyflow_history)
         close_rows = await self.exchange_repo.get_stock_history(resolved_full_symbol, resolved_trade_date, limit=limit) if include_quote_rows else []
-        close_map = {row.get("trade_date"): round_or_none(row.get("close")) for row in close_rows}
+        close_map = {row.get("trade_date"): round_optional(row.get("close")) for row in close_rows}
         close = [close_map.get(row.get("tradeDate", '')) for row in money_flow_rows] if include_quote_rows else None
         return compact_dict({
             "fullSymbol": resolved_full_symbol,
@@ -581,18 +574,18 @@ class StockService:
             "tradeDate": row.get("tradeDate") or row.get("trade_date"),
             "tradeTime": row.get("tradeTime"),
             "marketStatus": row.get("marketStatus") or "CLOSED",
-            "open": round_or_none(row.get("open")),
-            "high": round_or_none(row.get("high")),
-            "low": round_or_none(row.get("low")),
-            "close": round_or_none(row.get("close")),
-            "preClose": round_or_none(row.get("preClose") or row.get("pre_close")),
-            "chgAmt": round_or_none(row.get("chgAmt") or row.get("chg_amt")),
-            "chgPct": round_or_none(row.get("chgPct") or row.get("chg_pct")),
-            "amplitude": round_or_none(row.get("amplitude")),
-            "volume": round_or_none(row.get("volume"), 2),
-            "turnover": round_or_none(row.get("turnover"), 2),
-            "turnoverRate": round_or_none(row.get("turnoverRate") or row.get("turnover_rate")),
-            "adjustFactor": round_or_none(row.get("adjustFactor") or row.get("adjust_factor")),
+            "open": round_optional(row.get("open")),
+            "high": round_optional(row.get("high")),
+            "low": round_optional(row.get("low")),
+            "close": round_optional(row.get("close")),
+            "preClose": round_optional(row.get("preClose") or row.get("pre_close")),
+            "chgAmt": round_optional(row.get("chgAmt") or row.get("chg_amt")),
+            "chgPct": round_optional(row.get("chgPct") or row.get("chg_pct")),
+            "amplitude": round_optional(row.get("amplitude")),
+            "volume": round_optional(row.get("volume"), 2),
+            "turnover": round_optional(row.get("turnover"), 2),
+            "turnoverRate": round_optional(row.get("turnoverRate") or row.get("turnover_rate")),
+            "adjustFactor": round_optional(row.get("adjustFactor") or row.get("adjust_factor")),
             "priceUnit": row.get("priceUnit") or "元",
         })
 
@@ -642,43 +635,43 @@ class StockService:
             "startDate": first.get("tradeDate"),
             "endDate": latest.get("tradeDate"),
             "returnRisk": compact_dict({
-                "changePercent": round_or_none(change),
-                "maxDrawdown": round_or_none(max_drawdown),
-                "volatility": round_or_none(volatility),
+                "changePercent": round_optional(change),
+                "maxDrawdown": round_optional(max_drawdown),
+                "volatility": round_optional(volatility),
                 "rankingText": None,
-                "high": round_or_none(high),
-                "low": round_or_none(low),
-                "amplitude": round_or_none((high - low) / base * 100 if high is not None and low is not None and base else None),
-                "annualizedReturn": round_or_none(annualized_return),
-                "sharpeRatio": round_or_none(sharpe_ratio),
-                "calmarRatio": round_or_none(calmar_ratio),
+                "high": round_optional(high),
+                "low": round_optional(low),
+                "amplitude": round_optional((high - low) / base * 100 if high is not None and low is not None and base else None),
+                "annualizedReturn": round_optional(annualized_return),
+                "sharpeRatio": round_optional(sharpe_ratio),
+                "calmarRatio": round_optional(calmar_ratio),
             }),
             "volume": compact_dict({
-                "volume": round_or_none(sum(valid_volumes), 2) if valid_volumes else None,
-                "turnover": round_or_none(sum(valid_turnovers), 2) if valid_turnovers else None,
-                "turnoverRate": round_or_none(sum(valid_turnover_rates), 4) if valid_turnover_rates else None,
-                "avgVolume": round_or_none(statistics.fmean(valid_volumes), 2) if valid_volumes else None,
-                "avgTurnover": round_or_none(statistics.fmean(valid_turnovers), 2) if valid_turnovers else None,
-                "avgTurnoverRate": round_or_none(statistics.fmean(valid_turnover_rates), 4) if valid_turnover_rates else None,
-                "maxVolume": round_or_none(max_volume, 2),
+                "volume": round_optional(sum(valid_volumes), 2) if valid_volumes else None,
+                "turnover": round_optional(sum(valid_turnovers), 2) if valid_turnovers else None,
+                "turnoverRate": round_optional(sum(valid_turnover_rates), 4) if valid_turnover_rates else None,
+                "avgVolume": round_optional(statistics.fmean(valid_volumes), 2) if valid_volumes else None,
+                "avgTurnover": round_optional(statistics.fmean(valid_turnovers), 2) if valid_turnovers else None,
+                "avgTurnoverRate": round_optional(statistics.fmean(valid_turnover_rates), 4) if valid_turnover_rates else None,
+                "maxVolume": round_optional(max_volume, 2),
                 "maxVolumeTradeDate": max_volume_date,
-                "maxTurnover": round_or_none(max_turnover, 2),
+                "maxTurnover": round_optional(max_turnover, 2),
                 "maxTurnoverTradeDate": max_turnover_date,
             }),
             "comparison": comparison,
             "priceStructure": compact_dict({
-                "open": round_or_none(first.get("open")),
-                "high": round_or_none(high),
-                "low": round_or_none(low),
-                "close": round_or_none(latest_close),
-                "preClose": round_or_none(base),
-                "pricePositionPercent": round_or_none(price_position),
-                "drawdownFromHigh": round_or_none(drawdown_from_high),
-                "reboundFromLow": round_or_none(rebound_from_low),
+                "open": round_optional(first.get("open")),
+                "high": round_optional(high),
+                "low": round_optional(low),
+                "close": round_optional(latest_close),
+                "preClose": round_optional(base),
+                "pricePositionPercent": round_optional(price_position),
+                "drawdownFromHigh": round_optional(drawdown_from_high),
+                "reboundFromLow": round_optional(rebound_from_low),
                 "newHighCount": new_high_count,
                 "newLowCount": new_low_count,
-                "priceRangeText": f"{round_or_none(low)} - {round_or_none(high)}" if high is not None and low is not None else None,
-                "turnoverRangeText": f"{round_or_none(min(valid_turnovers), 2)} - {round_or_none(max(valid_turnovers), 2)}" if valid_turnovers else None,
+                "priceRangeText": f"{round_optional(low)} - {round_optional(high)}" if high is not None and low is not None else None,
+                "turnoverRangeText": f"{round_optional(min(valid_turnovers), 2)} - {round_optional(max(valid_turnovers), 2)}" if valid_turnovers else None,
             }),
         })
 
@@ -698,14 +691,14 @@ class StockService:
         alpha_beta = calculate_alpha_beta_placeholder()
         market_excess = stock_return - market_return if stock_return is not None and market_return is not None else None
         return {
-            "marketExcessReturn": round_or_none(market_excess),
+            "marketExcessReturn": round_optional(market_excess),
             "industryExcessReturn": None,
             "industryRankText": None,
             "marketRankText": None,
             "alpha": alpha_beta.get("alpha"),
             "beta": alpha_beta.get("beta"),
             "correlation": alpha_beta.get("correlation"),
-            "relativeStrengthScore": round_or_none(max(0, min(100, 50 + (market_excess or 0)))) if market_excess is not None else None,
+            "relativeStrengthScore": round_optional(max(0, min(100, 50 + (market_excess or 0)))) if market_excess is not None else None,
         }
 
     def calculate_rows_return(self, rows: Sequence[Mapping[str, Any]]) -> Optional[float]:
@@ -776,20 +769,20 @@ class StockService:
                 "indexCode": item.get("index_code"),
                 "stockCode": code,
                 "tradeDate": item.get("trade_date") or snap.get("trade_date"),
-                "weight": round_or_none(item.get("weight")),
+                "weight": round_optional(item.get("weight")),
                 "name": basic.get("name"),
                 "industry": basic.get("industry"),
                 "industryL1": None,
                 "industryL2": None,
                 "industryL3": sw3.get("industry_name"),
-                "close": round_or_none(snap.get("close")),
-                "chgPct": round_or_none(snap.get("chg_pct")),
-                "totalMarketValue": round_or_none(snap.get("total_market_value"), 2),
-                "floatMarketValue": round_or_none(snap.get("float_market_value"), 2),
-                "peTtm": round_or_none(snap.get("pe_ttm")),
-                "pb": round_or_none(snap.get("pb")),
-                "psTtm": round_or_none(snap.get("ps_ttm")),
-                "turnoverRate": round_or_none(snap.get("turnover_rate")),
+                "close": round_optional(snap.get("close")),
+                "chgPct": round_optional(snap.get("chg_pct")),
+                "totalMarketValue": round_optional(snap.get("total_market_value"), 2),
+                "floatMarketValue": round_optional(snap.get("float_market_value"), 2),
+                "peTtm": round_optional(snap.get("pe_ttm")),
+                "pb": round_optional(snap.get("pb")),
+                "psTtm": round_optional(snap.get("ps_ttm")),
+                "turnoverRate": round_optional(snap.get("turnover_rate")),
             }))
         return rows
 
@@ -808,9 +801,9 @@ class StockService:
             "upCount": sum(1 for v in valid_chg if v > 0),
             "downCount": sum(1 for v in valid_chg if v < 0),
             "flatCount": sum(1 for v in valid_chg if v == 0),
-            "avgChangePercent": round_or_none(statistics.fmean(valid_chg) if valid_chg else None),
-            "peMedian": round_or_none(statistics.median(pe_values) if pe_values else None),
-            "pbMedian": round_or_none(statistics.median(pb_values) if pb_values else None),
+            "avgChangePercent": round_optional(statistics.fmean(valid_chg) if valid_chg else None),
+            "peMedian": round_optional(statistics.median(pe_values) if pe_values else None),
+            "pbMedian": round_optional(statistics.median(pb_values) if pb_values else None),
         })
 
     # ------------------------------------------------------------------
@@ -861,18 +854,18 @@ class StockService:
             "fullSymbol": row.get("full_symbol"),
             "tradeDate": row.get("trade_date"),
             "marketStatus": current_market_status(),
-            "open": round_or_none(row.get("open")),
-            "high": round_or_none(row.get("high")),
-            "low": round_or_none(row.get("low")),
-            "close": round_or_none(row.get("close")),
-            "preClose": round_or_none(row.get("pre_close")),
-            "chgAmt": round_or_none(row.get("chg_amt")),
-            "chgPct": round_or_none(row.get("chg_pct")),
-            "amplitude": round_or_none(amplitude),
-            "volume": round_or_none(row.get("volume"), 2),
-            "turnover": round_or_none(row.get("turnover"), 2),
-            "turnoverRate": round_or_none(row.get("turnover_rate")),
-            "adjustFactor": round_or_none(row.get("adjust_factor")),
+            "open": round_optional(row.get("open")),
+            "high": round_optional(row.get("high")),
+            "low": round_optional(row.get("low")),
+            "close": round_optional(row.get("close")),
+            "preClose": round_optional(row.get("pre_close")),
+            "chgAmt": round_optional(row.get("chg_amt")),
+            "chgPct": round_optional(row.get("chg_pct")),
+            "amplitude": round_optional(amplitude),
+            "volume": round_optional(row.get("volume"), 2),
+            "turnover": round_optional(row.get("turnover"), 2),
+            "turnoverRate": round_optional(row.get("turnover_rate")),
+            "adjustFactor": round_optional(row.get("adjust_factor")),
             "priceUnit": price_unit,
         })
 
@@ -1070,12 +1063,12 @@ class StockService:
                 "parentIndustryCode": row.get("parent_code"),
                 "parentIndustryName": self.lookup_industry_name(rows_by_code, row.get("parent_code")),
                 "tradeDate": snap.get("trade_date"),
-                "chgPct": round_or_none(snap.get("chg_pct")),
-                "totalMarketValue": round_or_none(snap.get("total_market_value"), 2),
-                "turnover": round_or_none(snap.get("turnover"), 2),
+                "chgPct": round_optional(snap.get("chg_pct")),
+                "totalMarketValue": round_optional(snap.get("total_market_value"), 2),
+                "turnover": round_optional(snap.get("turnover"), 2),
                 "componentCount": component_counts.get(row.get("index_code", ''), 0),
-                "peTtm": round_or_none(snap.get("pe_ttm")),
-                "pb": round_or_none(snap.get("pb")),
+                "peTtm": round_optional(snap.get("pe_ttm")),
+                "pb": round_optional(snap.get("pb")),
                 "psTtm": None,
             }))
         return [row for row in result if row.get("industryLevel") in {1, 2, 3}]
@@ -1100,10 +1093,10 @@ class StockService:
                 "indexCategory": category_code,
                 "indexCategoryName": category_name,
                 "tradeDate": snap.get("trade_date") or row.get("trade_date"),
-                "chgPct": round_or_none(snap.get("chg_pct")),
-                "totalMarketValue": round_or_none(snap.get("total_market_value"), 2),
-                "turnover": round_or_none(snap.get("turnover"), 2),
-                "weight": round_or_none(row.get("weight")),
+                "chgPct": round_optional(snap.get("chg_pct")),
+                "totalMarketValue": round_optional(snap.get("total_market_value"), 2),
+                "turnover": round_optional(snap.get("turnover"), 2),
+                "weight": round_optional(row.get("weight")),
             }))
         return result
 
@@ -1126,9 +1119,9 @@ class StockService:
             "upCount": sum(1 for v in valid_chg if v > 0),
             "downCount": sum(1 for v in valid_chg if v < 0),
             "flatCount": sum(1 for v in valid_chg if v == 0),
-            "avgChangePercent": round_or_none(statistics.fmean(valid_chg) if valid_chg else None),
-            "peMedian": round_or_none(statistics.median([v for v in pe_values if v is not None]) if any(v is not None for v in pe_values) else None),
-            "pbMedian": round_or_none(statistics.median([v for v in pb_values if v is not None]) if any(v is not None for v in pb_values) else None),
+            "avgChangePercent": round_optional(statistics.fmean(valid_chg) if valid_chg else None),
+            "peMedian": round_optional(statistics.median([v for v in pe_values if v is not None]) if any(v is not None for v in pe_values) else None),
+            "pbMedian": round_optional(statistics.median([v for v in pb_values if v is not None]) if any(v is not None for v in pb_values) else None),
         })
 
     def build_industry_peer_rows(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1153,14 +1146,14 @@ class StockService:
                 "swIndustryLevel3Code": (level_map.get(3) or {}).get("industryCode"),
                 "swIndustryLevel3Name": (level_map.get(3) or {}).get("industryName"),
                 "tradeDate": snap.get("trade_date") or item.get("trade_date"),
-                "close": round_or_none(snap.get("close")),
-                "chgPct": round_or_none(snap.get("chg_pct")),
-                "totalMarketValue": round_or_none(snap.get("total_market_value"), 2),
-                "floatMarketValue": round_or_none(snap.get("float_market_value"), 2),
-                "peTtm": round_or_none(snap.get("pe_ttm")),
-                "pb": round_or_none(snap.get("pb")),
-                "psTtm": round_or_none(snap.get("ps_ttm")),
-                "turnoverRate": round_or_none(snap.get("turnover_rate")),
+                "close": round_optional(snap.get("close")),
+                "chgPct": round_optional(snap.get("chg_pct")),
+                "totalMarketValue": round_optional(snap.get("total_market_value"), 2),
+                "floatMarketValue": round_optional(snap.get("float_market_value"), 2),
+                "peTtm": round_optional(snap.get("pe_ttm")),
+                "pb": round_optional(snap.get("pb")),
+                "psTtm": round_optional(snap.get("ps_ttm")),
+                "turnoverRate": round_optional(snap.get("turnover_rate")),
             }))
         return result
 
@@ -1196,20 +1189,20 @@ class StockService:
         if not quote and not indicator_history:
             return None
         source = quote or (indicator_history[0] if indicator_history else {})
-        pe_ttm = round_or_none(source.get("pe_ttm"))
-        pb = round_or_none(source.get("pb"))
-        ps_ttm = round_or_none(source.get("ps_ttm"))
+        pe_ttm = round_optional(source.get("pe_ttm"))
+        pb = round_optional(source.get("pb"))
+        ps_ttm = round_optional(source.get("ps_ttm"))
         pe_pct = percentile_rank(pe_ttm, [row.get("pe_ttm") for row in indicator_history])
         pb_pct = percentile_rank(pb, [row.get("pb") for row in indicator_history])
         valuation_status = self.estimate_valuation_status(pe_ttm, pb, pe_pct, pb_pct)
         return compact_dict({
-            "pe": round_or_none(source.get("pe")),
+            "pe": round_optional(source.get("pe")),
             "peTtm": pe_ttm,
             "pb": pb,
-            "ps": round_or_none(source.get("ps")),
+            "ps": round_optional(source.get("ps")),
             "psTtm": ps_ttm,
-            "dvTtm": round_or_none(source.get("dv_ttm")),
-            "totalMarketValue": round_or_none(source.get("total_market_value"), 2),
+            "dvTtm": round_optional(source.get("dv_ttm")),
+            "totalMarketValue": round_optional(source.get("total_market_value"), 2),
             "valuationStatus": valuation_status,
         })
 
@@ -1279,29 +1272,29 @@ class StockService:
             result.append(compact_dict({
                 "fullSymbol": row.get("full_symbol"),
                 "tradeDate": trade_date,
-                "close": round_or_none(row.get("close")),
-                "totalMarketValue": round_or_none(row.get("total_market_value"), 2),
-                "floatMarketValue": round_or_none(row.get("float_market_value"), 2),
-                "totalShare": round_or_none(row.get("total_share"), 2),
-                "floatShare": round_or_none(row.get("float_share"), 2),
-                "freeShare": round_or_none(row.get("free_share"), 2),
-                "turnoverRate": round_or_none(row.get("turnover_rate")),
-                "turnoverRateFree": round_or_none(row.get("turnover_rate_free")),
-                "pe": round_or_none(row.get("pe")),
-                "peTtm": round_or_none(row.get("pe_ttm")),
-                "pb": round_or_none(row.get("pb")),
-                "ps": round_or_none(row.get("ps")),
-                "psTtm": round_or_none(row.get("ps_ttm")),
-                "dvRatio": round_or_none(row.get("dv_ratio")),
-                "dvTtm": round_or_none(row.get("dv_ttm")),
-                "industryAveragePeTtm": round_or_none(stats.get("pe_ttm_avg")),
-                "industryMedianPeTtm": round_or_none(stats.get("pe_ttm_median")),
-                "industryAveragePb": round_or_none(stats.get("pb_avg")),
-                "industryMedianPb": round_or_none(stats.get("pb_median")),
-                "industryAveragePsTtm": round_or_none(stats.get("ps_ttm_avg")),
-                "industryMedianPsTtm": round_or_none(stats.get("ps_ttm_median")),
-                "industryAverageDvTtm": round_or_none(stats.get("dv_ttm_avg")),
-                "industryMedianDvTtm": round_or_none(stats.get("dv_ttm_median")),
+                "close": round_optional(row.get("close")),
+                "totalMarketValue": round_optional(row.get("total_market_value"), 2),
+                "floatMarketValue": round_optional(row.get("float_market_value"), 2),
+                "totalShare": round_optional(row.get("total_share"), 2),
+                "floatShare": round_optional(row.get("float_share"), 2),
+                "freeShare": round_optional(row.get("free_share"), 2),
+                "turnoverRate": round_optional(row.get("turnover_rate")),
+                "turnoverRateFree": round_optional(row.get("turnover_rate_free")),
+                "pe": round_optional(row.get("pe")),
+                "peTtm": round_optional(row.get("pe_ttm")),
+                "pb": round_optional(row.get("pb")),
+                "ps": round_optional(row.get("ps")),
+                "psTtm": round_optional(row.get("ps_ttm")),
+                "dvRatio": round_optional(row.get("dv_ratio")),
+                "dvTtm": round_optional(row.get("dv_ttm")),
+                "industryAveragePeTtm": round_optional(stats.get("pe_ttm_avg")),
+                "industryMedianPeTtm": round_optional(stats.get("pe_ttm_median")),
+                "industryAveragePb": round_optional(stats.get("pb_avg")),
+                "industryMedianPb": round_optional(stats.get("pb_median")),
+                "industryAveragePsTtm": round_optional(stats.get("ps_ttm_avg")),
+                "industryMedianPsTtm": round_optional(stats.get("ps_ttm_median")),
+                "industryAverageDvTtm": round_optional(stats.get("dv_ttm_avg")),
+                "industryMedianDvTtm": round_optional(stats.get("dv_ttm_median")),
             }))
         return result
 
@@ -1342,12 +1335,12 @@ class StockService:
             result.append(compact_dict({
                 "metricCode": metric_code,
                 "metricName": cfg["name"],
-                "currentValue": round_or_none(current_value),
+                "currentValue": round_optional(current_value),
                 "percentileValue": percentile_rank(current_value, values),
-                "percentile30Value": round_or_none(percentile_value(values, 30)),
-                "percentile70Value": round_or_none(percentile_value(values, 70)),
-                "industryAverageValue": round_or_none(latest_stats.get(avg_key)),
-                "industryMedianValue": round_or_none(latest_stats.get(med_key)),
+                "percentile30Value": round_optional(percentile_value(values, 30)),
+                "percentile70Value": round_optional(percentile_value(values, 70)),
+                "industryAverageValue": round_optional(latest_stats.get(avg_key)),
+                "industryMedianValue": round_optional(latest_stats.get(med_key)),
                 "latestTradeDate": latest_date,
                 "description": "同行业口径使用申万三级行业成分聚合；行业均值按流通市值加权。",
             }))
@@ -1393,13 +1386,13 @@ class StockService:
                 "fullSymbol": row.get("full_symbol"),
                 "tradeDate": row.get("trade_date"),
                 "metricCode": metric_code,
-                "close": round_or_none(close),
+                "close": round_optional(close),
             }
             if value and value > 0 and close is not None:
                 base_per_multiple = close / value
                 for idx, multiple in enumerate(channel_multiples, start=1):
-                    item[f"channelMultiple{idx}"] = round_or_none(multiple)
-                    item[f"channelPrice{idx}"] = round_or_none(base_per_multiple * multiple)
+                    item[f"channelMultiple{idx}"] = round_optional(multiple)
+                    item[f"channelPrice{idx}"] = round_optional(base_per_multiple * multiple)
             result.append(compact_dict(item))
         return result
 
@@ -1433,11 +1426,11 @@ class StockService:
                 "fullSymbol": row.get("full_symbol"),
                 "tradeDate": trade_date,
                 "metricCode": metric_code,
-                "stockValue": round_or_none(value),
-                "industryAverageValue": round_or_none(stats.get(avg_key)),
-                "industryMedianValue": round_or_none(stats.get(med_key)),
-                "percentile30Value": round_or_none(p30),
-                "percentile70Value": round_or_none(p70),
+                "stockValue": round_optional(value),
+                "industryAverageValue": round_optional(stats.get(avg_key)),
+                "industryMedianValue": round_optional(stats.get(med_key)),
+                "percentile30Value": round_optional(p30),
+                "percentile70Value": round_optional(p70),
                 "percentileValue": percentile_rank(value, values),
             }))
         return result
@@ -1461,9 +1454,9 @@ class StockService:
             result.append(compact_dict({
                 "fullSymbol": row.get("full_symbol"),
                 "tradeDate": trade_date,
-                "dvTtm": round_or_none(row.get("dv_ttm")),
-                "industryAverageDvTtm": round_or_none(stats.get("dv_ttm_avg")),
-                "industryMedianDvTtm": round_or_none(stats.get("dv_ttm_median")),
+                "dvTtm": round_optional(row.get("dv_ttm")),
+                "industryAverageDvTtm": round_optional(stats.get("dv_ttm_avg")),
+                "industryMedianDvTtm": round_optional(stats.get("dv_ttm_median")),
             }))
         return result
 
@@ -1520,19 +1513,19 @@ class StockService:
         quarter_type = resolve_quarter_type(end_date)
         summary = compact_dict({
             "endDate": end_date,
-            "revenue": round_or_none(income.get("revenue"), 2),
-            "revenueYoy": round_or_none(indicator.get("revenue_yoy")),
-            "nIncomeAttrP": round_or_none(income.get("n_income_attr_p"), 2),
-            "netprofitYoy": round_or_none(indicator.get("netprofit_yoy")),
-            "profitDedt": round_or_none(indicator.get("profit_dedt"), 2),
-            "dtNetprofitYoy": round_or_none(indicator.get("dt_netprofit_yoy")),
-            "roe": round_or_none(indicator.get("roe")),
-            "roa": round_or_none(indicator.get("roa")),
-            "debtToAssets": round_or_none(indicator.get("debt_to_assets")),
-            "nCashflowAct": round_or_none(cashflow.get("n_cashflow_act"), 2),
-            "freeCashflow": round_or_none(cashflow.get("free_cashflow"), 2),
-            "eps": round_or_none(indicator.get("eps") or income.get("basic_eps")),
-            "bps": round_or_none(indicator.get("bps")),
+            "revenue": round_optional(income.get("revenue"), 2),
+            "revenueYoy": round_optional(indicator.get("revenue_yoy")),
+            "nIncomeAttrP": round_optional(income.get("n_income_attr_p"), 2),
+            "netprofitYoy": round_optional(indicator.get("netprofit_yoy")),
+            "profitDedt": round_optional(indicator.get("profit_dedt"), 2),
+            "dtNetprofitYoy": round_optional(indicator.get("dt_netprofit_yoy")),
+            "roe": round_optional(indicator.get("roe")),
+            "roa": round_optional(indicator.get("roa")),
+            "debtToAssets": round_optional(indicator.get("debt_to_assets")),
+            "nCashflowAct": round_optional(cashflow.get("n_cashflow_act"), 2),
+            "freeCashflow": round_optional(cashflow.get("free_cashflow"), 2),
+            "eps": round_optional(indicator.get("eps") or income.get("basic_eps")),
+            "bps": round_optional(indicator.get("bps")),
             "dividendPerShare": None,
             "dividendPayoutRatio": None,
             "annDate": indicator.get("ann_date") or income.get("ann_date"),
@@ -1569,14 +1562,14 @@ class StockService:
         source = quote if quote and quote.get("net_mf_amount") is not None else (moneyflow_history[0] if moneyflow_history else None)
         if not source:
             return None
-        net_mf_amount = round_or_none(source.get("net_mf_amount"), 2)
+        net_mf_amount = round_optional(source.get("net_mf_amount"), 2)
         return compact_dict({
             "tradeDate": source.get("trade_date"),
             "netMfAmount": net_mf_amount,
-            "elgNetMfAmount": round_or_none(self.net_flow(source, "elg"), 2),
-            "lgNetMfAmount": round_or_none(self.net_flow(source, "lg"), 2),
-            "mdNetMfAmount": round_or_none(self.net_flow(source, "md"), 2),
-            "smNetMfAmount": round_or_none(self.net_flow(source, "sm"), 2),
+            "elgNetMfAmount": round_optional(self.net_flow(source, "elg"), 2),
+            "lgNetMfAmount": round_optional(self.net_flow(source, "lg"), 2),
+            "mdNetMfAmount": round_optional(self.net_flow(source, "md"), 2),
+            "smNetMfAmount": round_optional(self.net_flow(source, "sm"), 2),
             "conclusion": "资金净流入为正" if (to_float_or_none(net_mf_amount) or 0) > 0 else "资金净流入为负或暂无明显流入",
         })
 
@@ -1665,7 +1658,7 @@ class StockService:
                 {"indicator": "MA", "status": "收盘价高于MA20" if close is not None and ma20 is not None and close >= ma20 else "收盘价低于或缺少MA20", "direction": "偏多" if close is not None and ma20 is not None and close >= ma20 else "偏空", "explanation": "价格与20日均线的位置关系。"},
                 {"indicator": "MACD", "status": "MACD柱为正" if macd is not None and macd >= 0 else "MACD柱为负或缺失", "direction": "偏多" if macd is not None and macd >= 0 else "偏空", "explanation": "短长均线动能差。"},
                 {"indicator": "BOLL", "status": label, "direction": "谨慎" if label in {"突破上轨", "跌破下轨"} else "中性", "explanation": "收盘价与布林带上下轨的位置。"},
-                {"indicator": "RSI", "status": f"RSI6={round_or_none(rsi6)}" if rsi6 is not None else "RSI6缺失", "direction": "谨慎" if rsi6 is not None and (rsi6 >= 80 or rsi6 <= 20) else "中性", "explanation": "RSI 用于观察超买超卖。"},
+                {"indicator": "RSI", "status": f"RSI6={round_optional(rsi6)}" if rsi6 is not None else "RSI6缺失", "direction": "谨慎" if rsi6 is not None and (rsi6 >= 80 or rsi6 <= 20) else "中性", "explanation": "RSI 用于观察超买超卖。"},
             ],
             "signalConflict": {
                 "bullishCount": bullish,
@@ -1891,4 +1884,4 @@ class StockService:
         sell = to_float_or_none(row.get(f"sell{prefix}Amount"))
         if buy is None and sell is None:
             return None
-        return round_or_none((buy or 0) - (sell or 0), 2)
+        return round_optional((buy or 0) - (sell or 0), 2)

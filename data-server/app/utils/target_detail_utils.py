@@ -1,11 +1,18 @@
+"""股票/指数详情页展示结构与业务辅助工具。
+
+负责详情页 view-model / response 构建；基础数值与绩效计算分别下沉到
+number_utils 和 performance_utils。
+"""
+
+from __future__ import annotations
+
 from datetime import date
 import math
-from numbers import Number
-import statistics
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 from app.utils.datetime_utils import current_market_status, get_current_datetime
-from app.utils.typing_utils import pct, to_float
+from app.utils.number_utils import pct, round_optional, to_float
+from app.utils.performance_utils import max_drawdown, percentile, volatility
 
 
 # 详情页通用表现周期，StockService 和 IndexService 使用同一组展示口径。
@@ -26,19 +33,6 @@ def compact_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     注意：0、空字符串、False 都是有效业务值，不能被误删；因此这里只过滤 None。
     """
     return {key: value for key, value in data.items() if value is not None}
-
-
-def round_optional(value: Any, digits: int = 4) -> Optional[float]:
-    """
-    安全地将数据库数值转换为 float 并四舍五入。
-
-    - None 和空字符串表示数据库无值，保持为 None，方便 compact_dict 统一移除；
-    - Decimal、int、float、字符串数字等类型交给 to_float 兼容处理；
-    - digits 默认 4 位，金额类字段通常由调用方显式传入 2 位。
-    """
-    if value is None or value == "":
-        return None
-    return round(to_float(value), digits)
 
 
 def metric_trend(value: Optional[float]) -> str:
@@ -412,42 +406,6 @@ def net_flow(row: Dict[str, Any], level: str) -> Optional[float]:
     return to_float(buy) - to_float(sell)
 
 
-def percentile(current: Optional[float], values: List[Any]) -> Optional[float]:
-    """
-    计算 current 在历史有效值中的百分位。
-
-    仅纳入大于 0 的历史值，避免 PE/PB 缺失值、0 值或异常负值影响估值分位判断。
-    """
-    if current is None:
-        return None
-    valid = sorted(to_float(value) for value in values if value is not None and to_float(value) > 0)
-    if not valid:
-        return None
-    count = sum(1 for value in valid if value <= current)
-    return round(count / len(valid) * 100, 2)
-
-
-def max_drawdown(values: List[float]) -> Optional[float]:
-    """按正序净值/收盘价序列计算最大回撤百分比。"""
-    if not values:
-        return None
-    peak = values[0]
-    max_dd = 0.0
-    for value in values:
-        peak = max(peak, value)
-        if peak:
-            max_dd = min(max_dd, (value - peak) / peak * 100)
-    return round(max_dd, 2)
-
-
-def volatility(pct_values: List[float]) -> Optional[float]:
-    """使用日涨跌幅标准差作为简单波动率；有效样本不足 2 个时返回 None。"""
-    values = [value for value in pct_values if value is not None and not math.isnan(value)]
-    if len(values) < 2:
-        return None
-    return round(statistics.stdev(values), 2)
-
-
 def strip_exchange(full_symbol: str) -> str:
     """去除 full_symbol 的交易所/市场后缀，例如 000001.SZ -> 000001。"""
     return full_symbol.split(".")[0] if full_symbol else ""
@@ -464,4 +422,3 @@ def build_meta(data_version: date | None, warnings: Optional[List[str]] = None) 
     if warning_list:
         meta["warnings"] = warning_list
     return meta
-

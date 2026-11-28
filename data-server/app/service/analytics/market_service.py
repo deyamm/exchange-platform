@@ -1,3 +1,4 @@
+from datetime import date
 import statistics
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,6 +12,7 @@ from app.utils.datetime_utils import (
     get_current_datetime,
     get_previous_trade_date,
     resolve_trade_date,
+    to_date,
 )
 from app.utils.market_utils import (
     build_component_rise_stats,
@@ -18,7 +20,7 @@ from app.utils.market_utils import (
     build_hot_stock_list,
     build_stock_snapshot_map,
 )
-from app.utils.typing_utils import pct, to_float, to_str_date
+from app.utils.number_utils import pct, to_float
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +95,7 @@ class MarketService:
             "distributionTabs": build_distribution_tabs(stock_rows),
         }
 
-    async def build_market_summary(self, trade_date: str, stock_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def build_market_summary(self, trade_date: date, stock_rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
             构建市场概况。
 
@@ -116,7 +118,7 @@ class MarketService:
         prev_amount = await self.exchange_repo.get_total_stock_amount(prev_date.strftime("%Y-%m-%d"))
 
         return {
-            "tradeDate": trade_date,
+            "tradeDate": trade_date.isoformat(),
             "marketStatus": current_market_status(),
             "updateTime": get_current_datetime().strftime("%H:%M:%S"),
             "marketScope": "A 股全市场",
@@ -151,7 +153,7 @@ class MarketService:
     async def get_index_component_stats(
         self,
         index_code: str,
-        trade_date: str,
+        trade_date: date,
         stock_snapshot_map: Optional[Dict[str, Dict[str, Any]]] = None,
         components: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
@@ -184,7 +186,7 @@ class MarketService:
     async def get_index_leading_stock(
         self,
         index_code: str,
-        trade_date: str,
+        trade_date: date,
         stock_snapshot_map: Optional[Dict[str, Dict[str, Any]]] = None,
         components: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[str, float]:
@@ -242,7 +244,7 @@ class MarketService:
 
         """
         full_symbol = row.get("full_symbol") or ""
-        trade_date = to_str_date(row.get("trade_date"))
+        trade_date = to_date(row.get("trade_date"))
         index_name = row.get("name") or row.get("fullname") or full_symbol
 
         history = await self.exchange_repo.get_index_history(full_symbol, trade_date, limit=21)
@@ -303,7 +305,7 @@ class MarketService:
 
     async def get_major_index_list(
         self,
-        trade_date: str,
+        trade_date: date,
         stock_snapshot_map: Optional[Dict[str, Dict[str, Any]]] = None,
         component_cache: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     ) -> List[Dict[str, Any]]:

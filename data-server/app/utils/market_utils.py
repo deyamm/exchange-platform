@@ -1,6 +1,13 @@
+"""市场聚合与榜单构建工具。
+
+输入为已查询出的纯数据，不访问数据库。
+"""
+
+from __future__ import annotations
+
 from typing import Any, Callable, Dict, List, Tuple
 
-from app.utils.typing_utils import to_float
+from app.utils.number_utils import to_float
 
 
 def build_hot_stock_list(stock_rows: List[Dict[str, Any]], limit: int = 10) -> List[Dict[str, Any]]:
@@ -30,8 +37,6 @@ def build_hot_stock_list(stock_rows: List[Dict[str, Any]], limit: int = 10) -> L
         return turnover_score + pct_score + money_score + rise_bonus
 
     rows = sorted(valid, key=score, reverse=True)[:limit]
-    print(rows)
-
     result = []
     for row in rows:
         change_pct = to_float(row["chg_pct"])

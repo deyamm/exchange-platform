@@ -1,6 +1,10 @@
 
+from datetime import date, datetime
+from decimal import Decimal
 import re
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
+
+from app.utils.number_utils import round_optional
 
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -29,3 +33,25 @@ def clause_params(prefix: str, values: List[str]) -> Tuple[str, Dict[str, str]]:
         params[key] = value
 
     return ",".join(names), params
+
+
+def _snake_to_camel(name: str) -> str:
+    parts = name.split("_")
+    return parts[0] + "".join(part[:1].upper() + part[1:] for part in parts[1:])
+
+
+def camelize_row(row: Mapping[str, Any], date_fields: Optional[set[str]] = None) -> Dict[str, Any]:
+    """snake_case 数据库行转 camelCase，日期转字符串，数值转 float。"""
+    date_fields = date_fields or set()
+    result: Dict[str, Any] = {}
+    for key, value in row.items():
+        camel_key = _snake_to_camel(key)
+        if key in date_fields:
+            result[camel_key] = value
+        elif isinstance(value, (Decimal, int, float)) and not isinstance(value, bool):
+            result[camel_key] = round_optional(value, 6)
+        elif isinstance(value, (date, datetime)):
+            result[camel_key] = value
+        else:
+            result[camel_key] = value
+    return result

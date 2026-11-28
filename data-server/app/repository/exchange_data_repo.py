@@ -22,7 +22,7 @@ class ExchangeDataRepo:
     def __init__(self, conn: AsyncConnection):
         self.conn = conn
 
-    async def get_stock_snapshot(self, trade_date: str) -> List[Dict[str, Any]]:
+    async def get_stock_snapshot(self, trade_date: date) -> List[Dict[str, Any]]:
         """查询指定交易日全市场股票行情快照。"""
         if not trade_date:
             return []
@@ -76,7 +76,7 @@ class ExchangeDataRepo:
                 WHERE k.trade_date = :trade_date
                 """
             ),
-            {"trade_date": trade_date},
+            {"trade_date": trade_date.isoformat()},
         )
         return [dict(row._mapping) for row in result]
 
@@ -166,8 +166,7 @@ class ExchangeDataRepo:
     ) -> List[Dict[str, Any]]:
         """批量查询一组股票等于指定日期的最新快照。
 
-        用窗口函数避免 service 层循环访问数据库。若底层数据库不支持窗口函数，可退回
-        get_stock_snapshots_by_codes 的指定日期精确查询。
+        用窗口函数避免 service 层循环访问数据库。
         """
         codes = [code for code in stock_codes if code]
         if not codes:
@@ -218,54 +217,6 @@ class ExchangeDataRepo:
                     AND mf.trade_date = k.trade_date
                 WHERE k.full_symbol IN ({in_sql})
                     {date_sql}
-                """
-            ),
-            params,
-        )
-        return [dict(row._mapping) for row in result]
-
-    async def get_stock_snapshots_by_codes(self, stock_codes: List[str], trade_date: str) -> List[Dict[str, Any]]:
-        """批量查询一组股票指定交易日的快照，保留旧调用兼容。"""
-        codes = [code for code in stock_codes if code]
-        if not codes or not trade_date:
-            return []
-        in_sql, params = clause_params("stock", codes)
-        params["trade_date"] = trade_date
-        result = await self.conn.execute(
-            text(
-                f"""
-                SELECT
-                    k.full_symbol,
-                    k.trade_date,
-                    k.open,
-                    k.high,
-                    k.low,
-                    k.close,
-                    k.volume,
-                    k.turnover,
-                    k.pre_close,
-                    k.chg_pct,
-                    k.chg_amt,
-                    ind.turnover_rate,
-                    ind.volume_ratio,
-                    ind.pe,
-                    ind.pe_ttm,
-                    ind.pb,
-                    ind.ps,
-                    ind.ps_ttm,
-                    ind.dv_ttm,
-                    ind.total_market_value,
-                    ind.float_market_value,
-                    mf.net_mf_amount
-                FROM stock_k_daily k
-                LEFT JOIN stock_indicator_daily ind
-                    ON ind.full_symbol = k.full_symbol
-                   AND ind.trade_date = k.trade_date
-                LEFT JOIN stock_moneyflow_daily mf
-                    ON mf.full_symbol = k.full_symbol
-                   AND mf.trade_date = k.trade_date
-                WHERE k.trade_date = :trade_date
-                  AND k.full_symbol IN ({in_sql})
                 """
             ),
             params,
@@ -516,47 +467,6 @@ class ExchangeDataRepo:
         )
         return [dict(row._mapping) for row in result]
 
-    async def get_index_snapshots_by_codes(self, index_codes: List[str], trade_date: str) -> List[Dict[str, Any]]:
-        """指定交易日批量查询指数快照，保留旧调用兼容。"""
-        codes = [code for code in index_codes if code]
-        if not codes or not trade_date:
-            return []
-        in_sql, params = clause_params("index", codes)
-        params["trade_date"] = trade_date
-        result = await self.conn.execute(
-            text(
-                f"""
-                SELECT
-                    k.full_symbol,
-                    k.trade_date,
-                    k.open,
-                    k.high,
-                    k.low,
-                    k.close,
-                    k.volume,
-                    k.turnover,
-                    k.pre_close,
-                    k.chg_pct,
-                    k.chg_amt,
-                    ind.total_market_value,
-                    ind.float_market_value,
-                    ind.turnover_rate,
-                    ind.turnover_rate_free,
-                    ind.pe,
-                    ind.pe_ttm,
-                    ind.pb
-                FROM index_k_daily k
-                LEFT JOIN index_indicator_daily ind
-                    ON ind.full_symbol = k.full_symbol
-                   AND ind.trade_date = k.trade_date
-                WHERE k.trade_date = :trade_date
-                  AND k.full_symbol IN ({in_sql})
-                """
-            ),
-            params,
-        )
-        return [dict(row._mapping) for row in result]
-
     async def get_index_indicator_history(
         self,
         full_symbol: str,
@@ -631,13 +541,13 @@ class ExchangeDataRepo:
         )
         return [dict(row._mapping) for row in result]
 
-    async def get_stock_k_rows(self, stock_codes: List[str], trade_date: str) -> List[Dict[str, Any]]:
+    async def get_stock_k_rows(self, stock_codes: List[str], trade_date: date) -> List[Dict[str, Any]]:
         """批量查询指定股票在某交易日的 K 线。"""
         codes = [code for code in stock_codes if code]
         if not codes or not trade_date:
             return []
         in_sql, params = clause_params("stock", codes)
-        params["trade_date"] = trade_date
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""
@@ -662,13 +572,13 @@ class ExchangeDataRepo:
         )
         return [dict(row._mapping) for row in result]
 
-    async def get_index_k_rows(self, index_codes: List[str], trade_date: str) -> List[Dict[str, Any]]:
+    async def get_index_k_rows(self, index_codes: List[str], trade_date: date) -> List[Dict[str, Any]]:
         """批量查询指定指数在某交易日的 K 线。"""
         codes = [code for code in index_codes if code]
         if not codes or not trade_date:
             return []
         in_sql, params = clause_params("index", codes)
-        params["trade_date"] = trade_date
+        params["trade_date"] = trade_date.isoformat()
         result = await self.conn.execute(
             text(
                 f"""

@@ -15,15 +15,11 @@ from app.core.common.enum import PublisherType, TradingRange
 from app.repository.basic_data_repo import BasicDataRepo
 from app.repository.exchange_data_repo import ExchangeDataRepo
 from app.repository.finance_data_repo import FinanceDataRepo
+
 from app.utils.datetime_utils import resolve_trade_date, to_date
-from app.utils.indicator_utils import (
-    build_index_range_performance,
-    calculate_technical_indicator_rows,
-    estimate_risk_level_placeholder,
-    to_float_or_none,
-    build_technical_charts,
-    build_index_valuation_chart,
-)
+from app.utils.indicator_utils import calculate_technical_indicator_rows, estimate_risk_level_placeholder, to_float_or_none
+from app.utils.performance_utils import build_index_range_performance
+from app.utils.chart_utils import build_technical_charts, build_index_valuation_chart
 from app.utils.target_detail_utils import (
     build_market_quote,
     build_performance,
